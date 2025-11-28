@@ -1,0 +1,92 @@
+name: CI/CD - Deploy de Microsserviços (Docker Compose)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 1. Checkout do Código
+      uses: actions/checkout@v4
+
+    - name: 2. Deploy e Build no Servidor VPS via SSH
+      uses: appleboy/ssh-action@v1.0.3 
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        debug: true 
+        script: |
+          set -e
+          echo "🚀 Iniciando Deploy do FRONTEND..."
+
+          # 1. Navegação
+          cd /home/${{ secrets.SSH_USERNAME }}/saas-frontend
+
+          echo "⬇️ Baixando atualizações do Git..."
+          git pull origin main
+
+          # 2. Limpeza Profunda (CRÍTICO para Frontends pesados)
+          echo "🛑 Parando containers antigos..."
+          sudo docker compose down --remove-orphans || true
+
+          echo "🧹 Limpando cache pesado..."
+          sudo docker builder prune -af
+          sudo docker image prune -f
+
+          # 3. Build Sequencial (Para evitar Erro 255 - OOM)
+          echo "🎨 Construindo FBMStore Web (1/2)..."
+          sudo docker compose build fbmstore-web
+          
+          echo "🎨 Construindo SPG Web (2/2)..."
+          sudo docker compose build spg-web
+
+          # 4. Start
+          echo "🚀 Subindo Frontends e Nginx..."
+          sudo docker compose up -d
+
+          # 5. Verificação de Saúde "Perfeccionista"
+          echo "⏳ Aguardando 20s para estabilização..."
+          sleep 20
+          
+          echo "📊 DEBUG: Serviços rodando:"
+          RUNNING_SERVICES=$(sudo docker compose ps --services --filter "status=running")
+          
+          if [ -z "$RUNNING_SERVICES" ]; then
+             echo "⚠️ NENHUM SERVIÇO RODANDO!"
+          else
+             echo "$RUNNING_SERVICES"
+          fi
+          echo "---------------------------------------------------"
+
+          # Verificação Específica
+          # Verifica Nginx (Essencial)
+          if echo "$RUNNING_SERVICES" | grep -q "nginx-edge"; then
+              echo "✅ CHECK: Nginx Edge está on."
+          else
+              echo "❌ ERRO: Nginx Edge falhou."
+              sudo docker compose logs nginx-edge --tail=20
+              exit 1
+          fi
+
+          if echo "$RUNNING_SERVICES" | grep -q "fbmstore-web"; then
+              echo "✅ CHECK: FBMStore Web está on."
+          else
+              echo "❌ ERRO: FBMStore Web falhou."
+              sudo docker compose logs fbmstore-web --tail=20
+              exit 1
+          fi
+          
+          if echo "$RUNNING_SERVICES" | grep -q "spg-web"; then
+              echo "✅ CHECK: SPG Web está on."
+          else
+              echo "❌ ERRO: SPG Web falhou."
+              sudo docker compose logs spg-web --tail=20
+              exit 1
+          fi
+
+          echo "✅ SUCESSO: Frontend e Loja Online no ar!"

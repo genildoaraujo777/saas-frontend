@@ -1,0 +1,12 @@
+/* Reseta a margem e padding padrão do navegador */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Garante que padding e border não aumentem o tamanho total do elemento */
+* {
+  box-sizing: border-box;
+}

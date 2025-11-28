@@ -1,0 +1,8 @@
+# Dependências
+/node_modules
+/dist
+/build
+.env
+# Logs
+npm-debug.log
+yarn-error.log
