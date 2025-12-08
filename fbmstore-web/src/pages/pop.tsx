@@ -76,7 +76,7 @@ const PopPage: React.FC = () => {
       {/* Conteúdo */}
       <main style={styles.contentWrap}>
         <p style={styles.paragraph}>
-          A sua privacidade é importante para nós. É política do SPG PERSONALIZADOS respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar no site SPG PERSONALIZADOS, e outros sites que possuímos e operamos.
+          A sua privacidade é importante para nós. É política do FBM PERSONALIZADOS respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar no site FBM PERSONALIZADOS, e outros sites que possuímos e operamos.
         </p>
 
         <p style={styles.paragraph}>
@@ -126,13 +126,13 @@ const PopPage: React.FC = () => {
         </h3>
 
         <p style={styles.paragraph}>
-          O usuário se compromete a fazer uso adequado dos conteúdos e da informação que o SPG PERSONALIZADOS oferece no site e com caráter enunciativo, mas não limitativo:
+          O usuário se compromete a fazer uso adequado dos conteúdos e da informação que o FBM PERSONALIZADOS oferece no site e com caráter enunciativo, mas não limitativo:
         </p>
 
         <ul>
             <li><span style={styles.liSpan}>A) Não se envolver em atividades que sejam ilegais ou contrárias à boa fé a à ordem pública;</span></li>
             <li><span style={styles.liSpan}>B) Não difundir propaganda ou conteúdo de natureza racista, xenofóbica, jogos de sorte ou azar, qualquer tipo de pornografia ilegal, de apologia ao terrorismo ou contra os direitos humanos;</span></li>
-            <li><span style={styles.liSpan}>C) Não causar danos aos sistemas físicos (hardwares) e lógicos (softwares) do SPG PERSONALIZADOS, de seus fornecedores ou terceiros, para introduzir ou disseminar vírus informáticos ou quaisquer outros sistemas de hardware ou software que sejam capazes de causar danos anteriormente mencionados.</span></li>
+            <li><span style={styles.liSpan}>C) Não causar danos aos sistemas físicos (hardwares) e lógicos (softwares) do FBM PERSONALIZADOS, de seus fornecedores ou terceiros, para introduzir ou disseminar vírus informáticos ou quaisquer outros sistemas de hardware ou software que sejam capazes de causar danos anteriormente mencionados.</span></li>
         </ul>
 
         <h3>

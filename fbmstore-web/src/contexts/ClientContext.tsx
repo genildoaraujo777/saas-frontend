@@ -32,7 +32,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // 1. Busca a lista geral de clientes (Geralmente uso de ADMIN)
     const fetchClients = useCallback(async (token: string) => {
         try {
-            const response = await api.get<Client[]>('/spg/admin/clients', { 
+            const response = await api.get<Client[]>('/auth/admin/clients', { 
                 headers: { Authorization: `Bearer ${token}` } 
             });
             setClients(response.data);
@@ -48,7 +48,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
             // ⚠️ AJUSTE A ROTA: Geralmente é '/session', '/me' ou '/profile'
             // Se não tiver rota dedicada, e você tiver o ID no localStorage, pode usar /clients/:id
-            const response = await api.get<Client>('/spg/clients/session', { 
+            const response = await api.get<Client>('/auth/clients/session', { 
                 headers: { Authorization: `Bearer ${token}` } 
             });
             

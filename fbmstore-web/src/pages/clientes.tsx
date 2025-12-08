@@ -72,6 +72,43 @@ const ClientsScreen: React.FC = () => {
         []
     );
 
+    const handleMenuOption = (option: string) => {
+    switch (option) {
+      case "Minha Conta":
+        navigate(`/store/account/${loggedClient?.client._id}`);
+        break;
+      case "Meus Pedidos":
+        navigate(`/store/orders/${false}`);
+        break;
+      case "Pop":
+        navigate('/politica-privacidade');
+        break;
+      case "Contacts":
+        navigate("/contacts");
+        break;
+      case "Sobre":
+        navigate("/sobre");
+        break;
+      case 'CadProduct':
+        navigate('/cad-product');
+        break;
+      case 'CadCategory':
+        navigate('/cad-category');
+        break;
+      case 'CadSupplier':
+        navigate('/cad-supplier');
+        break;
+      case 'Pedidos':
+        navigate(`/store/orders/${isAdmin}`);
+        break;
+      case 'Clientes':
+        navigate('/clientes');
+        break;
+      default:
+        break;
+    }
+  };
+
     return (
         <div style={styles.page}>
             {Header}
@@ -150,21 +187,22 @@ const ClientsScreen: React.FC = () => {
             <Menu
                 visible={menuVisible}
                 setVisible={setMenuVisible}
-                userName={loggedClient?.client.name || ''}
+                userName={loggedClient?.client.name}
                 userDoc=""
                 userAdmin={isAdmin}
-                onProducts={() => navigate('/')}
-                onMinhaConta={() => navigate('/store/account')}
-                onPoliticaPrivacidade={() => navigate('/politica-privacidade')}
-                onMeusPedidos={() => navigate('/store/orders')}
-                onSobre={() => navigate('/sobre')}
-                onContatos={() => navigate('/contacts')}
-                onCadProduct={() => navigate('/cad-product')}
-                onCadCategory={() => navigate('/cad-category')}
-                onCadSupplier={() => navigate('/cad-supplier')}
-                onAllClients={() => navigate('/clientes')}
-                onAllOrders={() => navigate('/store/orders')}
+                onProducts={() => handleMenuOption("")}
+                onMinhaConta={() => handleMenuOption("Minha Conta")}
+                onPoliticaPrivacidade={() => handleMenuOption("Pop")}
+                onMeusPedidos={() => handleMenuOption("Meus Pedidos")}
+                onSobre={() => handleMenuOption("Sobre")}
+                onContatos={() => handleMenuOption("Contacts")}
+                onCadProduct={() => handleMenuOption('CadProduct')}
+                onCadCategory={() => handleMenuOption('CadCategory')}
+                onCadSupplier={() => handleMenuOption('CadSupplier')}
+                onAllClients={() => handleMenuOption('Clientes')}
+                onAllOrders={() => handleMenuOption('Pedidos')}
                 onSair={logoutClient}
+                // hooks/rotas extras quando existirem:
                 onTermos={() => {}}
                 onAvaliar={() => {}}
                 onPreferencias={() => {}}

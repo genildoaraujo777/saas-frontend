@@ -93,10 +93,10 @@ const SobrePage: React.FC = () => {
 
       {/* Conteúdo */}
       <main style={styles.content}>
-        <h2 style={styles.h1}>SPG Personalizados</h2>
+        <h2 style={styles.h1}>FBM Personalizados</h2>
 
         <p style={styles.p}>
-          A <span style={styles.b}>SPG Personalizados</span> nasceu em <span style={styles.b}>16/12/2024</span>,
+          A <span style={styles.b}>FBM Personalizados</span> nasceu em <span style={styles.b}>16/12/2024</span>,
           fundada por <span style={styles.b}>Pâmella de Britto Araujo</span>. A princípio, a ideia surgiu
           com o intuito de gerar uma renda extra, atendendo encomendas de papelaria
           personalizada com carinho, qualidade e atenção aos detalhes.
@@ -105,7 +105,7 @@ const SobrePage: React.FC = () => {
         <p style={styles.p}>
           Em <span style={styles.b}>agosto de 2025</span>, a Pâmella tomou a decisão de
           deixar a profissão de <span style={styles.b}>enfermeira</span> para se dedicar
-          completamente ao universo da papelaria personalizada. Desde então, a SPG
+          completamente ao universo da papelaria personalizada. Desde então, a FBM
           Personalizados passou a ser o seu foco integral, evoluindo em processos,
           catálogo e experiência do cliente.
         </p>
@@ -116,7 +116,7 @@ const SobrePage: React.FC = () => {
           personalizados que refletem a identidade de cada pessoa.
         </p>
 
-        <p style={styles.signature}>— SPG Personalizados</p>
+        <p style={styles.signature}>— FBM Personalizados</p>
       </main>
 
       {/* Menu lateral */}

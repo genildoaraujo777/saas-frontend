@@ -34,7 +34,7 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const searchCategories = async () => {
-    const response = await api.get(`/spg/categories`);
+    const response = await api.get(`/fbm/categories`);
     setCategoriesItems(response.data);
     return [...response.data].sort((a, b) => a.name.localeCompare(b.name));
   };

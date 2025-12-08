@@ -1,8 +1,8 @@
-// spg-web/src/services/CadSupplierService.ts
+// fbm-web/src/services/CadSupplierService.ts
 import api from "./api";
 import { Supplier } from "@/types";
 
-const SUPPLIER_ENDPOINT = "/spg/suppliers";
+const SUPPLIER_ENDPOINT = "/fbm/suppliers";
 
 /**
  * Cria um novo fornecedor.

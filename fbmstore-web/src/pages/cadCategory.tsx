@@ -1,4 +1,4 @@
-// spg-web/src/pages/cadCategory.tsx
+// fbm-web/src/pages/cadCategory.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MdMenu } from 'react-icons/md';

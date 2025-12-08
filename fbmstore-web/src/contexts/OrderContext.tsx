@@ -90,7 +90,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const response = await api.post<OrderResponse>(
-      `/spg/orders`,
+      `/fbm/orders`,
       { newOrder },
       { headers: { Authorization: `Bearer ${auth}` } }
     );
@@ -114,7 +114,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Faz a requisição usando o token no cabeçalho 'Authorization'
     const response = await api.get<Order[]>(
-      `/spg/orders/${isAdmin}`,
+      `/fbm/orders/${isAdmin}`,
       { headers: { Authorization: `Bearer ${auth}` } }
     );
 

@@ -5,7 +5,7 @@ export async function login(email: string, password: string) {
     if (!email || !password) return null;
 
     try {
-        const result = await api.post('/spg/clients/login', {
+        const result = await api.post('/auth/clients/login', {
             email, password
         });
 
@@ -19,10 +19,10 @@ export async function login(email: string, password: string) {
 export async function register(loginData: Register, person: Person, address: Address) {
     if (!loginData || !person || !address) return null;
     try {
-        const result = await api.post('/spg/clients', {
+        const result = await api.post('/auth/clients', {
             loginData, person, address
         });
-
+console.log('result: ',result);
         return result.data;
     } catch (error) {
         console.log(error);
@@ -33,7 +33,7 @@ export async function register(loginData: Register, person: Person, address: Add
 export async function updateRegister(clientId: string, person: Person, address: Address) {
     if (!clientId || !person || !address) return null;
     try {
-        const result = await api.put(`/spg/clients/update-register/${clientId}`, {
+        const result = await api.put(`/auth/clients/update-register/${clientId}`, {
             person, address
         });
         return result.status;
@@ -46,7 +46,7 @@ export async function updateRegister(clientId: string, person: Person, address: 
 export async function sendResetPasswordCode(email: string) {
     if (!email) return null;
     try {
-        const result = await api.post('/spg/clients/reset-password', {
+        const result = await api.post('/auth/clients/reset-password', {
             email
         });
 
@@ -60,7 +60,7 @@ export async function sendResetPasswordCode(email: string) {
 export async function searchCodeReset(code: string) {
     if (!code) return null;
     try {
-        const result = await api.get(`/spg/clients/reset-password/${code}`);
+        const result = await api.get(`/auth/clients/reset-password/${code}`);
 
         return result.data;
     } catch (error) {
@@ -72,7 +72,7 @@ export async function searchCodeReset(code: string) {
 export async function searchAccountData(adminClientId: string, token: string) {
     if (!token) return null;
     try {
-        const result = await api.get(`/spg/clients/account-data/${adminClientId}`, { headers: { Authorization: `Bearer ${token}` } });
+        const result = await api.get(`/auth/clients/account-data/${adminClientId}`, { headers: { Authorization: `Bearer ${token}` } });
         return result.data;
     } catch (error) {
         console.log(error);
@@ -83,7 +83,7 @@ export async function searchAccountData(adminClientId: string, token: string) {
 export async function clientSession(token: string) {
     if (!token) return null;
     try {
-        const result = await api.get(`/spg/clients/session`, { headers: { Authorization: `Bearer ${token}` } });
+        const result = await api.get(`/auth/clients/session`, { headers: { Authorization: `Bearer ${token}` } });
         return result.data;
     } catch (error) {
         console.log(error);
@@ -94,7 +94,7 @@ export async function clientSession(token: string) {
 export async function resetRegister(resetData: any) {
     if (!resetData) return null;
     try {
-        const result = await api.post(`/spg/clients/update-password`, resetData);
+        const result = await api.post(`/auth/clients/update-password`, resetData);
 
         return result.data;
     } catch (error) {
@@ -105,7 +105,7 @@ export async function resetRegister(resetData: any) {
 
 export async function checkTokenValidity(token: string) {
     try {
-        const response = await api.get(`/spg/auth/check-expiration`, { headers: { Authorization: `Bearer ${token}` } });
+        const response = await api.get(`/auth/clients/check-expiration`, { headers: { Authorization: `Bearer ${token}` } });
         
         // Agora retorna: true se for VÁLIDO (expired: false) e false se for INVÁLIDO (expired: true)
         return !response.data.expired; 

@@ -1,4 +1,4 @@
-// spg-web/src/pages/cadSupplier.tsx
+// fbm-web/src/pages/cadSupplier.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MdMenu } from 'react-icons/md';
@@ -108,29 +108,35 @@ const CadSupplierPage: React.FC = () => {
   const handleMenuOption = (option: string) => {
     setMenuVisible(false);
     switch (option) {
-      case 'Produtos':
-        navigate('/');
-        break;
-      case 'Minha Conta':
+      case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);
         break;
-      case 'Meus Pedidos':
+      case "Meus Pedidos":
         navigate(`/store/orders/${false}`);
         break;
-      case 'Pop':
+      case "Pop":
         navigate('/politica-privacidade');
         break;
-      case 'Contacts':
-        navigate('/contacts');
+      case "Contacts":
+        navigate("/contacts");
         break;
-      case 'Sobre':
-        navigate('/sobre');
+      case "Sobre":
+        navigate("/sobre");
         break;
       case 'CadProduct':
         navigate('/cad-product');
         break;
       case 'CadCategory':
         navigate('/cad-category');
+        break;
+      case 'CadSupplier':
+        navigate('/cad-supplier');
+        break;
+      case 'Pedidos':
+        navigate(`/store/orders/${isAdmin}`);
+        break;
+      case 'Clientes':
+        navigate('/clientes');
         break;
       default:
         break;
@@ -222,17 +228,24 @@ const CadSupplierPage: React.FC = () => {
         userName={loggedClient?.client.name}
         userDoc=""
         userAdmin={isAdmin}
-        onProducts={() => handleMenuOption('Produtos')}
-        onMinhaConta={() => handleMenuOption('Minha Conta')}
-        onPoliticaPrivacidade={() => handleMenuOption('Pop')}
-        onMeusPedidos={() => handleMenuOption('Meus Pedidos')}
-        onSobre={() => handleMenuOption('Sobre')}
-        onContatos={() => handleMenuOption('Contacts')}
+        onProducts={() => handleMenuOption("")}
+        onMinhaConta={() => handleMenuOption("Minha Conta")}
+        onPoliticaPrivacidade={() => handleMenuOption("Pop")}
+        onMeusPedidos={() => handleMenuOption("Meus Pedidos")}
+        onSobre={() => handleMenuOption("Sobre")}
+        onContatos={() => handleMenuOption("Contacts")}
         onCadProduct={() => handleMenuOption('CadProduct')}
         onCadCategory={() => handleMenuOption('CadCategory')}
+        onCadSupplier={() => handleMenuOption('CadSupplier')}
         onAllClients={() => handleMenuOption('Clientes')}
         onAllOrders={() => handleMenuOption('Pedidos')}
         onSair={logoutClient}
+        // hooks/rotas extras quando existirem:
+        onTermos={() => {}}
+        onAvaliar={() => {}}
+        onPreferencias={() => {}}
+        onTutorial={() => {}}
+        onAssistenteVirtual={() => {}}
       />
       <ToastContainer position="bottom-center" newestOnTop closeOnClick />
     </div>

@@ -1,4 +1,4 @@
-// spg-web/src/pages/cadProduct.tsx
+// fbm-web/src/pages/cadProduct.tsx
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MdMenu, MdPhotoCamera, MdClose, MdDragIndicator } from 'react-icons/md';

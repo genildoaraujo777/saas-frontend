@@ -1,4 +1,4 @@
-// spg-web/src/services/FileStorageService.ts
+// fbm-web/src/services/FileStorageService.ts
 import api from "./api";
 
 // URL do microserviço de FileStorage (porta 3008, conforme sua configuração)

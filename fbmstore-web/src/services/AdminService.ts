@@ -12,8 +12,8 @@ export async function listAllClients(token: string): Promise<User[] | null> {
     if (!token) return null;
 
     try {
-        // Chama a rota protegida por Admin (implementada no SPG-API)
-        const result = await api.get('/spg/admin/clients', { 
+        // Chama a rota protegida por Admin (implementada no FBM-API)
+        const result = await api.get('/auth/admin/clients', { 
             headers: { Authorization: `Bearer ${token}` } 
         });
 

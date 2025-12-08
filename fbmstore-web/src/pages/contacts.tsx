@@ -200,7 +200,7 @@ const ContactsPage: React.FC = () => {
               lineHeight: '22px',
             }}
           >
-            Escolha um dos canais abaixo para entrar em contato com o SPG PERSONALIZADOS.
+            Escolha um dos canais abaixo para entrar em contato com o FBM PERSONALIZADOS.
             Estamos prontos para te atender!
           </p>
 
@@ -209,8 +209,8 @@ const ContactsPage: React.FC = () => {
             variant="solid"
             icon={<SiInstagram size={24} />}
             label="Instagram"
-            value="@spg_personalizados"
-            onPress={() => openLink('https://instagram.com/spg_personalizados')}
+            value="@fbm_personalizados"
+            onPress={() => openLink('https://instagram.com/fbm_personalizados')}
           />
 
           <ContactRow
@@ -227,8 +227,8 @@ const ContactsPage: React.FC = () => {
             variant="solid"
             icon={<SiGooglechrome size={20} />} // ícone de “web/site”
             label="Site"
-            value="spgpersonalizados.com.br"
-            onPress={() => openLink('https://spgpersonalizados.com.br/')}
+            value="fbmpersonalizados.com.br"
+            onPress={() => openLink('https://fbmpersonalizados.com.br/')}
           />
 
           <div style={{ height: 24 }} />

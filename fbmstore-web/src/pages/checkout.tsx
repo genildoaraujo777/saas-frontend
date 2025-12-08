@@ -401,12 +401,11 @@ const CheckoutScreen: React.FC = () => {
                     <h3 style={styles.subSectionTitle}>Informações do Cartão de Crédito (Teste)</h3>
                     
                     <FloatingLabelInput
-                        label="Número do Cartão"
+                        label="Número do Cartão: Ex: 4000 1234 5678 9010"
                         value={cardNumber}
                         onChangeText={(text) => setCardNumber(formatCardNumber(text))}
                         keyboardType="numeric"
                         containerWidth={'100%'}
-                        placeholder="Ex: 4000 1234 5678 9010"
                     />
 
                     <FloatingLabelInput
@@ -423,7 +422,6 @@ const CheckoutScreen: React.FC = () => {
                             value={expiryDate}
                             onChangeText={(text) => setExpiryDate(formatExpiryDate(text))}
                             containerWidth={'48%'}
-                            placeholder="MM/AA"
                         />
                          <FloatingLabelInput
                             label="CVV"

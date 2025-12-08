@@ -1,8 +1,8 @@
-// spg-web/src/services/CadCategoryService.ts
+// fbm-web/src/services/CadCategoryService.ts
 import api from "./api";
 import { Category } from "@/types";
 
-const CATEGORY_ENDPOINT = "/spg/categories";
+const CATEGORY_ENDPOINT = "/fbm/categories";
 
 /**
  * Cria uma nova categoria.

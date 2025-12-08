@@ -73,7 +73,7 @@ const RegisterPage: React.FC = () => {
       <main style={styles.main}>
           <img
             src={LOGO}
-            alt="SPG Personalizados"
+            alt="FBM Personalizados"
             style={styles.logo}
           />
 

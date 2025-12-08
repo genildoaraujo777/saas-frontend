@@ -36,7 +36,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const fetchStockItems = async () => {
     try {
       setIsLoading(true); // inicia loading
-      const response = await api.get(`/spg/products`, {
+      const response = await api.get(`/fbm/products`, {
         params: { page, limit },
       });
 
@@ -64,7 +64,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const fetchStockItemsByQuery = async (query: string, categoryId?: string, supplierId?: string): Promise<CartItem[]> => {
     try {
       const response = await api.get(
-        `/spg/products/search?search=${encodeURIComponent(query)}&categoryId=${categoryId ?? ''}&supplierId=${supplierId ?? ''}`
+        `/fbm/products/search?search=${encodeURIComponent(query)}&categoryId=${categoryId ?? ''}&supplierId=${supplierId ?? ''}`
       );
       // console.log(response.data.products)
       return response.data.products as CartItem[]; // traz a lista de produtos com base na pesquisa
@@ -98,7 +98,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const verifyQtdAndUpdateProducts = async () => {
     try {
-      const response = await api.get(`/spg/products/count`);
+      const response = await api.get(`/fbm/products/count`);
       // console.log('response.data.count', response.data.count);
       const count = getLocal('countProducts');
       // console.log('count', Number(count));
@@ -120,7 +120,7 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const fetchUpdatedItems = async () => {
     try {
-      const response = await api.get(`/spg/products/updated`, {
+      const response = await api.get(`/fbm/products/updated`, {
         params: {
           lastUpdatedAt: lastUpdatedAt.current, // Envia a última data de atualização
         },

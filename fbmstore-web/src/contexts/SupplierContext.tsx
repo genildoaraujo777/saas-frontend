@@ -32,7 +32,7 @@ export const SupplierProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const searchSuppliers = async (): Promise<Supplier[]> => {
-    const response = await api.get<Supplier[]>(`/spg/suppliers`);
+    const response = await api.get<Supplier[]>(`/fbm/suppliers`);
     setSuppliersItems(response.data);
     return [...response.data].sort((a, b) => a.name.localeCompare(b.name));
   };

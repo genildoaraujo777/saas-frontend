@@ -78,7 +78,7 @@ const ResetPasswordPage: React.FC = () => {
       <div style={styles.card}>
         <img
           src={LOGO}
-          alt="SPG Personalizados"
+          alt="FBM Personalizados"
           style={styles.logo as React.CSSProperties}
         />
 
