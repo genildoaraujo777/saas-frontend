@@ -93,31 +93,32 @@ const SobrePage: React.FC = () => {
 
       {/* Conteúdo */}
       <main style={styles.content}>
-        <h2 style={styles.h1}>FBM Personalizados</h2>
+    <h2 style={styles.h1}>Sobre a FBMStore</h2>
 
-        <p style={styles.p}>
-          A <span style={styles.b}>FBM Personalizados</span> nasceu em <span style={styles.b}>16/12/2024</span>,
-          fundada por <span style={styles.b}>Pâmella de Britto Araujo</span>. A princípio, a ideia surgiu
-          com o intuito de gerar uma renda extra, atendendo encomendas de papelaria
-          personalizada com carinho, qualidade e atenção aos detalhes.
-        </p>
+    <p style={styles.p}>
+      A <span style={styles.b}>FBMStore</span> iniciou sua jornada oficialmente em <span style={styles.b}>16/12/2025</span>,
+      fundada pelo especialista <span style={styles.b}>Genildo Gonçalves de Lima Araujo</span>. 
+      O que começou como um laboratório de ideias e inovação, rapidamente identificou uma lacuna no mercado:
+      a necessidade de softwares que unem <span style={styles.b}>alta performance</span> com <span style={styles.b}>inteligência de negócios</span>.
+    </p>
 
-        <p style={styles.p}>
-          Em <span style={styles.b}>agosto de 2025</span>, a Pâmella tomou a decisão de
-          deixar a profissão de <span style={styles.b}>enfermeira</span> para se dedicar
-          completamente ao universo da papelaria personalizada. Desde então, a FBM
-          Personalizados passou a ser o seu foco integral, evoluindo em processos,
-          catálogo e experiência do cliente.
-        </p>
+    <p style={styles.p}>
+      Com o crescimento acelerado da demanda digital, tomamos a decisão estratégica de
+      dedicação integral à <span style={styles.b}>Engenharia de Software</span>. 
+      Deixamos de ser apenas desenvolvedores para nos tornarmos arquitetos de soluções. 
+      Desde então, a FBMStore evoluiu seu stack tecnológico, especializando-se na criação de 
+      <span style={styles.b}> Sites Otimizados (SEO)</span>, <span style={styles.b}>Sistemas Web Complexos (SaaS)</span>, 
+      <span style={styles.b}>Aplicativos</span> e <span style={styles.b}>APIs Escaláveis</span>.
+    </p>
 
-        <p style={styles.p}>
-          Nosso propósito é transformar momentos em lembranças únicas — seja em
-          festas, presentes ou na organização do dia a dia — com produtos
-          personalizados que refletem a identidade de cada pessoa.
-        </p>
+    <p style={styles.p}>
+      Nosso propósito é claro: transformar códigos em <span style={styles.b}>ativos digitais valiosos</span>. 
+      Seja automatizando processos corporativos ou lançando novos produtos digitais, 
+      entregamos tecnologia robusta preparada para colocar o seu negócio no topo.
+    </p>
 
-        <p style={styles.signature}>— FBM Personalizados</p>
-      </main>
+    <p style={styles.signature}>— CEO, FBMStore</p>
+</main>
 
       {/* Menu lateral */}
       <Menu

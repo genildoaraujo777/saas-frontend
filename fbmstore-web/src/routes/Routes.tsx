@@ -21,6 +21,7 @@ import CadProductPage from "@/pages/cadProduct";
 import CadCategoryPage from "@/pages/cadCategory";
 import CadSupplierPage from "@/pages/cadSupplier";
 import ClientsScreen from "@/pages/clientes";
+import FinanLitoPage from "@/pages/finanlito";
 
 export default function AppRoutes() {
   return (
@@ -53,6 +54,9 @@ export default function AppRoutes() {
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
+
+        {/* Nova rota do FinanLito */}
+        <Route path="/finanlito" element={<FinanLitoPage />} />
       </Routes>
     </BrowserRouter>
   );

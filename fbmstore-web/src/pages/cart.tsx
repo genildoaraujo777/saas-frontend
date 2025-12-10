@@ -202,38 +202,40 @@ const CartScreen: React.FC = () => {
     
     if (await isAuth()) {
         // Agora, navega para a nova tela de checkout
-        navigation('/checkout');
-        // const tokendois = localStorage.getItem('token');
-        // createLocalOrder(tokendois!!, "APROVADO")
+        // navigation('/checkout');
+        const tokendois = localStorage.getItem('token');
+        createLocalOrder(tokendois!!, "APROVADO")
     }
   };
 
-  // const createLocalOrder = async (tokenAuth: string, paymentStatus: string) => {
-  //         let totalOrderItems = 0;
+  const createLocalOrder = async (tokenAuth: string, paymentStatus: string) => {
+          let totalOrderItems = 0;
   
-  //         const itemsOrderForContext = cartItems.map((item: CartItem) => { 
-  //             updateStock(item._id!!, -item.quantity); 
-  //             totalOrderItems += item.quantity;
-  //             return item; 
-  //         });
+          const itemsOrderForContext = cartItems.map((item: CartItem) => { 
+              updateStock(item._id!!, -item.quantity); 
+              totalOrderItems += item.quantity;
+              return item; 
+          });
+          // console.log('orderstokenisadmin: ',tokenAuth, isAdmin)
   
-  //         const orders = await searchOrders(tokenAuth);
-  //         const lastOrder = orders.length > 0 ? orders[0] : undefined;
+          const orders = await searchOrders(tokenAuth, isAdmin);
+          // console.log('orders: ',orders)
+          const lastOrder = orders.length > 0 ? orders[0] : undefined;
   
-  //         const clientID = loggedClient?.client?._id;
+          const clientID = loggedClient?.client?._id;
   
-  //         const newOrder = {
-  //             numberOrder: (lastOrder?.numberOrder ?? 0) + 1,
-  //             createdAt: new Date().toISOString(),
-  //             itemsOrder: itemsOrderForContext, 
-  //             totalPrice: totalPrice,
-  //             quantityItems: totalOrderItems,
-  //             statusOrder: paymentStatus, 
-  //             client: clientID,
-  //         };
+          const newOrder = {
+              numberOrder: (lastOrder?.numberOrder ?? 0) + 1,
+              createdAt: new Date().toISOString(),
+              itemsOrder: itemsOrderForContext, 
+              totalPrice: totalPrice,
+              quantityItems: totalOrderItems,
+              statusOrder: paymentStatus, 
+              client: clientID,
+          };
   
-  //         await createOrder(newOrder, tokenAuth);
-  //     }
+          await createOrder(newOrder, tokenAuth);
+      }
 
   return (
     <div style={styles.page}> {/* Wrapper de página */}

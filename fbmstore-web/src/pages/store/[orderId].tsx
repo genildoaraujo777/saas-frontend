@@ -31,6 +31,7 @@ const OrderDetailsScreen: React.FC = () => {
 
   useEffect(() => {
     if (typeof orderId === 'string') {
+      console.log('ordersClient: ',ordersClient)
       const found = ordersClient.find((o) => o._id === orderId);
       setOrder(found ?? null);
     }

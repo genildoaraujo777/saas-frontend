@@ -108,6 +108,9 @@ const CadSupplierPage: React.FC = () => {
   const handleMenuOption = (option: string) => {
     setMenuVisible(false);
     switch (option) {
+      case "Produtos":
+        navigate("/");
+        break;
       case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);
         break;
@@ -228,7 +231,7 @@ const CadSupplierPage: React.FC = () => {
         userName={loggedClient?.client.name}
         userDoc=""
         userAdmin={isAdmin}
-        onProducts={() => handleMenuOption("")}
+        onProducts={() => handleMenuOption("Produtos")}
         onMinhaConta={() => handleMenuOption("Minha Conta")}
         onPoliticaPrivacidade={() => handleMenuOption("Pop")}
         onMeusPedidos={() => handleMenuOption("Meus Pedidos")}

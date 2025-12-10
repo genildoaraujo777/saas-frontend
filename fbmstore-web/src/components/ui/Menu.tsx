@@ -48,6 +48,7 @@ export type MenuProps = {
   onCadSupplier?: () => void;
   onAllClients?: () => void;
   onAllOrders?: () => void;
+  onFinanLito?: () => void;
 
   // opcional: estilo do contêiner raiz (para ajustar zIndex no layout da tela)
   containerStyle?: CSSProperties;
@@ -96,7 +97,8 @@ const Menu: React.FC<MenuProps> = ({
   onCadCategory,
   onCadSupplier,
   onAllClients,
-  onAllOrders
+  onAllOrders,
+  onFinanLito
 }) => {
   const [tx, setTx] = useState<number>(-DRAWER_WIDTH);
   const mounted = useRef(false);
@@ -213,6 +215,12 @@ const Menu: React.FC<MenuProps> = ({
                 <div style={styles.divider} />
                 <Item icon={<MdPeopleAlt size={22} color="#343a40" />} label="Gerenciar Clientes" onPress={onAllClients} />
                 <Item icon={<MdListAlt size={22} color="#343a40" />} label="Gerenciar Pedidos" onPress={onAllOrders} />
+
+                <Item 
+                  icon={<MdAccountBalanceWallet size={22} color="#343a40" />} 
+                  label="Controle Financeiro" 
+                  onPress={onFinanLito} 
+                />
                 </>
               ) : (
                 // Se não for userAdmin, não exibe as opções de cadastro

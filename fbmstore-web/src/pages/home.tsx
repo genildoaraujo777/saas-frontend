@@ -160,6 +160,9 @@ const handleSearch = async () => {
       case 'Clientes':
         navigate('/clientes');
         break;
+      case 'Controle Financeiro':
+        navigate('/finanlito');
+        break;
       default:
         handleProductsByCategory(option);
         break;
@@ -413,6 +416,7 @@ const handleSearch = async () => {
         onPreferencias={() => {}}
         onTutorial={() => {}}
         onAssistenteVirtual={() => {}}
+        onFinanLito={() => handleMenuOption('Controle Financeiro')}
       />
     </div>
   );
