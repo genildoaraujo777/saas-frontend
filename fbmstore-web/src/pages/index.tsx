@@ -11,3 +11,4 @@ export default function Index() {
 
   return null;
 }
+//só pra rodar o build
