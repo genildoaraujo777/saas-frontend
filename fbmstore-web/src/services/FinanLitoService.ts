@@ -13,14 +13,25 @@ export interface ITransaction {
 
 export const FinanLitoService = {
   getAll: async (month?: number, year?: number, token?: string) => {
-    // A API espera month (0-11) e year.
-    const params = (month !== undefined && year) ? { month, year } : {};
-    
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const { data } = await api.get<ITransaction[]>('/fbm/transactions', { params, headers });
+    // CORREÇÃO: Constrói os parâmetros individualmente
+    const params: any = {};
+    if (year) params.year = year;
+    if (month !== undefined) params.month = month;
+
+    const { data } = await api.get<ITransaction[]>('/fbm/transactions', { // ou /fbm/transactions dependendo da sua rota
+        params,
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
     
     return data;
-},
+  },
+  replicate: async (month: number, year: number, token?: string) => {
+    // Chama a rota nova passando o mês/ano ATUAL que queremos clonar
+    const { data } = await api.post('/fbm/transactions/replicate', { month, year }, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return data;
+  },
 
   create: async (payload: Omit<ITransaction, '_id' | 'id'>, token: string) => {
     const { data } = await api.post('/fbm/transactions', payload, { headers: { Authorization: `Bearer ${token}` } } );

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { FinanLitoService, ITransaction } from '../services/FinanLitoService';
-import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday } from 'react-icons/md';
+import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 
 // --- UTILITÁRIOS ---
@@ -142,8 +142,11 @@ export default function FinanLitoPage() {
   }, [transactions, curYear]);
 
   const globalBalance = useMemo(() => {
-    return transactions.reduce((acc, t) => t.type === 'income' ? acc + Number(t.amount) : acc - Number(t.amount), 0);
-  }, [transactions]);
+    return transactions
+      // FILTRO DE ANO ADICIONADO: Garante que só somamos o que pertence ao ano selecionado
+      .filter(t => new Date(t.date).getFullYear() === curYear)
+      .reduce((acc, t) => t.type === 'income' ? acc + Number(t.amount) : acc - Number(t.amount), 0);
+  }, [transactions, curYear]);
 
   function openMonth(idx: number) { setCurMonth(idx); }
   function goHome() { setCurMonth(null); }
@@ -228,6 +231,24 @@ export default function FinanLitoPage() {
   }
 
   // --- HANDLERS INTELIGENTES ---
+
+  // Função de Replicar
+  async function handleReplicate() {
+    if (curMonth === null) return;
+    
+    if (!confirm(`Deseja copiar todos os lançamentos de ${months[curMonth]} para o próximo mês?`)) return;
+    
+    setLoading(true);
+    try {
+        const res = await FinanLitoService.replicate(curMonth, curYear, token);
+        alert(res.message);
+        loadData();
+    } catch (error) {
+        alert('Erro ao replicar transações.');
+    } finally {
+        setLoading(false);
+    }
+  }
 
     // Handlers de Mudança nos Inputs (Máscaras em tempo real)
   const handleChangeAmount = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,6 +385,13 @@ export default function FinanLitoPage() {
                   style={{ width: '100%', padding: '0.7rem 1rem 0.7rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '10px', outline: 'none' }}
                 />
               </div>
+
+              {/* --- BOTÃO NOVO DE REPLICAR --- */}
+              <button onClick={handleReplicate} title="Copiar lançamentos para o próximo mês" style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MdContentCopy /> <span style={{display: 'none', '@media (min-width: 768px)': { display: 'inline' }}}>Replicar</span>
+              </button>
+              {/* ------------------------------- */}
+
               <button onClick={() => handleOpenModal()} style={{ background: '#2563eb', color: 'white', border: 'none', padding: '0 1.5rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <MdAdd /> Novo
               </button>
