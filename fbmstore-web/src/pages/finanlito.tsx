@@ -143,7 +143,7 @@ export default function FinanLitoPage() {
 
   const globalBalance = useMemo(() => {
     return transactions
-      // FILTRO DE ANO ADICIONADO: Garante que só somamos o que pertence ao ano selecionado
+      // FILTRO DE ANO: Garante que só somamos o que pertence ao ano selecionado
       .filter(t => new Date(t.date).getFullYear() === curYear)
       .reduce((acc, t) => t.type === 'income' ? acc + Number(t.amount) : acc - Number(t.amount), 0);
   }, [transactions, curYear]);
@@ -151,22 +151,13 @@ export default function FinanLitoPage() {
   function openMonth(idx: number) { setCurMonth(idx); }
   function goHome() { setCurMonth(null); }
 
-  // Máscara de Moeda (Digitação em tempo real)
-    const currencyMask = (value: string) => {
+  // Máscara de Moeda
+  const currencyMask = (value: string) => {
     if (!value) return "";
-    
-    // Remove tudo que não é dígito
     const onlyDigits = value.replace(/\D/g, "");
-    
-    // Trata como centavos (divide por 100)
     const numberValue = Number(onlyDigits) / 100;
-    
-    // Formata de volta para BRL
-    return numberValue.toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-    });
-    };
+    return numberValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
 
   function handleOpenModal(t?: ITransaction) {
     if (t) {
@@ -176,7 +167,7 @@ export default function FinanLitoPage() {
       setFormAmount(t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
       setFormType(t.type);
       setFormStatus(t.status);
-      setFormDate(parseISOToDateBR(t.date)); // Exibe 25/12/2023 14:00
+      setFormDate(parseISOToDateBR(t.date));
     } else {
       setFormId(null);
       setFormTitle('');
@@ -250,15 +241,13 @@ export default function FinanLitoPage() {
     }
   }
 
-    // Handlers de Mudança nos Inputs (Máscaras em tempo real)
+  // Handlers de Mudança nos Inputs
   const handleChangeAmount = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Aplica a máscara e atualiza o estado imediatamente
     const masked = currencyMask(e.target.value);
     setFormAmount(masked);
   };
 
   const handleAmountFocus = () => {
-    // Quando foca, remove o "R$" para facilitar edição se quiser
     if (formAmount.includes('R$')) {
         const raw = formAmount.replace('R$', '').trim();
         setFormAmount(raw);
@@ -268,11 +257,9 @@ export default function FinanLitoPage() {
   // Data: Gatilho do Calendário
   const openCalendar = () => {
     if (hiddenDateInputRef.current) {
-        // Tenta abrir o picker nativo
         if (typeof hiddenDateInputRef.current.showPicker === 'function') {
             hiddenDateInputRef.current.showPicker();
         } else {
-            // Fallback para navegadores antigos: foca no input
             hiddenDateInputRef.current.focus(); 
             hiddenDateInputRef.current.click();
         }
@@ -280,9 +267,8 @@ export default function FinanLitoPage() {
   };
 
   const handleNativeDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const isoVal = e.target.value; // Vem como YYYY-MM-DDTHH:MM
+    const isoVal = e.target.value;
     if (isoVal) {
-        // Converte para nosso formato PT-BR e atualiza o texto
         const d = new Date(isoVal);
         const pad = (n: number) => n.toString().padStart(2, '0');
         const brStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -309,6 +295,16 @@ export default function FinanLitoPage() {
 
   return (
     <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Segoe UI', sans-serif" }}>
+      {/* ESTILO INTERNO PARA RESPONSIVIDADE
+        Substitui a media query inline que quebrava o build
+      */}
+      <style>{`
+        .desktop-only { display: none; }
+        @media (min-width: 768px) {
+          .desktop-only { display: inline; }
+        }
+      `}</style>
+
       {/* HEADER */}
       <header style={{ background: '#fff', padding: '0.8rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -386,11 +382,11 @@ export default function FinanLitoPage() {
                 />
               </div>
 
-              {/* --- BOTÃO NOVO DE REPLICAR --- */}
+              {/* --- BOTÃO DE REPLICAR (CORRIGIDO) --- */}
               <button onClick={handleReplicate} title="Copiar lançamentos para o próximo mês" style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <MdContentCopy /> <span style={{display: 'none', '@media (min-width: 768px)': { display: 'inline' }}}>Replicar</span>
+                <MdContentCopy /> <span className="desktop-only">Replicar</span>
               </button>
-              {/* ------------------------------- */}
+              {/* ----------------------------------- */}
 
               <button onClick={() => handleOpenModal()} style={{ background: '#2563eb', color: 'white', border: 'none', padding: '0 1.5rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <MdAdd /> Novo
@@ -438,17 +434,16 @@ export default function FinanLitoPage() {
               <div><label style={lblStyle}>Título</label><input required style={inpStyle} value={formTitle} onChange={e => setFormTitle(e.target.value)} /></div>
               <div><label style={lblStyle}>Descrição</label><textarea style={inpStyle} rows={2} value={formDesc} onChange={e => setFormDesc(e.target.value)} /></div>
               
-              {/* LINHA VALOR E TIPO */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={lblStyle}>Valor</label>
-                  {/* INPUT LIVRE + FORMATAÇÃO NO BLUR */}
                   <input 
-                    type="tel" // Abre teclado numérico no mobile
+                    type="tel" 
                     required 
                     style={inpStyle} 
                     value={formAmount} 
                     onChange={handleChangeAmount} 
+                    onFocus={handleAmountFocus}
                     placeholder="R$ 0,00" 
                   />
                 </div>
@@ -460,30 +455,25 @@ export default function FinanLitoPage() {
                 </div>
               </div>
 
-              {/* LINHA DATA E STATUS */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                     <label style={lblStyle}>Data</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {/* INPUT LIVRE DE DATA */}
                         <input 
                             type="text" 
                             required 
                             style={inpStyle} 
                             value={formDate} 
-                            onChange={e => setFormDate(e.target.value)} // Digitação 100% livre
+                            onChange={e => setFormDate(e.target.value)} 
                             placeholder="DD/MM/AAAA HH:MM"
                         />
-                        {/* BOTÃO QUE ABRE O CALENDÁRIO NATIVO */}
                         <button type="button" onClick={openCalendar} style={{ background: '#e2e8f0', border: 'none', padding: '0.7rem', borderRadius: '6px', cursor: 'pointer', color: '#475569' }}>
                             <MdCalendarToday size={20} />
                         </button>
-                        {/* INPUT INVISÍVEL PARA CONTROLAR O CALENDÁRIO */}
                         <input 
                             type="datetime-local" 
                             ref={hiddenDateInputRef}
                             style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '1px' }}
-                            // Sincroniza o valor nativo (se possível) para o calendário abrir na data certa
                             defaultValue={parseDateBRToISO(formDate) ? toNativeInputFormat(parseDateBRToISO(formDate)) : ''}
                             onChange={handleNativeDateChange}
                         />
