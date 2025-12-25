@@ -81,7 +81,7 @@ const Menu: React.FC<MenuProps> = ({
   userName,
   userDoc,
   userAdmin,
-  hasFinancialAccess;
+  hasFinancialAccess,
   onProducts,
   onMinhaConta,
   onMinhasAssinaturas,
