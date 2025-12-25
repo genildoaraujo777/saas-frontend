@@ -163,7 +163,7 @@ const CartScreen: React.FC = () => {
         navigation('/clientes');
         break;
       case 'Controle Financeiro':
-        navigate('/finanlito');
+        navigation('/finanlito');
         break;
       default:
         handleProductsByCategory(option);
