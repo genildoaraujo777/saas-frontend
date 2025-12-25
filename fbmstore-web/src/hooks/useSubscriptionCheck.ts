@@ -17,8 +17,8 @@ export function useSubscriptionCheck() {
 
             // 2. O pedido deve conter o produto com o código específico
             const hasProduct = order.itemsOrder.some(item => {
-                // Verificação de segurança caso item seja string ou objeto
-                if (typeof item !== 'string' && item.product) {
+                // CORREÇÃO: Adicionado "item &&" para garantir que o item não é undefined/null
+                if (item && typeof item !== 'string' && item.product) {
                     return item.product.code === FINANCE_PRODUCT_CODE;
                 }
                 return false;
