@@ -7,6 +7,7 @@ export interface Client {
         _id: string;
         name: string;
         telephone?: string;
+        email?: string;
     }
     profileId: number; // Ex: 1 (Cliente), 99 (Admin)
     // Adicione outros campos conforme seu banco de dados

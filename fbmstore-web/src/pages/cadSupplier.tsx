@@ -114,7 +114,7 @@ const CadSupplierPage: React.FC = () => {
       case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);
         break;
-      case "Meus Pedidos":
+      case "Minhas Assinaturas":
         navigate(`/store/orders/${false}`);
         break;
       case "Pop":
@@ -135,7 +135,7 @@ const CadSupplierPage: React.FC = () => {
       case 'CadSupplier':
         navigate('/cad-supplier');
         break;
-      case 'Pedidos':
+      case 'Assinaturas':
         navigate(`/store/orders/${isAdmin}`);
         break;
       case 'Clientes':
@@ -234,14 +234,14 @@ const CadSupplierPage: React.FC = () => {
         onProducts={() => handleMenuOption("Produtos")}
         onMinhaConta={() => handleMenuOption("Minha Conta")}
         onPoliticaPrivacidade={() => handleMenuOption("Pop")}
-        onMeusPedidos={() => handleMenuOption("Meus Pedidos")}
+        onMinhasAssinaturas={() => handleMenuOption("Minhas Assinaturas")}
         onSobre={() => handleMenuOption("Sobre")}
         onContatos={() => handleMenuOption("Contacts")}
         onCadProduct={() => handleMenuOption('CadProduct')}
         onCadCategory={() => handleMenuOption('CadCategory')}
         onCadSupplier={() => handleMenuOption('CadSupplier')}
         onAllClients={() => handleMenuOption('Clientes')}
-        onAllOrders={() => handleMenuOption('Pedidos')}
+        onAllOrders={() => handleMenuOption('Assinaturas')}
         onSair={logoutClient}
         // hooks/rotas extras quando existirem:
         onTermos={() => {}}
@@ -260,15 +260,18 @@ export default CadSupplierPage;
 const styles: Record<string, React.CSSProperties> = {
   page: { minHeight: '100vh', background: '#f5f5f5', display: 'flex', flexDirection: 'column' as const },
   header: {
-    background: '#000',
-    color: '#fff',
-    padding: '24px 16px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottom: '0.5px solid #ddd',
+    background: "#0f172a", 
+    color: "#fff",
+    padding: "20px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: "1px solid #1e293b",
+    width: "100%",
+    boxSizing: "border-box",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
   },
-  headerTitle: { fontSize: 20, fontWeight: 600 as const, color: '#e799a6', margin: 0 },
+  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
   main: { flex: 1, display: 'flex', justifyContent: 'center', padding: 24, boxSizing: 'border-box' as const },
   formContainer: {
     width: '100%',
@@ -291,7 +294,7 @@ const styles: Record<string, React.CSSProperties> = {
   button: {
     width: '100%',
     padding: '14px 16px',
-    background: '#e799a6',
+    background: '#4f46e5',
     color: '#fff',
     borderRadius: 8,
     border: 0,
@@ -321,7 +324,7 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: 'border-box',
     cursor: 'pointer',
   },
-  sectionTitle: { fontSize: 18, fontWeight: 700 as const, color: '#e799a6', margin: '10px 0', textAlign: 'center' },
+  sectionTitle: { fontSize: 18, fontWeight: 700 as const, color: '#4f46e5', margin: '10px 0', textAlign: 'center' },
   listContainer: {
     width: '100%',
     display: 'flex',
@@ -342,10 +345,10 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     alignItems: 'center',
     cursor: 'pointer',
-    borderLeft: '4px solid #e799a6',
+    borderLeft: '4px solid #4f46e5',
   },
   editBtn: {
     fontSize: 18,
-    color: '#e799a6',
+    color: '#4f46e5',
   },
 };

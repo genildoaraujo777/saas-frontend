@@ -57,17 +57,20 @@ const ClientsScreen: React.FC = () => {
 
     const Header = useMemo(
         () => (
-            <div style={styles.headerContainer}>
-                <button
-                    onClick={() => setMenuVisible((prev) => !prev)}
-                    style={styles.menuButton}
-                    aria-label="Abrir menu"
-                >
-                    <MdMenu size={30} color="white" />
-                </button>
-                <div style={styles.headerTitle}>Clientes</div>
-                <div style={{ width: 30 }}></div> 
-            </div>
+            <div style={styles.header}>
+                    <button
+                      onClick={() => setMenuVisible((p) => !p)}
+                      style={{ background: "transparent", border: 0, color: "#fff", cursor: "pointer" }}
+                      aria-label="Abrir menu"
+                      title="Abrir menu"
+                    >
+                      <MdMenu size={30} />
+                    </button>
+            
+                    <h1 style={styles.headerTitle}>Clientes</h1>
+            
+                    <span style={{ width: 30 }} />
+                  </div>
         ),
         []
     );
@@ -80,7 +83,7 @@ const ClientsScreen: React.FC = () => {
       case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);
         break;
-      case "Meus Pedidos":
+      case "Minhas Assinaturas":
         navigate(`/store/orders/${false}`);
         break;
       case "Pop":
@@ -101,7 +104,7 @@ const ClientsScreen: React.FC = () => {
       case 'CadSupplier':
         navigate('/cad-supplier');
         break;
-      case 'Pedidos':
+      case 'Assinaturas':
         navigate(`/store/orders/${isAdmin}`);
         break;
       case 'Clientes':
@@ -196,14 +199,14 @@ const ClientsScreen: React.FC = () => {
                 onProducts={() => handleMenuOption("Produtos")}
                 onMinhaConta={() => handleMenuOption("Minha Conta")}
                 onPoliticaPrivacidade={() => handleMenuOption("Pop")}
-                onMeusPedidos={() => handleMenuOption("Meus Pedidos")}
+                onMinhasAssinaturas={() => handleMenuOption("Minhas Assinaturas")}
                 onSobre={() => handleMenuOption("Sobre")}
                 onContatos={() => handleMenuOption("Contacts")}
                 onCadProduct={() => handleMenuOption('CadProduct')}
                 onCadCategory={() => handleMenuOption('CadCategory')}
                 onCadSupplier={() => handleMenuOption('CadSupplier')}
                 onAllClients={() => handleMenuOption('Clientes')}
-                onAllOrders={() => handleMenuOption('Pedidos')}
+                onAllOrders={() => handleMenuOption('Assinaturas')}
                 onSair={logoutClient}
                 // hooks/rotas extras quando existirem:
                 onTermos={() => {}}
@@ -241,11 +244,19 @@ const styles: Record<string, React.CSSProperties> = {
         width: '100%',
         boxSizing: 'border-box',
     },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 600,
-        color: '#e799a6',
-    },
+    header: {
+    background: "#0f172a", 
+    color: "#fff",
+    padding: "20px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: "1px solid #1e293b",
+    width: "100%",
+    boxSizing: "border-box",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+  },
+  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
     menuButton: {
         background: 'transparent',
         border: 0,
@@ -274,7 +285,7 @@ const styles: Record<string, React.CSSProperties> = {
         flexDirection: 'row',
         borderWidth: 1,
         borderStyle: 'solid',
-        borderColor: '#e799a6', // A borda rosa característica
+        borderColor: '#4f46e5', // A borda rosa característica
         borderRadius: 5,
         backgroundColor: '#fff',
         alignItems: 'center',
@@ -305,7 +316,7 @@ const styles: Record<string, React.CSSProperties> = {
     },
     // Estilo Botão Novo (Compacto para caber ao lado da busca)
     buttonNew: {
-        backgroundColor: '#e799a6',
+        backgroundColor: '#4f46e5',
         height: 42, // Mesma altura visual da busca
         padding: '0 15px',
         borderRadius: 5,
@@ -361,7 +372,7 @@ const styles: Record<string, React.CSSProperties> = {
         justifyContent: 'flex-end',
     },
     linkText: {
-        color: '#e799a6',
+        color: '#4f46e5',
         fontWeight: 'bold',
         fontSize: 14,
     },

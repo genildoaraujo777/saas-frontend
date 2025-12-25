@@ -150,22 +150,25 @@ export default AccountScreen;
 const styles: Record<string, React.CSSProperties> = {
   // --- HEADER STYLES (Consistente com Login/Cadastro) ---
   header: {
-    background: '#000',
-    color: '#fff',
-    padding: '24px 16px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottom: '0.5px solid #ddd',
+    background: "#0f172a", 
+    color: "#fff",
+    padding: "20px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: "1px solid #1e293b",
+    width: "100%",
+    boxSizing: "border-box",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
   },
+  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
   backBtn: {
     background: 'transparent',
     border: 0,
-    color: '#e799a6',
+    color: '#fff',
     fontSize: 16,
     cursor: 'pointer',
   },
-  headerTitle: { fontSize: 20, fontWeight: 600, color: '#e799a6', margin: 0 },
 
   // --- CONTENT/FORM STYLES ---
   scrollContainer: {
@@ -207,14 +210,14 @@ const styles: Record<string, React.CSSProperties> = {
 
   separator: {
     border: 0,
-    borderTop: '1px solid #e799a6',
+    borderTop: '1px solid #0f172a',
     width: '100%',
     margin: '10px 0',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#e799a6',
+    color: '#0f172a',
     textAlign: 'center', // Centraliza o título
     width: '100%', // Ocupa a largura total para centralização
     margin: 0,
@@ -222,7 +225,7 @@ const styles: Record<string, React.CSSProperties> = {
   button: {
     width: '100%', // Ocupa 100% da largura
     padding: '14px 16px',
-    backgroundColor: '#e799a6',
+    backgroundColor: '#4f46e5',
     borderRadius: 8,
     border: 0,
     marginTop: 4,

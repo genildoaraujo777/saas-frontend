@@ -1,8 +1,8 @@
 // src/routes/OrderDetailsScreen.tsx
 import CartIconWithBadge from '@/components/ui/CartIconWithBadge';
 import { useOrder } from '@/contexts/OrderContext';
-import { CartItem, Order, Product } from '@/types'; // Importado CartItem para uso no mapeamento
-import React, { useEffect, useState } from 'react'; // Removido useMemo
+import { CartItem, Order, Product } from '@/types'; 
+import React, { useEffect, useState } from 'react'; 
 import { useNavigate, useParams } from 'react-router-dom';
 
 const OrderDetailsScreen: React.FC = () => {
@@ -13,25 +13,57 @@ const OrderDetailsScreen: React.FC = () => {
   // @ts-ignore
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-  // Função para renderizar o Header (Substitui o useMemo e simplifica o estilo)
+  // --- HELPERS DE STATUS (Adicionados conforme solicitado) ---
+  const getStatusLabel = (status: string) => {
+    const map: Record<string, string> = {
+        'WAITING': 'Aguardando Pagto',
+        'PENDING': 'Pendente',
+        'IN_PRODUCTION': 'Ativa',
+        'DONE': 'Pago / Ativa',
+        'CANCELED': 'Cancelada',
+        'FAILED': 'Falhou'
+    };
+    return map[status?.toUpperCase()] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'DONE': 
+      case 'SUCCESS':
+      case 'PAID':
+        return '#10b981'; // Verde
+      case 'IN_PRODUCTION':
+      case 'APPROVED':
+        return '#3b82f6'; // Azul
+      case 'WAITING':
+      case 'PENDING':
+        return '#f59e0b'; // Laranja
+      case 'CANCELED':
+      case 'FAILED':
+        return '#ef4444'; // Vermelho
+      default:
+        return '#333'; // Padrão
+    }
+  };
+  // ---------------------------------------------------------
+
   const renderHeader = () => (
     <header style={styles.header}>
-      <button
-        onClick={() => navigation(-1)}
-        style={styles.backBtn}
-      >
-        Voltar
-      </button>
-
-      <h1 style={styles.headerTitle}>Detalhes do pedido</h1>
-
-      <CartIconWithBadge onPress={() => navigation('/cart')} />
-    </header>
+            <button
+             onClick={() => navigation(-1)}
+             style={styles.backBtn}
+            >
+              Voltar
+            </button>
+    
+            <h1 style={styles.headerTitle}>Detalhes da Assinatura</h1>
+    
+            <span style={{ width: 30 }} />
+          </header>
   );
 
   useEffect(() => {
     if (typeof orderId === 'string') {
-      console.log('ordersClient: ',ordersClient)
       const found = ordersClient.find((o) => o._id === orderId);
       setOrder(found ?? null);
     }
@@ -41,8 +73,8 @@ const OrderDetailsScreen: React.FC = () => {
       const rawValue = (item as any).product.price ?? (item as any).product.unitPrice;
       return parseFloat(
         String(rawValue)
-          .replace(/[^\d,]/g, '') // remove R$, pontos e espaços, mantendo só dígitos e vírgula
-          .replace(',', '.') // troca vírgula decimal por ponto
+          .replace(/[^\d,]/g, '') 
+          .replace(',', '.') 
       ) || 0;
     };
 
@@ -57,7 +89,7 @@ const OrderDetailsScreen: React.FC = () => {
     return (
       <div style={styles.page}>
         {renderHeader()}
-        <div style={styles.loadingContainer}>Carregando pedido...</div>
+        <div style={styles.loadingContainer}>Carregando detalhes...</div>
       </div>
     );
   }
@@ -68,16 +100,16 @@ const OrderDetailsScreen: React.FC = () => {
 
       <div style={styles.scrollContainer}>
         <div style={styles.contentContainer}>
-          <h2 style={styles.sectionTitle}>Resumo do Pedido</h2>
+          <h2 style={styles.sectionTitle}>Resumo da Assinatura</h2>
           
           <div style={styles.orderInfo}>
             <div style={styles.orderItem}>
-              <div style={styles.orderLabel}>Número do Pedido:</div>
+              <div style={styles.orderLabel}>Nº da Assinatura:</div>
               <div style={styles.orderValue}>{order.numberOrder}</div>
             </div>
 
             <div style={styles.orderItem}>
-              <div style={styles.orderLabel}>Data do Pedido:</div>
+              <div style={styles.orderLabel}>Data de Criação:</div>
               <div style={styles.orderValue}>{new Date(order.createdAt!).toLocaleDateString()}</div>
             </div>
 
@@ -87,17 +119,24 @@ const OrderDetailsScreen: React.FC = () => {
             </div>
 
             <div style={styles.orderItem}>
-              <div style={styles.orderLabel}>Valor Total:</div>
+              <div style={styles.orderLabel}>Valor Mensal:</div>
               <div style={styles.orderTotalValue}>{formatCurrency(order.totalPrice)}</div>
             </div>
 
             <div style={styles.orderItem}>
-              <div style={styles.orderLabel}>Status do pagamento:</div>
-              <div style={styles.orderValue}>{order.statusOrder}</div>
+              <div style={styles.orderLabel}>Status Atual:</div>
+              {/* USO DA FUNÇÃO DE STATUS E COR AQUI */}
+              <div style={{
+                  ...styles.orderValue, 
+                  color: getStatusColor(order.statusOrder),
+                  fontWeight: '800'
+              }}>
+                  {getStatusLabel(order.statusOrder)}
+              </div>
             </div>
           </div>
 
-          <h2 style={styles.sectionTitle}>Produtos</h2>
+          <h2 style={styles.sectionTitle}>Plano Selecionado</h2>
 
           <div style={styles.productsList}>
             {order.itemsOrder.map((item, index) =>
@@ -110,32 +149,18 @@ const OrderDetailsScreen: React.FC = () => {
                   />
                   <div style={styles.productDetails}>
                     <div style={styles.detailRow}>
-                      <div style={styles.detailLabel}>Código:</div>
-                      <span style={styles.productCode}>{(item as CartItem).product.code}</span>
+                      <div style={styles.detailLabel}>Plano:</div>
+                      <span style={styles.productCode}>{(item as CartItem).product.code || (item as CartItem).product.name}</span>
                     </div>
                     <div style={styles.detailRow}>
                       <div style={styles.detailLabel}>Descrição:</div>
                       <div>{(item as CartItem).product.description}</div>
                     </div>
+                    {/* Categoria/Fornecedor ocultados se não relevantes para SaaS, ou mantenha se quiser */}
+                    
                     <div style={styles.detailRow}>
-                      <div style={styles.detailLabel}>Categoria:</div>
-                      <div>{(item as CartItem).product.category.name}</div>
-                    </div>
-                    <div style={styles.detailRow}>
-                      <div style={styles.detailLabel}>Fornecedor:</div>
-                      <div>{(item as CartItem).product.supplier.name}</div>
-                    </div>
-                    <div style={styles.detailRow}>
-                      <div style={styles.detailLabel}>Preço Unitário:</div>
-                      <div style={styles.productPrice}>{(item as CartItem).product.price}</div>
-                    </div>
-                    <div style={styles.detailRow}>
-                      <div style={styles.detailLabel}>Quantidade Escolhida:</div>
-                      <div style={styles.productQuantity}>{(item as CartItem).quantity}</div>
-                    </div>
-                    <div style={styles.detailRow}>
-                      <div style={styles.detailLabel}>Subtotal:</div>
-                      <div style={styles.productTotal}>{formatCurrency(getNumericPrice(item as CartItem) * (item as CartItem).quantity)}</div>
+                      <div style={styles.detailLabel}>Valor Mensal:</div>
+                      <div style={styles.productPrice}>{formatCurrency(getNumericPrice(item as CartItem))}</div>
                     </div>
                   </div>
                 </div>
@@ -156,6 +181,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     backgroundColor: '#f5f5f5',
+    fontFamily: 'Inter, sans-serif',
   },
   loadingContainer: {
     padding: 20,
@@ -163,28 +189,27 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 18,
     color: '#666',
   },
-  // --- HEADER STYLES (Consistente) ---
   header: {
-    background: '#000',
-    color: '#fff',
-    padding: '12px 16px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottom: '0.5px solid #ddd',
-    height: 72,
+    background: "#0f172a", 
+    color: "#fff",
+    padding: "20px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: "1px solid #1e293b",
+    width: "100%",
+    boxSizing: "border-box",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
   },
+  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
   backBtn: {
     background: 'transparent',
     border: 0,
-    color: '#e799a6',
+    color: '#fff',
     fontSize: 16,
     cursor: 'pointer',
     fontWeight: 600,
   },
-  headerTitle: { fontSize: 20, fontWeight: 600, color: '#e799a6', margin: 0 },
-
-  // --- CONTENT & LAYOUT ---
   scrollContainer: {
     flex: 1,
     display: 'flex',
@@ -194,8 +219,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   contentContainer: {
     width: '100%',
-    maxWidth: 900, // Largura máxima para o conteúdo principal
-    margin: '0 20px', // Margem nas laterais
+    maxWidth: 900, 
+    margin: '0 20px', 
     padding: 20,
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -206,21 +231,19 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     marginBottom: 15,
     marginTop: 10,
-    borderBottom: '2px solid #e799a6',
+    borderBottom: '2px solid #4f46e5',
     paddingBottom: 5,
     color: '#333',
   },
-  
-  // --- ORDER INFO GRID ---
   orderInfo: {
     display: 'grid',
-    gridTemplateColumns: 'auto 1fr', // Label e Valor lado a lado
-    gap: '8px 15px',
-    marginBottom: 20,
+    gridTemplateColumns: 'auto 1fr', 
+    gap: '12px 20px',
+    marginBottom: 30,
     alignItems: 'baseline',
   },
   orderItem: {
-    display: 'contents', // Permite que os filhos sejam itens de grid
+    display: 'contents', 
   },
   orderLabel: {
     fontSize: 16,
@@ -237,10 +260,8 @@ const styles: Record<string, React.CSSProperties> = {
   orderTotalValue: {
     fontSize: 18,
     fontWeight: 700,
-    color: '#e799a6',
+    color: '#4f46e5',
   },
-
-  // --- PRODUCTS LIST ---
   productsList: {
       display: 'flex',
       flexDirection: 'column',
@@ -253,19 +274,21 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: 15,
     boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+    alignItems: 'flex-start',
   },
   productImage: {
-    width: 120, // Tamanho fixo para a imagem
-    height: 120,
+    width: 100, 
+    height: 100,
     borderRadius: 8,
     objectFit: 'cover',
     flexShrink: 0,
+    border: '1px solid #eee'
   },
   productDetails: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: 4,
+    gap: 6,
   },
   detailRow: {
     display: 'flex',
@@ -279,11 +302,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   productCode: {
     fontWeight: 700,
-    color: '#e799a6',
+    color: '#4f46e5',
   },
   productPrice: {
-    fontWeight: 600,
-    color: '#444',
+    fontWeight: 700,
+    color: '#333',
   },
   productQuantity: {
     fontWeight: 600,
@@ -291,12 +314,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   productTotal: {
     fontWeight: 700,
-    color: '#e799a6',
+    color: '#4f46e5',
   },
-
-  // Estilos antigos removidos/substituídos:
-  // container: {},
-  // title: {},
-  // orderSupplier: {},
-  // productSupplier: {},
 };

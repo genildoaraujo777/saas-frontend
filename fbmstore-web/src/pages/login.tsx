@@ -156,7 +156,7 @@ const styles: Record<string, React.CSSProperties> = {
   button: {
     width: "100%",
     padding: "14px 16px",
-    background: "#e799a6",
+    background: "#4f46e5",
     color: "#fff",
     borderRadius: 8,
     border: 0,
@@ -164,7 +164,7 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: "border-box",
   },
   link: {
-    color: "#e799a6",
+    color: "#4f46e5",
     textDecoration: "none",
     fontWeight: 600 as const,
   },

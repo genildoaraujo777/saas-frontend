@@ -26,7 +26,7 @@ const PopPage: React.FC = () => {
       case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);
         break;
-      case "Meus Pedidos":
+      case "Minhas Assinaturas":
         navigate(`/store/orders/${false}`);
         break;
       case "Contacts":
@@ -44,7 +44,7 @@ const PopPage: React.FC = () => {
       case 'CadSupplier':
         navigate('/cad-supplier');
         break;
-      case 'Pedidos':
+      case 'Assinaturas':
         navigate('/store/orders');
         break;
       case 'Clientes':
@@ -68,7 +68,7 @@ const PopPage: React.FC = () => {
           <MdMenu size={30} />
         </button>
 
-        <h1 style={styles.title}>Política de privacidade</h1>
+        <h1 style={styles.headerTitle}>Política de privacidade</h1>
 
         <span style={{ width: 30 }} />
       </header>
@@ -76,7 +76,7 @@ const PopPage: React.FC = () => {
       {/* Conteúdo */}
       <main style={styles.contentWrap}>
         <p style={styles.paragraph}>
-          A sua privacidade é importante para nós. É política do FBM PERSONALIZADOS respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar no site FBM PERSONALIZADOS, e outros sites que possuímos e operamos.
+          A sua privacidade é importante para nós. É política da FBMSTORE respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar no site da FBMSTORE, e outros sites que possuímos e operamos.
         </p>
 
         <p style={styles.paragraph}>
@@ -126,13 +126,13 @@ const PopPage: React.FC = () => {
         </h3>
 
         <p style={styles.paragraph}>
-          O usuário se compromete a fazer uso adequado dos conteúdos e da informação que o FBM PERSONALIZADOS oferece no site e com caráter enunciativo, mas não limitativo:
+          O usuário se compromete a fazer uso adequado dos conteúdos e da informação que a FBMSTORE oferece no site e com caráter enunciativo, mas não limitativo:
         </p>
 
         <ul>
             <li><span style={styles.liSpan}>A) Não se envolver em atividades que sejam ilegais ou contrárias à boa fé a à ordem pública;</span></li>
             <li><span style={styles.liSpan}>B) Não difundir propaganda ou conteúdo de natureza racista, xenofóbica, jogos de sorte ou azar, qualquer tipo de pornografia ilegal, de apologia ao terrorismo ou contra os direitos humanos;</span></li>
-            <li><span style={styles.liSpan}>C) Não causar danos aos sistemas físicos (hardwares) e lógicos (softwares) do FBM PERSONALIZADOS, de seus fornecedores ou terceiros, para introduzir ou disseminar vírus informáticos ou quaisquer outros sistemas de hardware ou software que sejam capazes de causar danos anteriormente mencionados.</span></li>
+            <li><span style={styles.liSpan}>C) Não causar danos aos sistemas físicos (hardwares) e lógicos (softwares) da FBMSTORE, de seus fornecedores ou terceiros, para introduzir ou disseminar vírus informáticos ou quaisquer outros sistemas de hardware ou software que sejam capazes de causar danos anteriormente mencionados.</span></li>
         </ul>
 
         <h3>
@@ -158,14 +158,14 @@ const PopPage: React.FC = () => {
         onProducts={() => handleMenuOption("Produtos")}
         onMinhaConta={() => handleMenuOption("Minha Conta")}
         onPoliticaPrivacidade={() => handleMenuOption("")}
-        onMeusPedidos={() => handleMenuOption("Meus Pedidos")}
+        onMinhasAssinaturas={() => handleMenuOption("Minhas Assinaturas")}
         onSobre={() => handleMenuOption("Sobre")}
         onContatos={() => handleMenuOption("Contacts")}
         onCadProduct={() => handleMenuOption('CadProduct')}
         onCadCategory={() => handleMenuOption('CadCategory')}
         onCadSupplier={() => handleMenuOption('CadSupplier')}
         onAllClients={() => handleMenuOption('Clientes')}
-        onAllOrders={() => handleMenuOption('Pedidos')}
+        onAllOrders={() => handleMenuOption('Assinaturas')}
         onSair={logoutClient}
       />
     </div>
@@ -177,14 +177,18 @@ export default PopPage;
 const styles: Record<string, React.CSSProperties> = {
   page: { minHeight: "100vh", background: "#fff", display: "flex", flexDirection: "column" as const },
   header: {
-    background: "#000",
+    background: "#0f172a", 
     color: "#fff",
-    padding: "24px 16px",
+    padding: "20px 24px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottom: "0.5px solid #ddd",
+    borderBottom: "1px solid #1e293b",
+    width: "100%",
+    boxSizing: "border-box",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
   },
+  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
   title: { fontSize: 20, fontWeight: 600 as const, color: "#e799a6", margin: 0 },
   contentWrap: { padding: 16, maxWidth: 900, width: "100%", margin: "0 auto", flex: 1 },
   paragraph: {

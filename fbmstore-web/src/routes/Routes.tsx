@@ -22,6 +22,7 @@ import CadCategoryPage from "@/pages/cadCategory";
 import CadSupplierPage from "@/pages/cadSupplier";
 import ClientsScreen from "@/pages/clientes";
 import FinanLitoPage from "@/pages/finanlito";
+import SubscriptionPage from "@/pages/subscription/[productId]";
 
 export default function AppRoutes() {
   return (
@@ -57,6 +58,7 @@ export default function AppRoutes() {
 
         {/* Nova rota do FinanLito */}
         <Route path="/finanlito" element={<FinanLitoPage />} />
+        <Route path="/subscribe/:productId" element={<SubscriptionPage />} />
       </Routes>
     </BrowserRouter>
   );

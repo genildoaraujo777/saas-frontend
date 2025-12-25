@@ -372,7 +372,7 @@ const CadProductPage: React.FC = () => {
       case 'Minha Conta':
         navigate(`/store/account/${loggedClient?.client._id}`);
         break;
-      case 'Meus Pedidos':
+      case 'Minhas Assinaturas':
         navigate(`/store/orders/${false}`);
         break;
       case 'Pop':
@@ -390,7 +390,7 @@ const CadProductPage: React.FC = () => {
       case 'CadSupplier':
         navigate('/cad-supplier');
         break;
-      case 'Pedidos':
+      case 'Assinaturas':
         navigate('/store/orders');
         break;
       case 'Clientes':
@@ -579,13 +579,13 @@ const CadProductPage: React.FC = () => {
         onProducts={() => handleMenuOption('Produtos')} 
         onMinhaConta={() => handleMenuOption('Minha Conta')}
         onPoliticaPrivacidade={() => handleMenuOption('Pop')} 
-        onMeusPedidos={() => handleMenuOption('Meus Pedidos')}
+        onMinhasAssinaturas={() => handleMenuOption('Minhas Assinaturas')}
         onSobre={() => handleMenuOption('Sobre')} 
         onContatos={() => handleMenuOption('Contacts')}
         onCadCategory={() => handleMenuOption('CadCategory')} 
         onCadSupplier={() => handleMenuOption('CadSupplier')}
         onAllClients={() => handleMenuOption('Clientes')}
-        onAllOrders={() => handleMenuOption('Pedidos')}
+        onAllOrders={() => handleMenuOption('Assinaturas')}
         onSair={logoutClient}
       />
       <ToastContainer position="bottom-center" newestOnTop closeOnClick />
@@ -598,16 +598,27 @@ export default CadProductPage;
 // ALTERADO: Adição e modificação de estilos
 const styles: Record<string, React.CSSProperties> = {
   page: { minHeight: '100vh', background: '#f5f5f5', display: 'flex', flexDirection: 'column' as const },
-  header: { background: '#000', color: '#fff', padding: '24px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '0.5px solid #ddd' },
-  headerTitle: { fontSize: 20, fontWeight: 600 as const, color: '#e799a6', margin: 0 },
+  header: {
+    background: "#0f172a", 
+    color: "#fff",
+    padding: "20px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: "1px solid #1e293b",
+    width: "100%",
+    boxSizing: "border-box",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+  },
+  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
   main: { flex: 1, display: 'flex', justifyContent: 'center', padding: 24, boxSizing: 'border-box' as const },
   formContainer: { width: '100%', maxWidth: 600, background: '#fff', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,.08)', padding: '24px', display: 'flex', flexDirection: 'column' as const, gap: '16px', alignItems: 'center' },
   imageUploadArea: { width: '100%', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '12px', marginBottom: '16px' },
   imageUploadLabel: { fontSize: 16, fontWeight: 'bold', color: '#333', margin: 0, alignSelf: 'flex-start' },
-  fileInputLabel: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 15px', background: '#e799a6', color: '#fff', borderRadius: 8, cursor: 'pointer', fontWeight: 600 as const },
+  fileInputLabel: { display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 15px', background: '#4f46e5', color: '#fff', borderRadius: 8, cursor: 'pointer', fontWeight: 600 as const },
   
   // NOVO: Estilos para a galeria
-  galleryContainer: { width: '100%', minHeight: 100, border: '2px dashed #e799a6', borderRadius: 8, padding: '10px', display: 'flex', flexDirection: 'column' as const, gap: '10px', background: '#fafafa' },
+  galleryContainer: { width: '100%', minHeight: 100, border: '2px dashed #4f46e5', borderRadius: 8, padding: '10px', display: 'flex', flexDirection: 'column' as const, gap: '10px', background: '#fafafa' },
   galleryItem: { display: 'flex', alignItems: 'center', background: '#fff', borderRadius: 6, boxShadow: '0 2px 4px rgba(0,0,0,0.1)', padding: '8px', position: 'relative' },
   galleryImage: { width: 60, height: 60, objectFit: 'cover' as const, borderRadius: 4, border: '1px solid #ddd', marginLeft: '10px', },
   dragHandle: { cursor: 'grab', padding: '8px' },
@@ -616,15 +627,15 @@ const styles: Record<string, React.CSSProperties> = {
   mainImageBadge: { background: '#4CAF50', color: 'white', fontSize: 10, fontWeight: 'bold', padding: '2px 6px', borderRadius: 4, position: 'absolute', transform: 'translate(8px, -12px)', zIndex: 2 },
   
   buttonGroup: { width: '100%', display: 'flex', flexDirection: 'column' as const, gap: '8px' },
-  button: { width: '100%', padding: '14px 16px', background: '#e799a6', color: '#fff', borderRadius: 8, border: 0, fontWeight: 700 as const, boxSizing: 'border-box', cursor: 'pointer' },
+  button: { width: '100%', padding: '14px 16px', background: '#4f46e5', color: '#fff', borderRadius: 8, border: 0, fontWeight: 700 as const, boxSizing: 'border-box', cursor: 'pointer' },
   buttonDelete: { width: '100%', padding: '14px 16px', background: '#d32f2f', color: '#fff', borderRadius: 8, border: 0, fontWeight: 700 as const, boxSizing: 'border-box', cursor: 'pointer' },
   buttonCancel: { width: '100%', padding: '14px 16px', background: '#ccc', color: '#333', borderRadius: 8, border: 0, fontWeight: 700 as const, boxSizing: 'border-box', cursor: 'pointer' },
-  sectionTitle: { fontSize: 18, fontWeight: 700 as const, color: '#e799a6', margin: '10px 0', textAlign: 'center' as const },
+  sectionTitle: { fontSize: 18, fontWeight: 700 as const, color: '#0f172a', margin: '10px 0', textAlign: 'center' as const },
   listContainer: { width: '100%', display: 'flex', flexDirection: 'column' as const, gap: 8, maxHeight: 300, overflowY: 'auto', padding: 8, border: '1px solid #ddd', borderRadius: 8 },
-  listItem: { background: '#fff', padding: 12, borderRadius: 6, boxShadow: '0 1px 3px rgba(0,0,0,.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderLeft: '4px solid #e799a6' },
+  listItem: { background: '#fff', padding: 12, borderRadius: 6, boxShadow: '0 1px 3px rgba(0,0,0,.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderLeft: '4px solid #4f46e5' },
   listItemDisable: { background: '#fce4ec', opacity: 0.7, padding: 12, borderRadius: 6, boxShadow: '0 1px 3px rgba(0,0,0,.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderLeft: '4px solid #f44336' },
-  editBtn: { fontSize: 18, color: '#e799a6' },
-  selectContainer: { width: '100%', position: 'relative', marginTop: 12, marginBottom: 12, border: '1px solid #e799a6', borderRadius: 8, paddingTop: 10 },
+  editBtn: { fontSize: 18, color: '#4f46e5' },
+  selectContainer: { width: '100%', position: 'relative', marginTop: 12, marginBottom: 12, border: '1px solid #4f46e5', borderRadius: 8, paddingTop: 10 },
   selectLabel: { position: 'absolute', top: -10, left: 8, paddingLeft: 4, paddingRight: 4, fontSize: 12, color: '#666', background: '#fff' },
   selectInput: { width: '100%', height: 42, border: 'none', borderRadius: 8, paddingLeft: 12, paddingRight: 12, fontSize: 16, background: 'transparent', color: '#111', outline: 'none' },
 };

@@ -31,7 +31,7 @@ export type MenuProps = {
   // callbacks obrigatórios
   onProducts: () => void;
   onMinhaConta: () => void;
-  onMeusPedidos: () => void;
+  onMinhasAssinaturas: () => void;
   onSair: () => void;
 
   // callbacks opcionais (deixe sem usar se não tiver rota)
@@ -82,7 +82,7 @@ const Menu: React.FC<MenuProps> = ({
   userAdmin,
   onProducts,
   onMinhaConta,
-  onMeusPedidos,
+  onMinhasAssinaturas,
   onSair,
   onPoliticaPrivacidade,
   onTermos,
@@ -192,7 +192,7 @@ const Menu: React.FC<MenuProps> = ({
         {/* Seção 1 */}
         <Item icon={<MdStorefront size={22} color="#343a40" />} label="Produtos" onPress={onProducts} />
         <Item icon={<MdPersonOutline size={22} color="#343a40" />} label="Minha Conta" onPress={onMinhaConta} />
-        <Item icon={<MdAssignment size={22} color="#343a40" />} label="Meus Pedidos" onPress={onMeusPedidos} />
+        <Item icon={<MdAssignment size={22} color="#343a40" />} label="Minhas Assinaturas" onPress={onMinhasAssinaturas} />
         <Item icon={<MdPolicy size={22} color="#343a40" />} label="Política de Privacidade" onPress={onPoliticaPrivacidade} />
         
         <div style={styles.divider} />
@@ -200,6 +200,16 @@ const Menu: React.FC<MenuProps> = ({
         {/* Seção 2 */}
         <Item icon={<MdContacts size={22} color="#343a40" />} label="Contatos" onPress={onContatos} />
         <Item icon={<MdInfoOutline size={22} color="#343a40" />} label="Sobre" onPress={onSobre} />
+        {userAdmin ? (
+          <Item 
+                  icon={<MdAccountBalanceWallet size={22} color="#343a40" />} 
+                  label="Controle Financeiro" 
+                  onPress={onFinanLito} 
+                />
+        ) : (
+                // Se não for userAdmin, não exibe as opções de cadastro
+                <></>
+              )}
 
         <div style={styles.divider} />
 
@@ -214,13 +224,7 @@ const Menu: React.FC<MenuProps> = ({
                 {/* 🚀 NOVAS OPÇÕES DE ADMIN */}
                 <div style={styles.divider} />
                 <Item icon={<MdPeopleAlt size={22} color="#343a40" />} label="Gerenciar Clientes" onPress={onAllClients} />
-                <Item icon={<MdListAlt size={22} color="#343a40" />} label="Gerenciar Pedidos" onPress={onAllOrders} />
-
-                <Item 
-                  icon={<MdAccountBalanceWallet size={22} color="#343a40" />} 
-                  label="Controle Financeiro" 
-                  onPress={onFinanLito} 
-                />
+                <Item icon={<MdListAlt size={22} color="#343a40" />} label="Gerenciar Assinaturas" onPress={onAllOrders} />
                 </>
               ) : (
                 // Se não for userAdmin, não exibe as opções de cadastro

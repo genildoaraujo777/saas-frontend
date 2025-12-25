@@ -147,7 +147,7 @@ export default function FloatingLabelInput({
         autoCapitalize={autoCapitalizeString as any}
         style={{
           ...styles.input,
-          borderColor: error ? '#d32f2f' : '#e799a6',
+          borderColor: error ? '#d32f2f' : '#4f46e5',
           ...(style as React.CSSProperties),
         }}
         aria-invalid={error || undefined}

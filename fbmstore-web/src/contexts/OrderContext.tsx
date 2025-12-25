@@ -83,6 +83,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Memoriza createOrder
   const createOrder = useCallback(async (newOrder: Order, token?: string) => {
+    console.log('newOrder: ',newOrder);
     const auth = resolveToken(token);
     if (!auth) {
       window.alert('Erro!!! Sua sessão expirou, faça login novamente.');
@@ -100,7 +101,7 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // console.log('created CreateOrder: ',created)
 
     setOrderItems((prev) => [...prev, created]);
-    sendWhatsApp(created);
+    // sendWhatsApp(created);
     return created;
   }, [sendWhatsApp]); // setOrderItems é uma função de estado e é estável.
 

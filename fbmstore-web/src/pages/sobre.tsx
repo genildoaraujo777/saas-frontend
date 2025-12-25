@@ -5,25 +5,6 @@ import Menu from "@/components/ui/Menu";
 import { MdMenu } from "react-icons/md";
 import { useClient } from "@/contexts/ClientContext";
 
-const styles = {
-  page: { minHeight: "100vh", background: "#fff", display: "flex", flexDirection: "column" as const },
-  header: {
-    background: "#000",
-    color: "#fff",
-    padding: "24px 16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottom: "0.5px solid #ddd",
-  },
-  titleHeader: { fontSize: 20, fontWeight: 600 as const, color: "#ff69b4", margin: 0 },
-  content: { padding: 16, maxWidth: 900, width: "100%", margin: "0 auto", flex: 1 },
-  h1: { fontSize: 22, fontWeight: 700 as const, marginBottom: 12, color: "#111" },
-  p: { fontSize: 16, color: "#333", marginBottom: 16, textAlign: "justify" as const, lineHeight: "22px" },
-  b: { fontWeight: 700 as const },
-  signature: { marginTop: 12, fontSize: 16, color: "#555", fontStyle: "italic" as const },
-};
-
 const SobrePage: React.FC = () => {
   const navigate = useNavigate();
   const { clients, fetchClients, loggedClient, isAdmin, logoutClient } = useClient();
@@ -44,7 +25,7 @@ const SobrePage: React.FC = () => {
       case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);
         break;
-      case "Meus Pedidos":
+      case "Minhas Assinaturas":
         navigate(`/store/orders/${false}`);
         break;
       case "Pop":
@@ -62,7 +43,7 @@ const SobrePage: React.FC = () => {
       case 'CadSupplier':
         navigate('/cad-supplier');
         break;
-      case 'Pedidos':
+      case 'Assinaturas':
         navigate('/store/orders');
         break;
       case 'Clientes':
@@ -77,19 +58,19 @@ const SobrePage: React.FC = () => {
     <div style={styles.page}>
       {/* Header */}
       <header style={styles.header}>
-        <button
-          onClick={() => setMenuVisible((p) => !p)}
-          style={{ background: "transparent", border: 0, color: "#fff", cursor: "pointer" }}
-          aria-label="Abrir menu"
-          title="Abrir menu"
-        >
-          <MdMenu size={30} />
-        </button>
-
-        <h1 style={styles.titleHeader}>Sobre</h1>
-
-        <span style={{ width: 30 }} />
-      </header>
+              <button
+                onClick={() => setMenuVisible((p) => !p)}
+                style={{ background: "transparent", border: 0, color: "#fff", cursor: "pointer" }}
+                aria-label="Abrir menu"
+                title="Abrir menu"
+              >
+                <MdMenu size={30} />
+              </button>
+      
+              <h1 style={styles.headerTitle}>Sobre</h1>
+      
+              <span style={{ width: 30 }} />
+            </header>
 
       {/* Conteúdo */}
       <main style={styles.content}>
@@ -130,14 +111,14 @@ const SobrePage: React.FC = () => {
         onProducts={() => handleMenuOption("Produtos")}
         onMinhaConta={() => handleMenuOption("Minha Conta")}
         onPoliticaPrivacidade={() => handleMenuOption("Pop")}
-        onMeusPedidos={() => handleMenuOption("Meus Pedidos")}
+        onMinhasAssinaturas={() => handleMenuOption("Minhas Assinaturas")}
         onSobre={() => handleMenuOption("")}
         onContatos={() => handleMenuOption("Contacts")}
         onCadProduct={() => handleMenuOption('CadProduct')}
         onCadCategory={() => handleMenuOption('CadCategory')}
         onCadSupplier={() => handleMenuOption('CadSupplier')}
         onAllClients={() => handleMenuOption('Clientes')}
-        onAllOrders={() => handleMenuOption('Pedidos')}
+        onAllOrders={() => handleMenuOption('Assinaturas')}
         onSair={logoutClient}
         // extras futuros:
         onTermos={() => {}}
@@ -151,3 +132,25 @@ const SobrePage: React.FC = () => {
 };
 
 export default SobrePage;
+
+const styles: Record<string, React.CSSProperties> = {
+  page: { minHeight: "100vh", background: "#fff", display: "flex", flexDirection: "column" as const },
+  header: {
+    background: "#0f172a", 
+    color: "#fff",
+    padding: "20px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: "1px solid #1e293b",
+    width: "100%",
+    boxSizing: "border-box",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+  },
+  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
+  content: { padding: 16, maxWidth: 900, width: "100%", margin: "0 auto", flex: 1 },
+  h1: { fontSize: 22, fontWeight: 700 as const, marginBottom: 12, color: "#111" },
+  p: { fontSize: 16, color: "#333", marginBottom: 16, textAlign: "justify" as const, lineHeight: "22px" },
+  b: { fontWeight: 700 as const },
+  signature: { marginTop: 12, fontSize: 16, color: "#555", fontStyle: "italic" as const },
+};

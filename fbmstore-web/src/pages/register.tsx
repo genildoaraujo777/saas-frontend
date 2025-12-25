@@ -63,12 +63,15 @@ const RegisterPage: React.FC = () => {
 
   return (
     <div style={styles.page}>
-      {/* Header simples com “Voltar” */}
-      <header style={styles.header}>
-        <button onClick={() => navigate(-1)} style={styles.backBtn}>Voltar</button>
-        <span style={{ width: 60 }} />
-        <h1 style={styles.headerTitle}>Tela de cadastro</h1>
-      </header>
+       {/* HEADER SIMPLIFICADO */}
+            <header style={styles.header as React.CSSProperties}>
+              <button onClick={() => navigate(-1)} style={styles.backBtn as React.CSSProperties}>
+                Voltar
+              </button>
+              <h1 style={styles.headerTitle as React.CSSProperties}>Tela de cadastro</h1>
+              <span style={{ width: 60 }} />
+            </header>
+            {/* FIM HEADER */}
 
       <main style={styles.main}>
           <img
@@ -195,27 +198,30 @@ const RegisterPage: React.FC = () => {
 const styles: Record<string, React.CSSProperties> = {
   page: { minHeight: "100vh", background: "#f5f5f5", display: "flex", flexDirection: "column" as const },
   header: {
-    background: "#000",
+    background: "#0f172a", 
     color: "#fff",
-    padding: "24px 16px",
+    padding: "20px 24px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottom: "0.5px solid #ddd",
+    borderBottom: "1px solid #1e293b",
+    width: "100%",
+    boxSizing: "border-box",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
   },
+  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
   backBtn: {
     background: "transparent",
     border: 0,
-    color: "#e799a6",
+    color: "#fff",
     fontSize: 16,
     cursor: "pointer",
   },
-  headerTitle: { fontSize: 20, fontWeight: 600 as const, color: "#e799a6", margin: 0 },
   main: { flex: 1, display: "grid", placeItems: "center", padding: 24, boxSizing: "border-box" },
   logo: { width: 200, height: 200, objectFit: "cover", display: "block", margin: "0 auto 10px" },
   form: { width: "100%", maxWidth: 540, margin: "0 auto", display: "flex", flexDirection: "column", gap: "16px" },
-  sectionTitle: { fontSize: 18, fontWeight: 700 as const, color: "#e799a6", margin: "10px 0", textAlign: "center" },
-  separator: { border: 0, borderTop: "1px solid #e799a6", margin: "10px 0" },
+  sectionTitle: { fontSize: 18, fontWeight: 700 as const, color: "#0f172a", margin: "10px 0", textAlign: "center" },
+  separator: { border: 0, borderTop: "1px solid #4f46e5", margin: "10px 0" },
   eyeBtn: {
     position: "absolute" as const,
     right: 12,
@@ -229,7 +235,7 @@ const styles: Record<string, React.CSSProperties> = {
   submitBtn: {
     width: "100%",
     padding: "14px 16px",
-    background: "#e799a6",
+    background: "#4f46e5",
     color: "#fff",
     borderRadius: 8,
     border: 0,
@@ -237,7 +243,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 10,
     boxSizing: "border-box",
   },
-  link: { color: "#e799a6", textDecoration: "none", fontWeight: 600 as const },
+  link: { color: "#4f46e5", textDecoration: "none", fontWeight: 600 as const },
 };
 
 export default RegisterPage;

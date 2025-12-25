@@ -181,9 +181,20 @@ export default ProductDetails;
 
 // Estilos (simplifiquei alguns para clareza, mas mantive a estrutura)
 const styles: Record<string, React.CSSProperties> = {
-  header: { paddingTop: 30, height: 96, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingInline: 16, borderBottom: '0.5px solid #ddd' },
+  header: {
+    background: "#0f172a", 
+    color: "#fff",
+    padding: "20px 24px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottom: "1px solid #1e293b",
+    width: "100%",
+    boxSizing: "border-box",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+  },
+  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
   backButton: { background: 'transparent', border: 0, color: '#e799a6', fontSize: 16, cursor: 'pointer' },
-  headerTitle: { fontSize: 20, fontWeight: 600, color: '#e799a6' },
   pageContainer: { backgroundColor: '#f5f5f5', minHeight: 'calc(100vh - 96px)', padding: 20, boxSizing: 'border-box' },
   mainWrapper: { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 30, backgroundColor: '#fff', borderRadius: 10, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', maxWidth: 1200, margin: '0 auto' },
   imageArea: { flex: '1 1 350px', maxWidth: 500, minWidth: 300, display: 'flex', flexDirection: 'column' },

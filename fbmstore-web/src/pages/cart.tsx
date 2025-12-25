@@ -133,7 +133,7 @@ const CartScreen: React.FC = () => {
       case 'Minha Conta':
         navigation(`/store/account/${loggedClient?.client._id}`);
         break;
-      case 'Meus Pedidos':
+      case 'Minhas Assinaturas':
         navigation(`/store/orders/${false}`);
         break;
       case 'Pop':
@@ -154,7 +154,7 @@ const CartScreen: React.FC = () => {
       case 'CadSupplier':
         navigation('/cad-supplier');
         break;
-      case 'Pedidos':
+      case 'Assinaturas':
         navigation('/pedidos');
         break;
       case 'Clientes':
@@ -342,14 +342,14 @@ const CartScreen: React.FC = () => {
         onProducts={() => handleMenuOption('Produtos')}
         onMinhaConta={() => handleMenuOption('Minha Conta')}
         onPoliticaPrivacidade={() => handleMenuOption('Pop')}
-        onMeusPedidos={() => handleMenuOption('Meus Pedidos')}
+        onMinhasAssinaturas={() => handleMenuOption('Minhas Assinaturas')}
         onSobre={() => handleMenuOption('Sobre')}
         onContatos={() => handleMenuOption('Contacts')}
         onCadProduct={() => handleMenuOption('CadProduct')}
         onCadCategory={() => handleMenuOption('CadCategory')}
         onCadSupplier={() => handleMenuOption('CadSupplier')}
         onAllClients={() => handleMenuOption('Clientes')}
-        onAllOrders={() => handleMenuOption('Pedidos')}
+        onAllOrders={() => handleMenuOption('Assinaturas')}
         onSair={logoutClient}
         onTermos={() => {}}
         onAvaliar={() => {}}
