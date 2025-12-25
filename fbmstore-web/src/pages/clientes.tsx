@@ -112,6 +112,9 @@ const ClientsScreen: React.FC = () => {
       case 'Clientes':
         navigate('/clientes');
         break;
+      case 'Controle Financeiro':
+        navigate('/finanlito');
+        break;
       default:
         break;
     }
@@ -217,6 +220,7 @@ const ClientsScreen: React.FC = () => {
                 onPreferencias={() => {}}
                 onTutorial={() => {}}
                 onAssistenteVirtual={() => {}}
+                onFinanLito={() => handleMenuOption('Controle Financeiro')}
             />
         </div>
     );

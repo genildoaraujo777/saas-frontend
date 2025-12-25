@@ -143,6 +143,9 @@ const CadSupplierPage: React.FC = () => {
       case 'Clientes':
         navigate('/clientes');
         break;
+      case 'Controle Financeiro':
+        navigate('/finanlito');
+        break;
       default:
         break;
     }
@@ -246,6 +249,7 @@ const CadSupplierPage: React.FC = () => {
         onAllClients={() => handleMenuOption('Clientes')}
         onAllOrders={() => handleMenuOption('Assinaturas')}
         onSair={logoutClient}
+        onFinanLito={() => handleMenuOption('Controle Financeiro')}
         // hooks/rotas extras quando existirem:
         onTermos={() => {}}
         onAvaliar={() => {}}

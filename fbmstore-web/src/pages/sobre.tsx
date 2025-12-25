@@ -51,6 +51,9 @@ const SobrePage: React.FC = () => {
       case 'Clientes':
         navigate('/clientes');
         break;
+      case 'Controle Financeiro':
+        navigate('/finanlito');
+        break;
       default:
         break;
     }
@@ -129,6 +132,7 @@ const SobrePage: React.FC = () => {
         onPreferencias={() => {}}
         onTutorial={() => {}}
         onAssistenteVirtual={() => {}}
+        onFinanLito={() => handleMenuOption('Controle Financeiro')}
       />
     </div>
   );

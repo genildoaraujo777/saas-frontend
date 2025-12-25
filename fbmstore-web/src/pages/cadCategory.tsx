@@ -139,7 +139,10 @@ const CadCategoryPage: React.FC = () => {
         break;
       case 'Clientes':
         navigate('/clientes');
-        break;  
+        break;
+      case 'Controle Financeiro':
+        navigate('/finanlito');
+        break;
       default:
         break;
     }
@@ -242,6 +245,7 @@ const CadCategoryPage: React.FC = () => {
         onAllClients={() => handleMenuOption('Clientes')}
         onAllOrders={() => handleMenuOption('Assinaturas')}
         onSair={logoutClient}
+        onFinanLito={() => handleMenuOption('Controle Financeiro')}
       />
       <ToastContainer position="bottom-center" newestOnTop closeOnClick />
     </div>

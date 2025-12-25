@@ -162,6 +162,9 @@ const CartScreen: React.FC = () => {
       case 'Clientes':
         navigation('/clientes');
         break;
+      case 'Controle Financeiro':
+        navigate('/finanlito');
+        break;
       default:
         handleProductsByCategory(option);
         break;
@@ -359,6 +362,7 @@ const CartScreen: React.FC = () => {
         onPreferencias={() => {}}
         onTutorial={() => {}}
         onAssistenteVirtual={() => {}}
+        onFinanLito={() => handleMenuOption('Controle Financeiro')}
       />
     </div>
   );

@@ -138,6 +138,9 @@ const ContactsPage: React.FC = () => {
       case 'Clientes':
         navigate('/clientes');
         break;
+      case 'Controle Financeiro':
+        navigate('/finanlito');
+        break;
       default:
         break;
     }
@@ -248,6 +251,7 @@ const ContactsPage: React.FC = () => {
         onAllClients={() => handleMenuOption('Clientes')}
         onAllOrders={() => handleMenuOption('Assinaturas')}
         onSair={logoutClient}
+        onFinanLito={() => handleMenuOption('Controle Financeiro')}
       />
     </div>
   );

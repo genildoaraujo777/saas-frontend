@@ -204,7 +204,7 @@ const HomePage: React.FC = () => {
               }}
             >
               <MdRocketLaunch size={18} />
-              {product.quantityStock === 0 ? "Indisponível" : "Assinar Agora"}
+              {product.quantityStock === 0 ? "Indisponível" : "Ver Detalhes"}
             </Link>
           </div>
         </div>
