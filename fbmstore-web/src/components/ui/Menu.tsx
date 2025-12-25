@@ -27,6 +27,7 @@ export type MenuProps = {
   userName?: string;
   userDoc?: string;
   userAdmin: boolean;
+  hasFinancialAccess?: boolean;
 
   // callbacks obrigatórios
   onProducts: () => void;
@@ -80,6 +81,7 @@ const Menu: React.FC<MenuProps> = ({
   userName,
   userDoc,
   userAdmin,
+  hasFinancialAccess;
   onProducts,
   onMinhaConta,
   onMinhasAssinaturas,
@@ -200,7 +202,7 @@ const Menu: React.FC<MenuProps> = ({
         {/* Seção 2 */}
         <Item icon={<MdContacts size={22} color="#343a40" />} label="Contatos" onPress={onContatos} />
         <Item icon={<MdInfoOutline size={22} color="#343a40" />} label="Sobre" onPress={onSobre} />
-        {userAdmin ? (
+        {(userAdmin || hasFinancialAccess) ? (
           <Item 
                   icon={<MdAccountBalanceWallet size={22} color="#343a40" />} 
                   label="Controle Financeiro" 

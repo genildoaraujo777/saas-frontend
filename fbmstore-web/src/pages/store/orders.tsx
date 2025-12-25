@@ -7,8 +7,10 @@ import type { Order } from '@/types';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useClient } from '@/contexts/ClientContext';
 import api from '@/services/api'; // Importação direta da API para o update
+import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck';
 
 const OrdersScreen: React.FC = () => {
+  const { hasActiveFinance } = useSubscriptionCheck();
   const { clients, fetchClients, loggedClient, isAdmin: realAdminUser, logoutClient } = useClient();
   const { mode } = useParams<{ mode?: string }>();
   const location = useLocation();
@@ -120,18 +122,41 @@ const OrdersScreen: React.FC = () => {
     );
   }, [ordersClient, searchQuery]);
 
-  const handleMenuOption = (option: string) => {
+ const handleMenuOption = (option: string) => {
     setMenuVisible(false);
     switch (option) {
+      case "Produtos":
+        navigate("/");
+        break;
       case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);
         break;
-      case "Produtos": // Pode renomear para "Planos" se quiser
-        navigate("/"); 
+      case "Minhas Assinaturas":
+        navigate(`/store/orders/${false}`);
         break;
-      case "Sair":
-        logoutClient();
-        navigate("/login");
+      case "Pop":
+        navigate('/politica-privacidade');
+        break;
+      case "Contacts":
+        navigate("/contacts");
+        break;
+      case "Sobre":
+        navigate("/sobre");
+        break;
+      case 'CadProduct':
+        navigate('/cad-product');
+        break;
+      case 'CadCategory':
+        navigate('/cad-category');
+        break;
+      case 'CadSupplier':
+        navigate('/cad-supplier');
+        break;
+      case 'Assinaturas':
+        navigate(`/store/orders/${realAdminUser}`);
+        break;
+      case 'Clientes':
+        navigate('/clientes');
         break;
       default:
         break;
@@ -142,12 +167,19 @@ const OrdersScreen: React.FC = () => {
     <div style={styles.container}>
       {/* Header */}
       <header style={styles.header}>
-        <button onClick={() => setMenuVisible(!menuVisible)} style={styles.iconButton}>
-          <MdMenu size={28} color="#fff" />
-        </button>
-        <h1 style={styles.headerTitle}>{isViewModeAdmin ? 'Gestão de Assinaturas' : 'Minhas Assinaturas'}</h1>
-        <CartIconWithBadge onPress={() => navigate('/cart')} />
-      </header>
+              <button
+                onClick={() => setMenuVisible((p) => !p)}
+                style={{ background: "transparent", border: 0, color: "#fff", cursor: "pointer" }}
+                aria-label="Abrir menu"
+                title="Abrir menu"
+              >
+                <MdMenu size={30} />
+              </button>
+      
+              <h1 style={styles.headerTitle}>{isViewModeAdmin ? 'Gestão de Assinaturas' : 'Minhas Assinaturas'}</h1>
+      
+              <span style={{ width: 30 }} />
+            </header>
 
       <div style={styles.content}>
         {/* Barra de Busca e Refresh */}
@@ -221,11 +253,27 @@ const OrdersScreen: React.FC = () => {
         visible={menuVisible}
         setVisible={setMenuVisible}
         userName={loggedClient?.client.name}
+        userDoc=""
         userAdmin={realAdminUser}
-        onMinhaConta={() => handleMenuOption("Minha Conta")}
+        hasFinancialAccess={hasActiveFinance}
         onProducts={() => handleMenuOption("Produtos")}
-        onSair={() => handleMenuOption("Sair")}
-        userDoc="" onPoliticaPrivacidade={()=>{}} onMinhasAssinaturas={()=>{}} onSobre={()=>{}} onContatos={()=>{}} onCadProduct={()=>{}} onCadCategory={()=>{}} onCadSupplier={()=>{}} onAllClients={()=>{}} onAllOrders={()=>{}} onTermos={()=>{}} onAvaliar={()=>{}} onPreferencias={()=>{}} onTutorial={()=>{}} onAssistenteVirtual={()=>{}} onFinanLito={()=>{}}
+        onMinhaConta={() => handleMenuOption("Minha Conta")}
+        onPoliticaPrivacidade={() => handleMenuOption("Pop")}
+        onMinhasAssinaturas={() => handleMenuOption("Minhas Assinaturas")}
+        onSobre={() => handleMenuOption("Sobre")}
+        onContatos={() => handleMenuOption("Contacts")}
+        onCadProduct={() => handleMenuOption('CadProduct')}
+        onCadCategory={() => handleMenuOption('CadCategory')}
+        onCadSupplier={() => handleMenuOption('CadSupplier')}
+        onAllClients={() => handleMenuOption('Clientes')}
+        onAllOrders={() => handleMenuOption('Assinaturas')}
+        onSair={logoutClient}
+        // hooks/rotas extras quando existirem:
+        onTermos={() => {}}
+        onAvaliar={() => {}}
+        onPreferencias={() => {}}
+        onTutorial={() => {}}
+        onAssistenteVirtual={() => {}}
       />
     </div>
   );

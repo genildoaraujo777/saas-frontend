@@ -36,6 +36,7 @@ import { useSupplier } from '@/contexts/SupplierContext';
 import { Product } from '@/types';
 import { brlToNumber, numberToBRL } from '@/utils/currency';
 import { useClient } from '@/contexts/ClientContext';
+import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck';
 
 // NOVO: Estrutura para item da galeria
 type GalleryItem = {
@@ -106,6 +107,7 @@ const SortableImageItem: React.FC<{ item: GalleryItem; onRemove: (id: string) =>
 
 
 const CadProductPage: React.FC = () => {
+  const { hasActiveFinance } = useSubscriptionCheck();
   const navigate = useNavigate();
   const { clients, fetchClients, loggedClient, isAdmin, logoutClient } = useClient();
   const { categoriesItems } = useCategory();
@@ -575,7 +577,9 @@ const CadProductPage: React.FC = () => {
       <Menu
         visible={menuVisible} setVisible={setMenuVisible} 
         userName={loggedClient?.client.name} 
-        userDoc="" userAdmin={isAdmin}
+        userDoc="" 
+        userAdmin={isAdmin}
+        hasFinancialAccess={hasActiveFinance}
         onProducts={() => handleMenuOption('Produtos')} 
         onMinhaConta={() => handleMenuOption('Minha Conta')}
         onPoliticaPrivacidade={() => handleMenuOption('Pop')} 

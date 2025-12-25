@@ -16,8 +16,10 @@ import {
 import { Category } from '@/types';
 import { useCategory } from '@/contexts/CategoryContext'; // Fonte de dados para lista
 import { useClient } from '@/contexts/ClientContext';
+import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck';
 
 const CadCategoryPage: React.FC = () => {
+  const { hasActiveFinance } = useSubscriptionCheck();
   const { searchCategories } = useCategory();
   const navigate = useNavigate();
   // Obtemos a lista e as funções de manipulação do contexto global
@@ -228,6 +230,7 @@ const CadCategoryPage: React.FC = () => {
         userName={loggedClient?.client.name}
         userDoc=""
         userAdmin={isAdmin}
+        hasFinancialAccess={hasActiveFinance}
         onProducts={() => handleMenuOption('Produtos')}
         onMinhaConta={() => handleMenuOption('Minha Conta')}
         onPoliticaPrivacidade={() => handleMenuOption('Pop')}

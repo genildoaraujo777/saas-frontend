@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { MdMenu, MdChevronRight } from 'react-icons/md';
 import { SiInstagram, SiWhatsapp, SiGooglechrome } from 'react-icons/si';
 import { useClient } from '@/contexts/ClientContext';
+import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck';
 
 type IconProps = { color?: string; size?: number };
 type IconEl = React.ReactElement<IconProps>;
@@ -99,6 +100,7 @@ const ContactRow: React.FC<{
 };
 
 const ContactsPage: React.FC = () => {
+  const { hasActiveFinance } = useSubscriptionCheck();
   const navigate = useNavigate();
   const { clients, fetchClients, loggedClient, isAdmin, logoutClient } = useClient();
   const [menuVisible, setMenuVisible] = useState(false);
@@ -233,6 +235,7 @@ const ContactsPage: React.FC = () => {
         userName={loggedClient?.client.name}
         userDoc=""
         userAdmin={isAdmin}
+        hasFinancialAccess={hasActiveFinance}
         onProducts={() => handleMenuOption('Produtos')}
         onMinhaConta={() => handleMenuOption('Minha Conta')}
         onPoliticaPrivacidade={() => handleMenuOption('Pop')}

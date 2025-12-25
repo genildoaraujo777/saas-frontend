@@ -4,8 +4,10 @@ import { useNavigate } from "react-router-dom";
 import Menu from "@/components/ui/Menu";
 import { MdMenu } from "react-icons/md";
 import { useClient } from "@/contexts/ClientContext";
+import { useSubscriptionCheck } from "@/hooks/useSubscriptionCheck";
 
 const PopPage: React.FC = () => {
+  const { hasActiveFinance } = useSubscriptionCheck();
   const navigate = useNavigate();
 
   const { clients, fetchClients, loggedClient, isAdmin, logoutClient } = useClient();
@@ -155,6 +157,7 @@ const PopPage: React.FC = () => {
         userName={loggedClient?.client.name}
         userDoc=""
         userAdmin={isAdmin}
+        hasFinancialAccess={hasActiveFinance}
         onProducts={() => handleMenuOption("Produtos")}
         onMinhaConta={() => handleMenuOption("Minha Conta")}
         onPoliticaPrivacidade={() => handleMenuOption("")}

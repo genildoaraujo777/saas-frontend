@@ -8,8 +8,10 @@ import { useSupplier } from "@/contexts/SupplierContext";
 import { CartItem } from "@/types";
 import { MdMenu, MdRocketLaunch } from "react-icons/md";
 import { useClient } from "@/contexts/ClientContext";
+import { useSubscriptionCheck } from "@/hooks/useSubscriptionCheck";
 
 const HomePage: React.FC = () => {
+  const { hasActiveFinance } = useSubscriptionCheck();
   const navigate = useNavigate();
   const { clients, fetchClients, loggedClient, isAdmin, logoutClient } = useClient();
 
@@ -288,6 +290,7 @@ const HomePage: React.FC = () => {
         userName={loggedClient?.client.name}
         userDoc=""
         userAdmin={isAdmin}
+        hasFinancialAccess={hasActiveFinance}
         onProducts={() => handleMenuOption("")}
         onMinhaConta={() => handleMenuOption("Minha Conta")}
         onPoliticaPrivacidade={() => handleMenuOption("Pop")}

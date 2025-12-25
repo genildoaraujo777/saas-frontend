@@ -15,8 +15,10 @@ import type { CartItem, Product } from '@/types';
 import { useNavigate } from 'react-router-dom';
 import { checkTokenValidity, searchAccountData } from '@/services/AuthenticationService';
 import { useClient } from '@/contexts/ClientContext';
+import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck';
 
 const CartScreen: React.FC = () => {
+  const { hasActiveFinance } = useSubscriptionCheck();
   const { clients, fetchClients, loggedClient, isAdmin, logoutClient } = useClient();
   const { cartItems, removeFromCart, increaseQuantity, decreaseQuantity, clearCart } = useCart();
   const { stockItems, updateStock, fetchStockItemsByQuery } = useStock();
@@ -339,6 +341,7 @@ const CartScreen: React.FC = () => {
         userName={loggedClient?.client.name}
         userDoc=""
         userAdmin={isAdmin}
+        hasFinancialAccess={hasActiveFinance}
         onProducts={() => handleMenuOption('Produtos')}
         onMinhaConta={() => handleMenuOption('Minha Conta')}
         onPoliticaPrivacidade={() => handleMenuOption('Pop')}

@@ -16,8 +16,10 @@ import {
 import { Supplier } from '@/types';
 import { useSupplier } from '@/contexts/SupplierContext'; // Fonte de dados para lista
 import { useClient } from '@/contexts/ClientContext';
+import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck';
 
 const CadSupplierPage: React.FC = () => {
+  const { hasActiveFinance } = useSubscriptionCheck();
   const { clients, fetchClients, loggedClient, isAdmin, logoutClient } = useClient();
   const { searchSuppliers } = useSupplier();
   const navigate = useNavigate();
@@ -231,6 +233,7 @@ const CadSupplierPage: React.FC = () => {
         userName={loggedClient?.client.name}
         userDoc=""
         userAdmin={isAdmin}
+        hasFinancialAccess={hasActiveFinance}
         onProducts={() => handleMenuOption("Produtos")}
         onMinhaConta={() => handleMenuOption("Minha Conta")}
         onPoliticaPrivacidade={() => handleMenuOption("Pop")}
