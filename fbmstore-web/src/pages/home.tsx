@@ -324,6 +324,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column" as const, 
     width: "100%",
     boxSizing: "border-box",
+    overflowX: "hidden",
   },
 
   header: {
@@ -378,6 +379,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 24,
     padding: "10px 0",
     width: "100%",
+    boxSizing: "border-box",
   },
   noProductsText: { textAlign: 'center', color: '#64748b', fontSize: 16, marginTop: 40 },
 

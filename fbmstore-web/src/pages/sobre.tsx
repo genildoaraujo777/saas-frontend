@@ -155,7 +155,7 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
   },
   headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
-  content: { padding: 16, maxWidth: 900, width: "100%", margin: "0 auto", flex: 1 },
+  content: { padding: 16, maxWidth: 900, width: "100%", margin: "0 auto", flex: 1, boxSizing: "border-box" },
   h1: { fontSize: 22, fontWeight: 700 as const, marginBottom: 12, color: "#111" },
   p: { fontSize: 16, color: "#333", marginBottom: 16, textAlign: "justify" as const, lineHeight: "22px" },
   b: { fontWeight: 700 as const },

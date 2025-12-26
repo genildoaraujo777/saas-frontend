@@ -4,6 +4,8 @@ import { useOrder } from '@/contexts/OrderContext';
 import { CartItem, Order, Product } from '@/types'; 
 import React, { useEffect, useState } from 'react'; 
 import { useNavigate, useParams } from 'react-router-dom';
+import { MdCancel } from 'react-icons/md';
+import api from '@/services/api';
 
 const OrderDetailsScreen: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -12,6 +14,21 @@ const OrderDetailsScreen: React.FC = () => {
   const navigation = useNavigate();
   // @ts-ignore
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+  // Função Cancelar Local
+  const handleCancelOrder = async () => {
+    if(!order) return;
+    if(!confirm("Deseja cancelar esta assinatura?")) return;
+    try {
+        const token = localStorage.getItem('token');
+        await api.post('/pagto/subscription/cancel', { orderId: order._id }, { headers: { Authorization: `Bearer ${token}` } });
+        alert("Assinatura cancelada.");
+        navigation(-1);
+    } catch (err) { alert("Erro ao cancelar."); }
+  };
+
+  const clientName = (order && typeof order.client === 'object') ? (order.client as any).name : '---';
+  const isActive = order && ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(order.statusOrder?.toUpperCase());
 
   // --- HELPERS DE STATUS (Adicionados conforme solicitado) ---
   const getStatusLabel = (status: string) => {
@@ -123,6 +140,12 @@ const OrderDetailsScreen: React.FC = () => {
               <div style={styles.orderTotalValue}>{formatCurrency(order.totalPrice)}</div>
             </div>
 
+            {/* MOSTRAR CLIENTE */}
+            <div style={styles.orderItem}>
+              <div style={styles.orderLabel}>Cliente:</div>
+              <div style={styles.orderValue}>{clientName}</div>
+            </div>
+
             <div style={styles.orderItem}>
               <div style={styles.orderLabel}>Status Atual:</div>
               {/* USO DA FUNÇÃO DE STATUS E COR AQUI */}
@@ -135,6 +158,13 @@ const OrderDetailsScreen: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* BOTÃO CANCELAR SE ATIVO */}
+          {isActive && (
+             <button onClick={handleCancelOrder} style={styles.cancelBtnLarge}>
+                <MdCancel size={18} /> Cancelar Assinatura Agora
+             </button>
+          )}
 
           <h2 style={styles.sectionTitle}>Plano Selecionado</h2>
 
@@ -182,6 +212,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     backgroundColor: '#f5f5f5',
     fontFamily: 'Inter, sans-serif',
+    boxSizing: 'border-box', overflowX: 'hidden'
   },
   loadingContainer: {
     padding: 20,
@@ -218,13 +249,19 @@ const styles: Record<string, React.CSSProperties> = {
     overflowY: 'auto',
   },
   contentContainer: {
-    width: '100%',
+    width: '95%',
     maxWidth: 900, 
-    margin: '0 20px', 
+    margin: '0 auto',
     padding: 20,
     backgroundColor: '#fff',
     borderRadius: 12,
     boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
+    boxSizing: 'border-box'
+  },
+  cancelBtnLarge: {
+      width: '100%', padding: '12px', marginBottom: '20px', backgroundColor: '#fee2e2', color: '#dc2626',
+      border: '1px solid #fca5a5', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+      display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'
   },
   sectionTitle: {
     fontSize: 22,

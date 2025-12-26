@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MdMenu, MdRefresh } from 'react-icons/md';
+import { MdMenu, MdRefresh, MdCancel } from 'react-icons/md';
 import CartIconWithBadge from '@/components/ui/CartIconWithBadge';
 import Menu from '@/components/ui/Menu';
 import { useOrder } from '@/contexts/OrderContext';
@@ -166,6 +166,18 @@ const OrdersScreen: React.FC = () => {
     }
   };
 
+  // Função para Cancelar
+  const handleCancelOrder = async (e: React.MouseEvent, orderId: string) => {
+    e.stopPropagation(); 
+    if(!confirm("Deseja cancelar esta assinatura?")) return;
+    try {
+        const token = localStorage.getItem('token');
+        await api.post('/pagto/subscription/cancel', { orderId }, { headers: { Authorization: `Bearer ${token}` } });
+        alert("Solicitação enviada.");
+        loadOrders();
+    } catch (err) { alert("Erro ao cancelar."); }
+  };
+
   return (
     <div style={styles.container}>
       {/* Header */}
@@ -207,47 +219,60 @@ const OrdersScreen: React.FC = () => {
         ) : filteredOrders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 20, color: '#999' }}>Nenhuma assinatura encontrada.</div>
         ) : (
-            <div style={styles.listContainer}>
-                {filteredOrders.map((order) => (
-                    <div 
-                        key={order._id || order.numberOrder} 
-                        style={styles.card}
-                        onClick={() => navigate(`/order/${order._id}`)} // Detalhes
-                    >
-                        <div style={styles.cardHeader}>
-                            {/* ALTERADO: Texto "Assinatura" */}
-                            <span style={styles.orderNumber}>Assinatura #{order.numberOrder}</span>
-                            <span style={styles.orderDate}>
-                                {new Date(order.createdAt!!).toLocaleDateString('pt-BR')}
-                            </span>
-                        </div>
+              <div style={styles.listContainer}>
+                {filteredOrders.map((order) => {
+                    const isActive = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(order.statusOrder?.toUpperCase());
+                    
+                    // PEGAR NOME DO CLIENTE
+                    const clientName = (typeof order.client === 'object' && order.client?.name) 
+                        ? order.client.name 
+                        : '---';
 
-                        <div style={styles.cardBody}>
-                            <div style={styles.infoRow}>
-                                <span>Status:</span>
-                                {/* Cor dinâmica aplicada aqui */}
-                                <span style={{
-                                    ...styles.orderStatus, 
-                                    color: getStatusColor(order.statusOrder) 
-                                }}>
-                                    {getStatusLabel(order.statusOrder)}
-                                </span>
-                            </div>
-                            
-                            <div style={styles.infoRow}>
-                                <span>Plano/Itens:</span>
-                                <span>{order.quantityItems}</span>
+                    return (
+                        <div key={order._id} style={styles.card} onClick={() => navigate(`/store/${order._id}`)}>
+                            <div style={styles.cardHeader}>
+                                <span style={styles.orderNumber}>Assinatura #{order.numberOrder}</span>
+                                <span style={styles.orderDate}>{new Date(order.createdAt!).toLocaleDateString('pt-BR')}</span>
                             </div>
 
-                            <div style={styles.totalRow}>
-                                <span>Mensalidade:</span>
-                                <span style={styles.totalValue}>
-                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.totalPrice)}
-                                </span>
+                            <div style={styles.cardBody}>
+                                {/* MOSTRAR NOME */}
+                                <div style={styles.infoRow}>
+                                    <span style={{fontWeight:'bold'}}>Cliente:</span>
+                                    <span>{clientName}</span>
+                                </div>
+
+                                <div style={styles.infoRow}>
+                                    <span>Status:</span>
+                                    <span style={{...styles.orderStatus, color: getStatusColor(order.statusOrder)}}>{order.statusOrder}</span>
+                                </div>
+                                
+                                {/* ... Total ... */}
+                                <div style={styles.infoRow}>
+                                    <span>Plano/Itens:</span>
+                                    <span>{order.quantityItems}</span>
+                                </div>
+
+                                <div style={styles.totalRow}>
+                                    <span>Mensalidade:</span>
+                                    <span style={styles.totalValue}>
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.totalPrice)}
+                                    </span>
+                                </div>
+
+                                {/* BOTÃO CANCELAR */}
+                                {isActive && (
+                                    <button 
+                                        onClick={(e) => handleCancelOrder(e, order._id!)}
+                                        style={styles.cancelButton}
+                                    >
+                                        <MdCancel /> Cancelar
+                                    </button>
+                                )}
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         )}
       </div>
@@ -286,12 +311,24 @@ const OrdersScreen: React.FC = () => {
 export default OrdersScreen;
 
 const styles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    backgroundColor: '#f3f4f6',
-    fontFamily: 'Inter, sans-serif',
+  container: { 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100vh', 
+      backgroundColor: '#f3f4f6', 
+      fontFamily: 'Inter', 
+      width: '100%', 
+      boxSizing: 'border-box', 
+      overflowX: 'hidden'
+  },
+  content: { 
+      flex: 1, 
+      padding: 20, 
+      overflowY: 'auto', 
+      maxWidth: '800px', 
+      margin: '0 auto', 
+      width: '100%', 
+      boxSizing: 'border-box'
   },
   header: {
     backgroundColor: '#0f172a',
@@ -312,15 +349,6 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     cursor: 'pointer',
     padding: 5,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-    overflowY: 'auto',
-    maxWidth: '800px',
-    margin: '0 auto',
-    width: '100%',
-    boxSizing: 'border-box',
   },
   toolsBar: {
     display: 'flex',
@@ -414,4 +442,9 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#4f46e5', // Indigo
     fontSize: 16,
   },
+  cancelButton: {
+      marginTop: 12, backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6,
+      padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      gap: 5, fontWeight: 600, fontSize: '0.9rem', width: '100%'
+  }
 };

@@ -278,6 +278,7 @@ const styles: Record<string, React.CSSProperties> = {
         maxWidth: 800,
         margin: '0 auto',
         width: '100%',
+        boxSizing: "border-box"
     },
     // Container que segura a Busca e o Botão Novo lado a lado (ou empilhados no mobile muito pequeno)
     topControls: {

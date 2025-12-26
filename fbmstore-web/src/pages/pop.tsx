@@ -197,7 +197,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
   title: { fontSize: 20, fontWeight: 600 as const, color: "#e799a6", margin: 0 },
-  contentWrap: { padding: 16, maxWidth: 900, width: "100%", margin: "0 auto", flex: 1 },
+  contentWrap: { padding: 16, maxWidth: 900, width: "100%", margin: "0 auto", flex: 1, boxSizing: "border-box" },
   paragraph: {
     fontSize: 16,
     color: "#333",

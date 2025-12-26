@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MdCheckCircle, MdRocketLaunch, MdArrowBack } from 'react-icons/md';
+import { MdCheckCircle, MdRocketLaunch, MdArrowBack, MdCancel } from 'react-icons/md';
 import api from '../../services/api';
 import { useClient } from '../../contexts/ClientContext'; 
 import { useOrder } from '../../contexts/OrderContext'; //
@@ -21,7 +21,7 @@ export default function SubscriptionPage() {
   const navigate = useNavigate();
   
   const { loggedClient, logoutClient } = useClient();
-  const { createOrder } = useOrder(); //
+  const { createOrder, ordersClient } = useOrder();
 
   const [product, setProduct] = useState<ProductType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +46,40 @@ export default function SubscriptionPage() {
     }
     loadProduct();
   }, [productId, navigate]);
+
+  // 1. Lógica para verificar se já assina
+  const activeSubscription = useMemo(() => {
+    if (!ordersClient || !productId) return null;
+    return ordersClient.find(order => {
+        const isPaid = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(order.statusOrder?.toUpperCase());
+        const hasProduct = order.itemsOrder.some((item: any) => {
+            const id = typeof item === 'string' ? item : item.product?._id || item._id;
+            return id === productId;
+        });
+        return isPaid && hasProduct;
+    });
+  }, [ordersClient, productId]);
+
+  // 2. Função de Cancelar
+  async function handleCancel() {
+    if (!activeSubscription) return;
+    if(!confirm("Deseja cancelar esta assinatura?")) return;
+    
+    setProcessing(true);
+    try {
+        const token = localStorage.getItem('token');
+        await api.post('/pagto/subscription/cancel', 
+            { orderId: activeSubscription._id }, 
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+        alert("Assinatura cancelada!");
+        navigate('/store/orders');
+    } catch (e) {
+        alert("Erro ao cancelar.");
+    } finally {
+        setProcessing(false);
+    }
+  }
 
   async function handleSubscribe() {
     // A. Verifica login e Token
@@ -154,9 +188,9 @@ export default function SubscriptionPage() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f172a', color: 'white', fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: '#0f172a', color: 'white', fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
       
-      <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+      <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
         <button 
             onClick={() => navigate(-1)} 
             style={{ 
@@ -175,7 +209,7 @@ export default function SubscriptionPage() {
         </button>
       </div>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 2rem', textAlign: 'center' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
         <span style={{ color: '#6366f1', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', fontSize: '0.9rem' }}>
           Plano Selecionado
         </span>
@@ -190,7 +224,7 @@ export default function SubscriptionPage() {
         </p>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '4rem', paddingLeft: '1rem', paddingRight: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '4rem', paddingLeft: '1rem', paddingRight: '1rem', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ 
             background: '#1e293b', 
             borderRadius: '24px', 
@@ -217,30 +251,44 @@ export default function SubscriptionPage() {
                 <span style={{ color: '#94a3b8', fontSize: '1.2rem' }}>/mês</span>
             </div>
             
-            <button 
-                onClick={handleSubscribe}
-                disabled={processing}
-                style={{
-                    width: '100%',
-                    padding: '1.2rem',
-                    marginTop: '2.5rem',
-                    background: processing ? '#4b5563' : '#4f46e5',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontSize: '1.1rem',
-                    fontWeight: 700,
-                    cursor: processing ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    gap: '0.8rem',
-                    transition: 'all 0.2s',
-                    boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)'
-                }}
-            >
-                {processing ? 'Criando assinatura...' : <><MdRocketLaunch size={22} /> Assinar Agora</>}
-            </button>
+            {activeSubscription ? (
+                <button 
+                    onClick={handleCancel}
+                    disabled={processing}
+                    style={{
+                        width: '100%', padding: '1.2rem', marginTop: '2.5rem',
+                        background: '#ef4444', // Vermelho
+                        color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.8rem'
+                    }}
+                >
+                    {processing ? 'Processando...' : <><MdCancel size={22} /> Cancelar Assinatura</>}
+                </button>
+            ) : (
+                <button 
+                    onClick={handleSubscribe}
+                    disabled={processing}
+                    style={{
+                        width: '100%',
+                        padding: '1.2rem',
+                        marginTop: '2.5rem',
+                        background: processing ? '#4b5563' : '#4f46e5',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontSize: '1.1rem',
+                        fontWeight: 700,
+                        cursor: processing ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '0.8rem',
+                        transition: 'all 0.2s',
+                        boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)'
+                    }}
+                >
+                    {processing ? 'Criando assinatura...' : <><MdRocketLaunch size={22} /> Assinar Agora</>}
+                </button>
+            )}
             
             <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.85rem', marginTop: '1.2rem' }}>
                 <i className="fas fa-lock"></i> Pagamento 100% seguro via Stripe
