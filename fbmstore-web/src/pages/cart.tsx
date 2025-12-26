@@ -130,7 +130,7 @@ const CartScreen: React.FC = () => {
     setMenuVisible(false);
     switch (option) {
       case 'Produtos':
-        navigation('/');
+        window.location.href = '/';
         break;
       case 'Minha Conta':
         navigation(`/store/account/${loggedClient?.client._id}`);

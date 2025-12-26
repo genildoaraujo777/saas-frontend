@@ -73,6 +73,8 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsAdmin(false);
         localStorage.clear();
         // Aqui você pode forçar um redirect se necessário, mas idealmente o componente reage ao state
+        // MUDANÇA AQUI: Força o navegador a ir para a Home e recarregar a página
+        window.location.href = '/';
     }, []);
 
     // Opcional: Tentar recuperar o usuário logado ao recarregar a página se tiver token

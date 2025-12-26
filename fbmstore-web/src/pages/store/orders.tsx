@@ -126,7 +126,7 @@ const OrdersScreen: React.FC = () => {
     setMenuVisible(false);
     switch (option) {
       case "Produtos":
-        navigate("/");
+        window.location.href = '/';
         break;
       case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);
@@ -229,7 +229,7 @@ const OrdersScreen: React.FC = () => {
                         : '---';
 
                     return (
-                        <div key={order._id} style={styles.card} onClick={() => navigate(`/store/${order._id}`)}>
+                        <div key={order._id} style={styles.card} onClick={() => navigate(`/order/${order._id}`)}>
                             <div style={styles.cardHeader}>
                                 <span style={styles.orderNumber}>Assinatura #{order.numberOrder}</span>
                                 <span style={styles.orderDate}>{new Date(order.createdAt!).toLocaleDateString('pt-BR')}</span>
@@ -244,7 +244,7 @@ const OrdersScreen: React.FC = () => {
 
                                 <div style={styles.infoRow}>
                                     <span>Status:</span>
-                                    <span style={{...styles.orderStatus, color: getStatusColor(order.statusOrder)}}>{order.statusOrder}</span>
+                                    <span style={{...styles.orderStatus, color: getStatusColor(order.statusOrder)}}>{getStatusLabel(order.statusOrder)}</span>
                                 </div>
                                 
                                 {/* ... Total ... */}

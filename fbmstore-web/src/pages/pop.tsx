@@ -23,7 +23,7 @@ const PopPage: React.FC = () => {
     setMenuVisible(false);
     switch (option) {
       case "Produtos":
-        navigate("/");
+        window.location.href = '/';
         break;
       case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);

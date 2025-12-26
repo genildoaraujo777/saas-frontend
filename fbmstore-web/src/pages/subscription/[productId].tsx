@@ -39,7 +39,7 @@ export default function SubscriptionPage() {
         } catch (error) {
             console.error("Erro ao buscar produto:", error);
             alert("Produto não encontrado.");
-            navigate('/');
+            window.location.href = '/';
         } finally {
             setLoading(false);
         }
