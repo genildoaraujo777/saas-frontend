@@ -61,21 +61,27 @@ export default function SubscriptionPage() {
   }, [ordersClient, productId]);
 
   // 2. Função de Cancelar
-  async function handleCancel() {
+  async function handleCancelSubscription() {
     if (!activeSubscription) return;
-    if(!confirm("Deseja cancelar esta assinatura?")) return;
     
+    // Mudamos o texto da confirmação
+    if(!confirm("Deseja cancelar a renovação automática? Você continuará com acesso até o fim do período atual.")) return;
+
     setProcessing(true);
     try {
         const token = localStorage.getItem('token');
-        await api.post('/pagto/subscription/cancel', 
-            { orderId: activeSubscription._id }, 
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
-        alert("Assinatura cancelada!");
-        navigate('/store/orders');
-    } catch (e) {
-        alert("Erro ao cancelar.");
+        const response = await api.post('/pagto/subscription/cancel', {
+            orderId: activeSubscription._id
+        }, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        // Mensagem mais clara
+        alert(`Assinatura cancelada! Seu acesso continua válido até ${new Date(response.data.validUntil).toLocaleDateString()}.`);
+        navigate('/store/orders'); 
+    } catch (error) {
+        console.error(error);
+        alert("Erro ao cancelar assinatura.");
     } finally {
         setProcessing(false);
     }
@@ -216,7 +222,7 @@ export default function SubscriptionPage() {
         <h1 style={{ fontSize: '3rem', fontWeight: 800, marginTop: '1rem', lineHeight: 1.1 }}>
           Impulsione seus resultados com <br/>
           <span style={{ background: 'linear-gradient(to right, #6366f1, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {product.name || "MicroSaaS Premium"}
+            {product.name || "Conta Premium"}
           </span>
         </h1>
         <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginTop: '1.5rem', maxWidth: '600px', marginInline: 'auto', lineHeight: '1.6' }}>

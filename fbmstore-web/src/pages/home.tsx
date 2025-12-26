@@ -85,6 +85,9 @@ const HomePage: React.FC = () => {
 
   const handleMenuOption = (option: string) => {
     switch (option) {
+      case 'Produtos':
+        window.location.href = '/';
+        break;
       case "Minha Conta":
         navigate(`/store/account/${loggedClient?.client._id}`);
         break;
@@ -291,7 +294,7 @@ const HomePage: React.FC = () => {
         userDoc=""
         userAdmin={isAdmin}
         hasFinancialAccess={hasActiveFinance}
-        onProducts={() => handleMenuOption("")}
+        onProducts={() => handleMenuOption("Produtos")}
         onMinhaConta={() => handleMenuOption("Minha Conta")}
         onPoliticaPrivacidade={() => handleMenuOption("Pop")}
         onMinhasAssinaturas={() => handleMenuOption("Minhas Assinaturas")}
