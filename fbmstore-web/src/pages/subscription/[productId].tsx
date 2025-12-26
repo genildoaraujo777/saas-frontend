@@ -176,8 +176,7 @@ export default function SubscriptionPage() {
             clientEmail: userEmail
         };
 
-        // 🟢 CORREÇÃO DA ROTA: Removemos o "/process" extra se o seu backend usa "/checkout"
-        const paymentResponse = await api.post('/pagto/checkout', checkoutPayload, {
+        const paymentResponse = await api.post('/pagto/checkout/process', checkoutPayload, {
             headers: { Authorization: `Bearer ${token}` }
         });
 
