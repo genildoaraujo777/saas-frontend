@@ -266,7 +266,7 @@ const OrdersScreen: React.FC = () => {
                                         onClick={(e) => handleCancelOrder(e, order._id!)}
                                         style={styles.cancelButton}
                                     >
-                                        <MdCancel /> Cancelar
+                                        <MdCancel /> Cancelar Assinatura Agora
                                     </button>
                                 )}
                             </div>
