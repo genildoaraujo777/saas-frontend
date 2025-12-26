@@ -259,7 +259,7 @@ export default function SubscriptionPage() {
             
             {activeSubscription ? (
                 <button 
-                    onClick={handleCancel}
+                    onClick={handleCancelSubscription}
                     disabled={processing}
                     style={{
                         width: '100%', padding: '1.2rem', marginTop: '2.5rem',
