@@ -3,17 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MdCheckCircle, MdRocketLaunch, MdArrowBack, MdCancel } from 'react-icons/md';
 import api from '../../services/api';
 import { useClient } from '../../contexts/ClientContext'; 
-import { useOrder } from '../../contexts/OrderContext'; //
+import { useOrder } from '../../contexts/OrderContext';
 import { checkTokenValidity } from '../../services/AuthenticationService'; 
-import { brlToNumber, numberToBRL } from '../../utils/currency';
+import { brlToNumber } from '../../utils/currency';
 
-// Interface para tipar o produto
+// Interface ajustada para aceitar string ou number (API pode variar)
 interface ProductType {
     _id: string;
     name: string;
     description: string;
-    price: number;
+    price: number | string; // 🟢 Ajuste de segurança
     imagePaths: string[];
+    code?: string;
 }
 
 export default function SubscriptionPage() {
@@ -47,24 +48,40 @@ export default function SubscriptionPage() {
     loadProduct();
   }, [productId, navigate]);
 
-  // 1. Lógica para verificar se já assina
+  // 🟢 1. LÓGICA BLINDADA: Verifica se já assina por ID ou pelo CÓDIGO
   const activeSubscription = useMemo(() => {
-    if (!ordersClient || !productId) return null;
-    return ordersClient.find(order => {
-        const isPaid = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(order.statusOrder?.toUpperCase());
-        const hasProduct = order.itemsOrder.some((item: any) => {
-            const id = typeof item === 'string' ? item : item.product?._id || item._id;
-            return id === productId;
-        });
-        return isPaid && hasProduct;
-    });
-  }, [ordersClient, productId]);
+    if (!ordersClient || !product) return null;
 
-  // 2. Função de Cancelar
+    return ordersClient.find(order => {
+        // Verifica status (Case insensitive para segurança)
+        const status = order.statusOrder?.toUpperCase();
+        const isPaid = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(status);
+        if (!isPaid) return false;
+
+        // Verifica se o pedido contém este produto
+        const hasProduct = order.itemsOrder.some((item: any) => {
+            if (!item) return false;
+
+            // Checagem 1: Pelo ID direto
+            const itemId = typeof item === 'string' ? item : item.product?._id || item._id;
+            if (itemId === productId) return true;
+
+            // Checagem 2: Pelo Código Único (Evita duplicidade de planos iguais)
+            if (product.code && typeof item !== 'string' && item.product?.code === product.code) {
+                return true;
+            }
+
+            return false;
+        });
+
+        return hasProduct;
+    });
+  }, [ordersClient, productId, product]);
+
+  // 2. Função de Cancelar Assinatura
   async function handleCancelSubscription() {
     if (!activeSubscription) return;
     
-    // Mudamos o texto da confirmação
     if(!confirm("Deseja cancelar a renovação automática? Você continuará com acesso até o fim do período atual.")) return;
 
     setProcessing(true);
@@ -76,8 +93,10 @@ export default function SubscriptionPage() {
             headers: { Authorization: `Bearer ${token}` }
         });
         
-        // Mensagem mais clara
-        alert(`Assinatura cancelada! Seu acesso continua válido até ${new Date(response.data.validUntil).toLocaleDateString()}.`);
+        // Formata data se existir, senão usa hoje
+        const validUntil = response.data.validUntil ? new Date(response.data.validUntil).toLocaleDateString() : 'o fim do ciclo';
+        
+        alert(`Assinatura cancelada! Seu acesso continua válido até ${validUntil}.`);
         navigate('/store/orders'); 
     } catch (error) {
         console.error(error);
@@ -87,9 +106,15 @@ export default function SubscriptionPage() {
     }
   }
 
+  // 3. Função de Assinar
   async function handleSubscribe() {
-    // A. Verifica login e Token
-    const token = localStorage.getItem('token'); //
+    // 🟢 BLOQUEIO DE SEGURANÇA VISUAL
+    if (activeSubscription) {
+        alert("Você já possui uma assinatura ativa para este produto.");
+        return;
+    }
+    
+    const token = localStorage.getItem('token');
 
     if (!loggedClient || !token) {
         alert("Você precisa estar logado para assinar.");
@@ -100,7 +125,6 @@ export default function SubscriptionPage() {
     setProcessing(true);
 
     try {
-        // B. Valida a sessão
         const isTokenValid = await checkTokenValidity(token);
         if (!isTokenValid) {
             alert("Sua sessão expirou. Faça login novamente.");
@@ -109,58 +133,54 @@ export default function SubscriptionPage() {
             return;
         }
 
-        // --- 1. CRIAÇÃO DO PEDIDO VIA CONTEXTO (Igual ao checkout.tsx) ---
-        
-        // Monta o objeto de pedido. 
-        // Nota: O backend createOrder.ts itera sobre itemsOrder e espera que cada item tenha ._id e .quantity
+        // --- PREPARAÇÃO DO PREÇO (Segurança contra tipos variados) ---
+        let finalPrice = 0;
+        if (typeof product?.price === 'string') {
+            finalPrice = brlToNumber(product.price);
+        } else {
+            finalPrice = Number(product?.price || 0);
+        }
+
+        // --- CRIAÇÃO DO PEDIDO ---
         const newOrderData: any = {
-            numberOrder: Math.floor(Math.random() * 999999999) + 1, // Gera número aleatório se o back não gerar
+            numberOrder: Math.floor(Math.random() * 999999999) + 1,
             createdAt: new Date(),
             itemsOrder: [
                 { 
-                    ...product, // Espalha props do produto (inclui _id, name, price)
+                    ...product, 
                     quantity: 1 
                 }
             ],
-            totalPrice: brlToNumber(product?.price),
+            totalPrice: finalPrice,
             quantityItems: 1,
-            stateOrder: 'WAITING', // Status inicial
-            client: loggedClient.client._id, // Vincula ao cliente
+            stateOrder: 'WAITING',
+            client: loggedClient.client._id,
             payments: []
         };
 
-        // Chama o método do Contexto, que deve tratar a comunicação com a API
-        // Isso garante que o estado global de pedidos seja atualizado se necessário
         const createdOrder = await createOrder(newOrderData, token);
 
         if (!createdOrder || !createdOrder._id) {
             throw new Error("Falha ao criar o pedido. Tente novamente.");
         }
 
-        console.log("Pedido criado via Contexto:", createdOrder._id);
-
-        // --- 2. PAGAMENTO (Integração Stripe) ---
-
+        // --- PAGAMENTO (CHECKOUT) ---
         const userEmail = (loggedClient.client as any).email || "cliente@fbmstore.com";
 
         const checkoutPayload = {
             provider: 'stripe',
-            amount: product?.price,
+            amount: finalPrice, // Usa o preço tratado
             productName: product?.name || product?.description,
             productDescription: product?.description,
-            
-            // Usa o ID retornado pelo método createOrder
             orderId: createdOrder._id, 
-            
             clientEmail: userEmail
         };
 
-        // Chama API de Pagamento
-        const paymentResponse = await api.post('/pagto/checkout/process', checkoutPayload, {
+        // 🟢 CORREÇÃO DA ROTA: Removemos o "/process" extra se o seu backend usa "/checkout"
+        const paymentResponse = await api.post('/pagto/checkout', checkoutPayload, {
             headers: { Authorization: `Bearer ${token}` }
         });
 
-        // Redireciona para Stripe
         if (paymentResponse.data.url) {
             window.location.href = paymentResponse.data.url;
         } else {
@@ -175,6 +195,8 @@ export default function SubscriptionPage() {
     }
   }
 
+  // --- RENDERIZAÇÃO ---
+
   if (loading) {
     return (
         <div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
@@ -184,6 +206,11 @@ export default function SubscriptionPage() {
   }
 
   if (!product) return null;
+
+  // Helper para exibir preço bonito na tela
+  const displayPrice = typeof product.price === 'number' 
+      ? `R$ ${product.price.toFixed(2).replace('.', ',')}`
+      : product.price; // Se já for string "R$ 45,00"
 
   const features = [
       "Acesso Imediato ao Sistema",
@@ -196,6 +223,7 @@ export default function SubscriptionPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#0f172a', color: 'white', fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
       
+      {/* Botão Voltar */}
       <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
         <button 
             onClick={() => navigate(-1)} 
@@ -205,16 +233,17 @@ export default function SubscriptionPage() {
                 color: '#94a3b8', 
                 padding: '8px 16px', 
                 borderRadius: '8px', 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
+                cursor: 'pointer', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '5px' 
             }}
         >
             <MdArrowBack /> Voltar
         </button>
       </div>
 
+      {/* Título */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
         <span style={{ color: '#6366f1', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', fontSize: '0.9rem' }}>
           Plano Selecionado
@@ -230,6 +259,7 @@ export default function SubscriptionPage() {
         </p>
       </div>
 
+      {/* Card Principal */}
       <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '4rem', paddingLeft: '1rem', paddingRight: '1rem', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ 
             background: '#1e293b', 
@@ -240,6 +270,7 @@ export default function SubscriptionPage() {
             border: '1px solid #334155',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1)'
         }}>
+            {/* Imagem do Produto */}
             {product.imagePaths && product.imagePaths.length > 0 && (
                 <div style={{ marginBottom: '1.5rem', borderRadius: '12px', overflow: 'hidden', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
                      <img 
@@ -250,20 +281,22 @@ export default function SubscriptionPage() {
                 </div>
             )}
 
+            {/* Preço Formatado */}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', justifyContent: 'center' }}>
                 <span style={{ fontSize: '3.5rem', fontWeight: 800, letterSpacing: '-1px' }}>
-                     {product.price}
+                     {displayPrice}
                 </span>
                 <span style={{ color: '#94a3b8', fontSize: '1.2rem' }}>/mês</span>
             </div>
             
+            {/* Botão Dinâmico (Assinar ou Cancelar) */}
             {activeSubscription ? (
                 <button 
                     onClick={handleCancelSubscription}
                     disabled={processing}
                     style={{
                         width: '100%', padding: '1.2rem', marginTop: '2.5rem',
-                        background: '#ef4444', // Vermelho
+                        background: '#ef4444', // Vermelho para cancelar
                         color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.8rem'
                     }}
                 >
@@ -274,22 +307,10 @@ export default function SubscriptionPage() {
                     onClick={handleSubscribe}
                     disabled={processing}
                     style={{
-                        width: '100%',
-                        padding: '1.2rem',
-                        marginTop: '2.5rem',
+                        width: '100%', padding: '1.2rem', marginTop: '2.5rem',
                         background: processing ? '#4b5563' : '#4f46e5',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '12px',
-                        fontSize: '1.1rem',
-                        fontWeight: 700,
-                        cursor: processing ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        gap: '0.8rem',
-                        transition: 'all 0.2s',
-                        boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)'
+                        color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 700, cursor: processing ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.8rem',
+                        transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)'
                     }}
                 >
                     {processing ? 'Criando assinatura...' : <><MdRocketLaunch size={22} /> Assinar Agora</>}
@@ -300,6 +321,7 @@ export default function SubscriptionPage() {
                 <i className="fas fa-lock"></i> Pagamento 100% seguro via Stripe
             </p>
 
+            {/* Lista de Features */}
             <div style={{ marginTop: '2.5rem', borderTop: '1px solid #334155', paddingTop: '2rem' }}>
                 <p style={{ fontWeight: 'bold', marginBottom: '1.2rem', color: '#f8fafc' }}>O que está incluso no plano:</p>
                 <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '1rem' }}>

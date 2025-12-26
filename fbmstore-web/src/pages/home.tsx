@@ -8,6 +8,7 @@ import { useSupplier } from "@/contexts/SupplierContext";
 import { CartItem } from "@/types";
 import { MdMenu, MdRocketLaunch } from "react-icons/md";
 import { useClient } from "@/contexts/ClientContext";
+import { useOrder } from "@/contexts/OrderContext";
 import { useSubscriptionCheck } from "@/hooks/useSubscriptionCheck";
 
 const HomePage: React.FC = () => {
@@ -29,6 +30,7 @@ const HomePage: React.FC = () => {
   const [supplierId, setSupplierId] = useState("");
   const [noFetchMore, setNoFetchMore] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const { searchOrders } = useOrder();
 
   const listRef = useRef<HTMLDivElement | null>(null);
   // @ts-ignore
@@ -38,6 +40,16 @@ const HomePage: React.FC = () => {
   const memoizedProducts = useMemo(() => {
     return stockItems;
   }, [stockItems]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    // Se tem token e usuário logado, busca os pedidos para atualizar o 'hasActiveFinance'
+    if (token && loggedClient) {
+        searchOrders(token, isAdmin).catch(err => 
+            console.error("Erro ao verificar assinaturas em background:", err)
+        );
+    }
+  }, [loggedClient, isAdmin]);
 
   // Inicial / quando muda lista
   useEffect(() => {
