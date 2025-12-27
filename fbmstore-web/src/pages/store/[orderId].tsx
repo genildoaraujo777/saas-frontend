@@ -4,7 +4,7 @@ import { useOrder } from '@/contexts/OrderContext';
 import { CartItem, Order, Product } from '@/types'; 
 import React, { useEffect, useState } from 'react'; 
 import { useNavigate, useParams } from 'react-router-dom';
-import { MdCancel, MdEventBusy, MdCheckCircle } from 'react-icons/md';
+import { MdCancel, MdEventBusy, MdCheckCircle, MdAutorenew } from 'react-icons/md';
 import api from '@/services/api';
 
 const OrderDetailsScreen: React.FC = () => {
@@ -20,24 +20,44 @@ const OrderDetailsScreen: React.FC = () => {
   const isFullyCanceled = order?.statusOrder?.toUpperCase() === 'CANCELED';
   const isActiveStatus = order && ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(order.statusOrder?.toUpperCase());
   
-  // Define se o botão deve aparecer e se deve estar bloqueado
+  // Deve mostrar o botão? (Sim, se estiver ativo ou agendado para cancelar)
   const showButton = isActiveStatus || isCancelScheduled; 
-  const isButtonDisabled = isCancelScheduled || isFullyCanceled;
+  // Deve estar desabilitado? (Sim, se já estiver cancelado totalmente)
+  // Obs: Se for agendado (isCancelScheduled), ele FICA HABILITADO, mas verde para reativar.
+  const isButtonDisabled = isFullyCanceled;
 
   // Função Cancelar Local
   const handleCancelOrder = async () => {
     if(!order) return;
-    if(isButtonDisabled) return; // Segurança extra
-
     if(!confirm("Deseja cancelar esta assinatura? O acesso continuará até o fim do período pago.")) return;
     
     try {
         const token = localStorage.getItem('token');
-        await api.post('/pagto/subscription/cancel', { orderId: order._id }, { headers: { Authorization: `Bearer ${token}` } });
-        alert("Solicitação enviada. A assinatura será cancelada ao final do período.");
-        // Recarrega a página ou volta, mas idealmente deveria atualizar o estado local
+        const response = await api.post('/pagto/subscription/cancel', { orderId: order._id }, { headers: { Authorization: `Bearer ${token}` } });
+        
+        // Exibe data correta vinda do backend
+        const serverDate = response.data?.expirationDate;
+        if(serverDate){
+             alert(`Cancelamento agendado.\nDisponível até: ${new Date(serverDate).toLocaleDateString('pt-BR')}`);
+        } else {
+             alert("Solicitação enviada. A assinatura será cancelada ao final do período.");
+        }
+        
         navigation(0); 
     } catch (err) { alert("Erro ao cancelar."); }
+  };
+
+  // Função Reativar Local
+  const handleReactivateOrder = async () => {
+    if(!order) return;
+    if(!confirm("Deseja desfazer o cancelamento e manter a assinatura ativa?")) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        await api.post('/pagto/subscription/reactivate', { orderId: order._id }, { headers: { Authorization: `Bearer ${token}` } });
+        alert("Assinatura reativada com sucesso! O cancelamento foi removido.");
+        navigation(0); 
+    } catch (err) { alert("Erro ao reativar."); }
   };
 
   const clientName = (order && typeof order.client === 'object') ? (order.client as any).name : '---';
@@ -185,23 +205,30 @@ const OrderDetailsScreen: React.FC = () => {
             )}
             {/* ----------------------------------------------------------- */}
 
-          {/* BOTÃO CANCELAR SE ATIVO */}
+          {/* BOTÃO INTELIGENTE: CANCELAR, REATIVAR OU INATIVO */}
           {showButton && (
              <button 
-                onClick={handleCancelOrder} 
+                onClick={isCancelScheduled ? handleReactivateOrder : handleCancelOrder} 
                 disabled={isButtonDisabled}
                 style={{
                     ...styles.cancelBtnLarge,
-                    // Muda estilos se desabilitado
-                    backgroundColor: isButtonDisabled ? '#f3f4f6' : '#fee2e2',
-                    color: isButtonDisabled ? '#9ca3af' : '#dc2626',
-                    borderColor: isButtonDisabled ? '#e5e7eb' : '#fca5a5',
+                    // CORES DINÂMICAS:
+                    // 1. Reativar (Verde)
+                    // 2. Inativo (Cinza)
+                    // 3. Cancelar (Vermelho)
+                    backgroundColor: isCancelScheduled ? '#10b981' : (isButtonDisabled ? '#f3f4f6' : '#fee2e2'),
+                    color: isCancelScheduled ? '#fff' : (isButtonDisabled ? '#9ca3af' : '#dc2626'),
+                    borderColor: isCancelScheduled ? '#059669' : (isButtonDisabled ? '#e5e7eb' : '#fca5a5'),
                     cursor: isButtonDisabled ? 'not-allowed' : 'pointer',
                 }}
              >
-                {isButtonDisabled ? (
+                {isCancelScheduled ? (
                     <>
-                         <MdCheckCircle size={20} /> Cancelamento Agendado
+                         <MdAutorenew size={20} /> Reativar Assinatura (Desistir)
+                    </>
+                ) : isButtonDisabled ? (
+                    <>
+                        <MdCancel size={20} /> Assinatura Inativa
                     </>
                 ) : (
                     <>

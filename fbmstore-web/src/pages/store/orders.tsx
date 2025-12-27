@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MdMenu, MdRefresh, MdCancel, MdEventBusy, MdCheckCircle } from 'react-icons/md';
+import { MdMenu, MdRefresh, MdCancel, MdEventBusy, MdCheckCircle, MdAutorenew } from 'react-icons/md';
 import CartIconWithBadge from '@/components/ui/CartIconWithBadge';
 import Menu from '@/components/ui/Menu';
 import { useOrder } from '@/contexts/OrderContext';
@@ -159,10 +159,29 @@ const OrdersScreen: React.FC = () => {
     if(!confirm("Deseja cancelar esta assinatura?")) return;
     try {
         const token = localStorage.getItem('token');
-        await api.post('/pagto/subscription/cancel', { orderId }, { headers: { Authorization: `Bearer ${token}` } });
-        alert("Solicitação enviada. A assinatura será cancelada ao final do período.");
+        const response = await api.post('/pagto/subscription/cancel', { orderId }, { headers: { Authorization: `Bearer ${token}` } });
+        
+        // Pega data do servidor se disponível
+        const serverDate = response.data?.expirationDate;
+        if(serverDate){
+             alert(`Cancelamento agendado.\nDisponível até: ${new Date(serverDate).toLocaleDateString('pt-BR')}`);
+        } else {
+             alert("Solicitação enviada. A assinatura será cancelada ao final do período.");
+        }
         loadOrders();
     } catch (err) { alert("Erro ao cancelar."); }
+  };
+
+  // Função para Reativar (Desistir do Cancelamento)
+  const handleReactivateOrder = async (e: React.MouseEvent, orderId: string) => {
+    e.stopPropagation();
+    if(!confirm("Deseja desfazer o cancelamento e manter a assinatura ativa?")) return;
+    try {
+        const token = localStorage.getItem('token');
+        await api.post('/pagto/subscription/reactivate', { orderId }, { headers: { Authorization: `Bearer ${token}` } });
+        alert("Assinatura reativada com sucesso!");
+        loadOrders();
+    } catch (err) { alert("Erro ao reativar."); }
   };
 
   return (
@@ -211,14 +230,12 @@ const OrdersScreen: React.FC = () => {
                     // Verifica se está visualmente ativo
                     const isActive = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(order.statusOrder?.toUpperCase());
                     
-                    // Flags de Cancelamento (assumindo que o backend retorna cancelAtPeriodEnd)
+                    // Flags de Cancelamento
                     const isCancelScheduled = (order as any).cancelAtPeriodEnd === true;
                     const isFullyCanceled = order.statusOrder?.toUpperCase() === 'CANCELED';
                     
-                    // Deve mostrar o botão? (Mostra se estiver ativo OU se estiver agendado para cancelar para mostrar o status)
+                    // Deve mostrar algum botão? (Mostra se estiver ativo OU cancelamento agendado)
                     const showButton = isActive || isCancelScheduled;
-                    // Deve bloquear o botão?
-                    const isButtonDisabled = isCancelScheduled || isFullyCanceled;
 
                     // PEGAR NOME DO CLIENTE
                     const clientName = (typeof order.client === 'object' && order.client?.name) 
@@ -226,7 +243,7 @@ const OrdersScreen: React.FC = () => {
                         : '---';
 
                     return (
-                        <div key={order._id} style={styles.card} onClick={() => navigate(`/order/${order._id}`)}>
+                        <div key={order._id} style={styles.card} onClick={() => navigate(`/store/${order._id}`)}>
                             <div style={styles.cardHeader}>
                                 <span style={styles.orderNumber}>Assinatura #{order.numberOrder}</span>
                                 <span style={styles.orderDate}>{new Date(order.createdAt!).toLocaleDateString('pt-BR')}</span>
@@ -246,7 +263,7 @@ const OrdersScreen: React.FC = () => {
                                     </span>
                                 </div>
                                 
-                                {/* --- NOVO: AVISO DE VALIDADE SE ESTIVER CANCELADO/AGENDADO --- */}
+                                {/* AVISO DE VALIDADE SE ESTIVER CANCELADO/AGENDADO */}
                                 {(isCancelScheduled || isFullyCanceled) && (order as any).currentPeriodEnd && (
                                     <div style={{
                                         marginTop: 8,
@@ -267,7 +284,6 @@ const OrdersScreen: React.FC = () => {
                                         </div>
                                     </div>
                                 )}
-                                {/* ----------------------------------------------------------- */}
 
                                 <div style={styles.infoRow}>
                                     <span>Plano/Itens:</span>
@@ -281,23 +297,30 @@ const OrdersScreen: React.FC = () => {
                                     </span>
                                 </div>
 
-                                {/* BOTÃO DE AÇÃO */}
+                                {/* BOTÃO DE AÇÃO (LÓGICA TRÍPLICE) */}
                                 {showButton && (
                                     <button 
-                                        onClick={(e) => !isButtonDisabled && handleCancelOrder(e, order._id!)}
-                                        disabled={isButtonDisabled}
+                                        onClick={(e) => {
+                                            if(isCancelScheduled) handleReactivateOrder(e, order._id!);
+                                            else if (!isFullyCanceled) handleCancelOrder(e, order._id!);
+                                        }}
+                                        disabled={isFullyCanceled}
                                         style={{
                                             ...styles.cancelButton,
-                                            // Estilos Condicionais
-                                            backgroundColor: isButtonDisabled ? '#f3f4f6' : '#fee2e2',
-                                            color: isButtonDisabled ? '#9ca3af' : '#dc2626',
-                                            cursor: isButtonDisabled ? 'not-allowed' : 'pointer',
-                                            border: isButtonDisabled ? '1px solid #e5e7eb' : 'none',
+                                            // Lógica de Cores: Verde (Reativar) | Vermelho (Cancelar) | Cinza (Desativado)
+                                            backgroundColor: isCancelScheduled ? '#10b981' : (isFullyCanceled ? '#f3f4f6' : '#fee2e2'),
+                                            color: isCancelScheduled ? '#fff' : (isFullyCanceled ? '#9ca3af' : '#dc2626'),
+                                            cursor: isFullyCanceled ? 'not-allowed' : 'pointer',
+                                            border: isFullyCanceled ? '1px solid #e5e7eb' : 'none',
                                         }}
                                     >
-                                        {isButtonDisabled ? (
+                                        {isCancelScheduled ? (
                                             <>
-                                                <MdCheckCircle size={16} /> Cancelamento Agendado
+                                                <MdAutorenew size={16} /> Reativar Assinatura
+                                            </>
+                                        ) : isFullyCanceled ? (
+                                            <>
+                                                <MdCancel size={16} /> Assinatura Inativa
                                             </>
                                         ) : (
                                             <>
