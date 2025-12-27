@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MdMenu, MdRefresh, MdCancel } from 'react-icons/md';
+import { MdMenu, MdRefresh, MdCancel, MdEventBusy, MdCheckCircle } from 'react-icons/md';
 import CartIconWithBadge from '@/components/ui/CartIconWithBadge';
 import Menu from '@/components/ui/Menu';
 import { useOrder } from '@/contexts/OrderContext';
 import type { Order } from '@/types';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useClient } from '@/contexts/ClientContext';
-import api from '@/services/api'; // Importação direta da API para o update
+import api from '@/services/api'; 
 import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck';
 
 const OrdersScreen: React.FC = () => {
@@ -86,25 +86,12 @@ const OrdersScreen: React.FC = () => {
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const statusParam = queryParams.get('status');
-    const orderIdParam = queryParams.get('order');
 
     if (statusParam === 'success') {
-        // 🛑 REMOVA A CHAMADA api.patch DAQUI! 🛑
-        // O Webhook já está fazendo isso no servidor.
-
-        // Apenas mostre uma mensagem bonita para o usuário
-        // alert("Pagamento processado! Atualizando lista..."); 
-
-        // Força o recarregamento para pegar o status novo que o Webhook acabou de gravar
-        // Nota: Pode haver um delay de 1 a 3 segundos entre o Stripe confirmar e o Webhook bater no seu server.
-        // Se ao carregar ainda estiver "PENDING", o usuário pode clicar no botão de refresh depois.
         setTimeout(() => {
             loadOrders(); 
-        }, 2000); // Um pequeno delay ajuda a dar tempo do Webhook chegar
-
-        // Limpa a URL
+        }, 2000); 
         navigate(location.pathname, { replace: true });
-
     } else if (statusParam === 'cancel') {
         alert("O processo de assinatura foi cancelado.");
         navigate(location.pathname, { replace: true });
@@ -173,7 +160,7 @@ const OrdersScreen: React.FC = () => {
     try {
         const token = localStorage.getItem('token');
         await api.post('/pagto/subscription/cancel', { orderId }, { headers: { Authorization: `Bearer ${token}` } });
-        alert("Solicitação enviada.");
+        alert("Solicitação enviada. A assinatura será cancelada ao final do período.");
         loadOrders();
     } catch (err) { alert("Erro ao cancelar."); }
   };
@@ -221,8 +208,18 @@ const OrdersScreen: React.FC = () => {
         ) : (
               <div style={styles.listContainer}>
                 {filteredOrders.map((order) => {
+                    // Verifica se está visualmente ativo
                     const isActive = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(order.statusOrder?.toUpperCase());
                     
+                    // Flags de Cancelamento (assumindo que o backend retorna cancelAtPeriodEnd)
+                    const isCancelScheduled = (order as any).cancelAtPeriodEnd === true;
+                    const isFullyCanceled = order.statusOrder?.toUpperCase() === 'CANCELED';
+                    
+                    // Deve mostrar o botão? (Mostra se estiver ativo OU se estiver agendado para cancelar para mostrar o status)
+                    const showButton = isActive || isCancelScheduled;
+                    // Deve bloquear o botão?
+                    const isButtonDisabled = isCancelScheduled || isFullyCanceled;
+
                     // PEGAR NOME DO CLIENTE
                     const clientName = (typeof order.client === 'object' && order.client?.name) 
                         ? order.client.name 
@@ -244,10 +241,34 @@ const OrdersScreen: React.FC = () => {
 
                                 <div style={styles.infoRow}>
                                     <span>Status:</span>
-                                    <span style={{...styles.orderStatus, color: getStatusColor(order.statusOrder)}}>{getStatusLabel(order.statusOrder)}</span>
+                                    <span style={{...styles.orderStatus, color: getStatusColor(order.statusOrder)}}>
+                                        {getStatusLabel(order.statusOrder)}
+                                    </span>
                                 </div>
                                 
-                                {/* ... Total ... */}
+                                {/* --- NOVO: AVISO DE VALIDADE SE ESTIVER CANCELADO/AGENDADO --- */}
+                                {(isCancelScheduled || isFullyCanceled) && (order as any).currentPeriodEnd && (
+                                    <div style={{
+                                        marginTop: 8,
+                                        padding: '8px 12px',
+                                        backgroundColor: '#fff7ed', // Fundo Laranja Claro
+                                        borderRadius: 6,
+                                        border: '1px solid #ffedd5',
+                                        fontSize: 12,
+                                        color: '#c2410c',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}>
+                                        <MdEventBusy size={16} />
+                                        <div>
+                                            <strong>Acesso disponível até:</strong><br/>
+                                            {new Date((order as any).currentPeriodEnd).toLocaleDateString('pt-BR')}
+                                        </div>
+                                    </div>
+                                )}
+                                {/* ----------------------------------------------------------- */}
+
                                 <div style={styles.infoRow}>
                                     <span>Plano/Itens:</span>
                                     <span>{order.quantityItems}</span>
@@ -260,13 +281,29 @@ const OrdersScreen: React.FC = () => {
                                     </span>
                                 </div>
 
-                                {/* BOTÃO CANCELAR */}
-                                {isActive && (
+                                {/* BOTÃO DE AÇÃO */}
+                                {showButton && (
                                     <button 
-                                        onClick={(e) => handleCancelOrder(e, order._id!)}
-                                        style={styles.cancelButton}
+                                        onClick={(e) => !isButtonDisabled && handleCancelOrder(e, order._id!)}
+                                        disabled={isButtonDisabled}
+                                        style={{
+                                            ...styles.cancelButton,
+                                            // Estilos Condicionais
+                                            backgroundColor: isButtonDisabled ? '#f3f4f6' : '#fee2e2',
+                                            color: isButtonDisabled ? '#9ca3af' : '#dc2626',
+                                            cursor: isButtonDisabled ? 'not-allowed' : 'pointer',
+                                            border: isButtonDisabled ? '1px solid #e5e7eb' : 'none',
+                                        }}
                                     >
-                                        <MdCancel /> Cancelar Assinatura Agora
+                                        {isButtonDisabled ? (
+                                            <>
+                                                <MdCheckCircle size={16} /> Cancelamento Agendado
+                                            </>
+                                        ) : (
+                                            <>
+                                                <MdCancel size={16} /> Cancelar Assinatura Agora
+                                            </>
+                                        )}
                                     </button>
                                 )}
                             </div>
@@ -443,8 +480,20 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 16,
   },
   cancelButton: {
-      marginTop: 12, backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6,
-      padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      gap: 5, fontWeight: 600, fontSize: '0.9rem', width: '100%'
+      marginTop: 12, 
+      backgroundColor: '#fee2e2', 
+      color: '#dc2626', 
+      border: 'none', 
+      borderRadius: 6,
+      padding: '10px', 
+      cursor: 'pointer', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      gap: 5, 
+      fontWeight: 600, 
+      fontSize: '0.9rem', 
+      width: '100%',
+      transition: 'background-color 0.2s'
   }
 };

@@ -4,7 +4,7 @@ import { useOrder } from '@/contexts/OrderContext';
 import { CartItem, Order, Product } from '@/types'; 
 import React, { useEffect, useState } from 'react'; 
 import { useNavigate, useParams } from 'react-router-dom';
-import { MdCancel } from 'react-icons/md';
+import { MdCancel, MdEventBusy, MdCheckCircle } from 'react-icons/md';
 import api from '@/services/api';
 
 const OrderDetailsScreen: React.FC = () => {
@@ -15,22 +15,34 @@ const OrderDetailsScreen: React.FC = () => {
   // @ts-ignore
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
+  // Lógica de Estado da Assinatura
+  const isCancelScheduled = (order as any)?.cancelAtPeriodEnd === true;
+  const isFullyCanceled = order?.statusOrder?.toUpperCase() === 'CANCELED';
+  const isActiveStatus = order && ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(order.statusOrder?.toUpperCase());
+  
+  // Define se o botão deve aparecer e se deve estar bloqueado
+  const showButton = isActiveStatus || isCancelScheduled; 
+  const isButtonDisabled = isCancelScheduled || isFullyCanceled;
+
   // Função Cancelar Local
   const handleCancelOrder = async () => {
     if(!order) return;
-    if(!confirm("Deseja cancelar esta assinatura?")) return;
+    if(isButtonDisabled) return; // Segurança extra
+
+    if(!confirm("Deseja cancelar esta assinatura? O acesso continuará até o fim do período pago.")) return;
+    
     try {
         const token = localStorage.getItem('token');
         await api.post('/pagto/subscription/cancel', { orderId: order._id }, { headers: { Authorization: `Bearer ${token}` } });
-        alert("Assinatura cancelada.");
-        navigation(-1);
+        alert("Solicitação enviada. A assinatura será cancelada ao final do período.");
+        // Recarrega a página ou volta, mas idealmente deveria atualizar o estado local
+        navigation(0); 
     } catch (err) { alert("Erro ao cancelar."); }
   };
 
   const clientName = (order && typeof order.client === 'object') ? (order.client as any).name : '---';
-  const isActive = order && ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(order.statusOrder?.toUpperCase());
 
-  // --- HELPERS DE STATUS (Adicionados conforme solicitado) ---
+  // --- HELPERS DE STATUS ---
   const getStatusLabel = (status: string) => {
     const map: Record<string, string> = {
         'WAITING': 'Aguardando Pagto',
@@ -148,7 +160,6 @@ const OrderDetailsScreen: React.FC = () => {
 
             <div style={styles.orderItem}>
               <div style={styles.orderLabel}>Status Atual:</div>
-              {/* USO DA FUNÇÃO DE STATUS E COR AQUI */}
               <div style={{
                   ...styles.orderValue, 
                   color: getStatusColor(order.statusOrder),
@@ -159,10 +170,44 @@ const OrderDetailsScreen: React.FC = () => {
             </div>
           </div>
 
+          {/* --- NOVO: AVISO DE VALIDADE SE ESTIVER CANCELADO/AGENDADO --- */}
+          {(isCancelScheduled || isFullyCanceled) && (order as any).currentPeriodEnd && (
+                <div style={styles.alertBox}>
+                    <MdEventBusy size={20} />
+                    <div>
+                        <strong>Assinatura Cancelada/Agendada</strong><br/>
+                        Seu acesso aos recursos Premium continuará ativo até: <br/>
+                        <span style={{ fontSize: 16, fontWeight: 'bold' }}>
+                            {new Date((order as any).currentPeriodEnd).toLocaleDateString('pt-BR')}
+                        </span>
+                    </div>
+                </div>
+            )}
+            {/* ----------------------------------------------------------- */}
+
           {/* BOTÃO CANCELAR SE ATIVO */}
-          {isActive && (
-             <button onClick={handleCancelOrder} style={styles.cancelBtnLarge}>
-                <MdCancel size={18} /> Cancelar Assinatura Agora
+          {showButton && (
+             <button 
+                onClick={handleCancelOrder} 
+                disabled={isButtonDisabled}
+                style={{
+                    ...styles.cancelBtnLarge,
+                    // Muda estilos se desabilitado
+                    backgroundColor: isButtonDisabled ? '#f3f4f6' : '#fee2e2',
+                    color: isButtonDisabled ? '#9ca3af' : '#dc2626',
+                    borderColor: isButtonDisabled ? '#e5e7eb' : '#fca5a5',
+                    cursor: isButtonDisabled ? 'not-allowed' : 'pointer',
+                }}
+             >
+                {isButtonDisabled ? (
+                    <>
+                         <MdCheckCircle size={20} /> Cancelamento Agendado
+                    </>
+                ) : (
+                    <>
+                        <MdCancel size={20} /> Cancelar Assinatura Agora
+                    </>
+                )}
              </button>
           )}
 
@@ -186,7 +231,6 @@ const OrderDetailsScreen: React.FC = () => {
                       <div style={styles.detailLabel}>Descrição:</div>
                       <div>{(item as CartItem).product.description}</div>
                     </div>
-                    {/* Categoria/Fornecedor ocultados se não relevantes para SaaS, ou mantenha se quiser */}
                     
                     <div style={styles.detailRow}>
                       <div style={styles.detailLabel}>Valor Mensal:</div>
@@ -259,9 +303,23 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: 'border-box'
   },
   cancelBtnLarge: {
-      width: '100%', padding: '12px', marginBottom: '20px', backgroundColor: '#fee2e2', color: '#dc2626',
+      width: '100%', padding: '15px', marginBottom: '20px', 
       border: '1px solid #fca5a5', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
-      display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'
+      display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px',
+      fontSize: '1rem', transition: 'all 0.2s ease'
+  },
+  alertBox: {
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#fff7ed', // Laranja Claro
+    color: '#c2410c', // Laranja Escuro
+    borderRadius: 8,
+    border: '1px solid #ffedd5',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    fontSize: 14,
+    lineHeight: '1.5'
   },
   sectionTitle: {
     fontSize: 22,
