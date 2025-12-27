@@ -70,6 +70,8 @@ export interface Payments {
     statusOrder: string;
     client: User | string | undefined;
     payments?: Payments[];
+    cancelAtPeriodEnd?: boolean;
+    currentPeriodEnd?: string | Date;
   }
   
   export interface OrderRequest {
