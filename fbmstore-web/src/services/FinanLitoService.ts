@@ -9,24 +9,24 @@ export interface ITransaction {
   type: 'income' | 'expense';
   status: 'pending' | 'paid' | 'overdue';
   date: string;
+  order?: number; // Novo campo para persistir a posição
 }
 
 export const FinanLitoService = {
   getAll: async (month?: number, year?: number, token?: string) => {
-    // CORREÇÃO: Constrói os parâmetros individualmente
     const params: any = {};
     if (year) params.year = year;
     if (month !== undefined) params.month = month;
 
-    const { data } = await api.get<ITransaction[]>('/fbm/transactions', { // ou /fbm/transactions dependendo da sua rota
+    const { data } = await api.get<ITransaction[]>('/fbm/transactions', {
         params,
         headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
     
     return data;
   },
+
   replicate: async (month: number, year: number, token?: string) => {
-    // Chama a rota nova passando o mês/ano ATUAL que queremos clonar
     const { data } = await api.post('/fbm/transactions/replicate', { month, year }, {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
@@ -40,6 +40,14 @@ export const FinanLitoService = {
 
   update: async (id: string, payload: Partial<ITransaction>, token: string) => {
     await api.put(`/fbm/transactions/${id}`, payload, { headers: { Authorization: `Bearer ${token}` } } );
+  },
+
+  // NOVO MÉTODO: Padronizado com api.put
+  updateOrder: async (items: { id: string, order: number }[], token: string) => {
+    // Envia um payload { items: [...] } para a rota de reordenação
+    await api.put('/fbm/transactions/reorder', { items }, { 
+        headers: { Authorization: `Bearer ${token}` } 
+    });
   },
 
   delete: async (id: string, token: string) => {

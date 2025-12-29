@@ -8,19 +8,12 @@ import { useNavigate } from 'react-router-dom';
 const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-// Converte "R$ 1.234,56" ou "1234,56" para float 1234.56
 const parseCurrencyToFloat = (value: string) => {
     if (!value) return 0;
     const clean = value.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
     return parseFloat(clean) || 0;
 }
 
-// Formata Float para String R$
-const formatCurrencyString = (val: number) => {
-    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-// Converte ISO (2023-12-25T14:30) para BR (25/12/2023 14:30)
 const parseISOToDateBR = (isoStr: string) => {
     if (!isoStr) return '';
     try {
@@ -31,7 +24,6 @@ const parseISOToDateBR = (isoStr: string) => {
     } catch { return ''; }
 };
 
-// Converte BR para ISO
 const parseDateBRToISO = (str: string) => {
     if (!str || str.length < 10) return new Date().toISOString();
     try {
@@ -53,7 +45,7 @@ const toNativeInputFormat = (isoDate: string) => {
     return d.toISOString().slice(0, 16);
 }
 
-// Interface estendida localmente para garantir a propriedade de ordem (caso não venha do back ainda)
+// Estendendo interface para garantir order no componente local
 interface ITransactionExtended extends ITransaction {
     order?: number; 
 }
@@ -74,7 +66,6 @@ export default function FinanLitoPage() {
   const [formId, setFormId] = useState<string | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
-  
   const [formAmount, setFormAmount] = useState(''); 
   const [formType, setFormType] = useState<'income' | 'expense'>('expense');
   const [formStatus, setFormStatus] = useState<'pending' | 'paid' | 'overdue'>('pending');
@@ -84,7 +75,6 @@ export default function FinanLitoPage() {
   const token = localStorage.getItem('token') || "";
   const navigate = useNavigate();
 
-  // Carregar dados
   useEffect(() => {
     loadData();
   }, [curYear, curMonth]);
@@ -95,35 +85,25 @@ export default function FinanLitoPage() {
     const updates: Promise<any>[] = [];
     let hasChanges = false;
 
-    // Mapeia a lista verificando datas
     const updatedList = list.map(t => {
       // Regra: Se está pendente E a data é anterior a agora
       if (t.status === 'pending') {
         const tDate = new Date(t.date);
-        
-        // Adicionamos uma pequena tolerância de 1 minuto para evitar bugs de fuso horário limite
-        // mas rigorosamente: se tDate < now, venceu.
         if (tDate < now) {
           hasChanges = true;
-          
-          // Prepara a requisição para salvar no banco
-          // Usamos o ID correto (_id ou id)
           updates.push(
             FinanLitoService.update(t._id || t.id || '', { status: 'overdue' }, token)
               .catch(err => console.error(`Falha ao auto-atualizar transação ${t.title}`, err))
           );
-
-          // Retorna o item já com o status novo para a UI
           return { ...t, status: 'overdue' } as ITransactionExtended;
         }
       }
       return t;
     });
 
-    // Se houve mudanças, aguarda o backend sincronizar (em paralelo para ser rápido)
     if (updates.length > 0) {
-      await Promise.all(updates);
-      console.log(`Auto-Check: ${updates.length} itens movidos para Atrasado.`);
+      // Executa updates em background
+      Promise.all(updates); 
     }
 
     return updatedList;
@@ -134,16 +114,17 @@ export default function FinanLitoPage() {
     try {
       const data = await FinanLitoService.getAll(undefined, curYear, token);
       
-      // 1. Garante a propriedade de ordem (do passo anterior)
-      const dataWithOrder = data.map((t: any, index: number) => ({
+      // Garante que todos tenham order e ordena por ela
+      let dataWithOrder = data.map((t: any, index: number) => ({
           ...t,
           order: t.order !== undefined ? t.order : index
       }));
 
-      // 2. EXECUTAR VERIFICAÇÃO DE ATRASOS
-      // Isso garante que, assim que os dados chegam, nós "limpamos" o que venceu
-      const sanitizedData = await checkAndMigrateOverdue(dataWithOrder);
+      // Ordenação inicial baseada no order
+      dataWithOrder.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
 
+      // Verifica e migra atrasados
+      const sanitizedData = await checkAndMigrateOverdue(dataWithOrder);
       setTransactions(sanitizedData);
     } catch (error) {
       console.error("Erro ao carregar finanças", error);
@@ -152,7 +133,7 @@ export default function FinanLitoPage() {
     }
   }
 
-  // --- LÓGICA DRAG AND DROP AVANÇADA (TRELLO STYLE) ---
+  // --- DRAG AND DROP LÓGICA ---
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('text/plain', id);
@@ -160,25 +141,25 @@ export default function FinanLitoPage() {
   };
 
   /**
-   * Drop na COLUNA (move para o final da coluna ou muda status)
+   * Drop na COLUNA (Fundo cinza).
+   * Correção: Se soltar no fundo, move para o FINAL daquela coluna.
    */
   const handleDropColumn = async (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
     const draggedId = e.dataTransfer.getData('text/plain');
     if (!draggedId) return;
 
-    // Evita conflito se soltou em cima de um card (que já trata o drop)
-    if (e.target !== e.currentTarget) return;
-
-    updateTransactionPosition(draggedId, newStatus, null); // Null = final da lista
+    // Se o evento chegou aqui, não foi tratado pelo Card (stopPropagation), então é final da lista
+    updateTransactionPosition(draggedId, newStatus, null); 
   };
 
   /**
-   * Drop no CARD (insere antes ou depois do card alvo)
+   * Drop no CARD.
+   * Insere na posição exata daquele card.
    */
   const handleDropCard = (e: React.DragEvent, targetId: string, status: string) => {
       e.preventDefault();
-      e.stopPropagation(); // Impede que o drop suba para a coluna
+      e.stopPropagation(); // IMPORTANTE: Impede o evento de subir para a Coluna
       const draggedId = e.dataTransfer.getData('text/plain');
       
       if (draggedId === targetId) return;
@@ -192,54 +173,58 @@ export default function FinanLitoPage() {
 
     const draggedItem = { ...allItems[draggedItemIndex] };
     
-    // Remove o item da posição original
+    // 1. Remove item da posição atual
     allItems.splice(draggedItemIndex, 1);
     
-    // Atualiza status
+    // 2. Atualiza status local
     draggedItem.status = newStatus as any;
-
-    // Lógica de Reordenação Visual
-    // Filtramos apenas os itens visíveis no mês/ano atual para calcular a posição visual correta
-    const currentViewItems = allItems.filter(t => {
-        const d = new Date(t.date);
-        return d.getMonth() === curMonth && d.getFullYear() === curYear;
-    }); // Nota: draggedItem já não está aqui pois foi removido acima
 
     let insertIndex = -1;
 
     if (targetId) {
-        // Encontra onde está o card alvo na lista GERAL, mas baseado na visualização
-        const targetIndexInView = currentViewItems.findIndex(t => (t._id === targetId || t.id === targetId));
-        // Se achou na view, precisamos achar o índice real no array 'allItems' para inserir corretamente
-        if (targetIndexInView !== -1) {
-             const targetItem = currentViewItems[targetIndexInView];
-             insertIndex = allItems.indexOf(targetItem);
+        // Encontra o índice do alvo no array global
+        const targetIndex = allItems.findIndex(t => (t._id === targetId || t.id === targetId));
+        if (targetIndex !== -1) {
+             insertIndex = targetIndex; 
         }
+    } else {
+        // CORREÇÃO MOVER PARA FINAL:
+        // Se targetId é null, queremos inserir após o último item VISÍVEL desta coluna (mês atual + status atual)
+        // Para simplificar e funcionar genericamente: jogamos para o final do array.
+        // Como o sort visual respeita a ordem do array, isso funciona como "final da lista".
+        insertIndex = allItems.length; 
     }
 
-    if (insertIndex !== -1) {
+    // 3. Insere na nova posição
+    if (insertIndex !== -1 && insertIndex <= allItems.length) {
         allItems.splice(insertIndex, 0, draggedItem);
     } else {
-        // Se não tem target (dropou na coluna vazia), adiciona ao final (mas cuidado com a data,
-        // no mundo real idealmente você mudaria a data/order, aqui vamos apenas dar push no array principal
-        // mas para UX ficar perfeita, o ideal é inserir logo após o último item deste mês)
         allItems.push(draggedItem);
     }
 
-    // Atualiza estado local imediatamente para feedback visual
-    setTransactions(allItems);
+    // 4. Reindexar ordem (0, 1, 2...)
+    const reorderedItems = allItems.map((item, index) => ({
+        ...item,
+        order: index
+    }));
 
-    // PERSISTÊNCIA (IMPORTANTE PARA O CEO/DEV):
-    // Aqui você deve chamar seu backend para salvar a nova ordem ("order" field) e o novo status.
-    // Como estamos editando apenas o frontend, vou salvar apenas o status via API existente.
+    // Atualiza UI instantaneamente
+    setTransactions(reorderedItems);
+
+    // 5. PERSISTÊNCIA NO BACKEND
     try {
+        // Prepara payload leve apenas com id e order
+        const orderPayload = reorderedItems.map(t => ({ id: t._id || t.id || '', order: t.order || 0 }));
+        
+        // Dispara o update de ordem (Endpoint novo)
+        FinanLitoService.updateOrder(orderPayload, token).catch(e => console.warn("Erro ao salvar ordem no servidor", e));
+
+        // Se mudou de status, salva o status individualmente também para garantir
         if (draggedItem.status !== transactions[draggedItemIndex].status) {
             await FinanLitoService.update(draggedId, { status: draggedItem.status }, token);
         }
-        // TODO: Criar endpoint FinanLitoService.updateOrder(allItems) para salvar a ordem
     } catch (error) {
-        console.error("Erro ao atualizar", error);
-        loadData(); // Reverte em caso de erro
+        console.error("Erro ao sincronizar movimento", error);
     }
   };
 
@@ -335,7 +320,6 @@ export default function FinanLitoPage() {
     }
   }
 
-  // Função de Replicar
   async function handleReplicate() {
     if (curMonth === null) return;
     if (!confirm(`Deseja copiar todos os lançamentos de ${months[curMonth]} para o próximo mês?`)) return;
@@ -384,23 +368,15 @@ export default function FinanLitoPage() {
     }
   };
 
-  // --- RENDERIZAÇÃO ---
-
   const monthFiltered = useMemo(() => {
     if (curMonth === null) return [];
     
-    // 1. Filtra por mês, ano e busca
-    const filtered = transactions.filter(t => {
+    // Apenas filtra, mantendo a ordem do array (transactions)
+    return transactions.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === curMonth && d.getFullYear() === curYear &&
         (t.title.toLowerCase().includes(searchTerm.toLowerCase()) || (t.description?.toLowerCase().includes(searchTerm.toLowerCase())));
     });
-
-    // 2. ORDENAÇÃO: Removemos a ordenação forçada por data.
-    // Agora confiamos na ordem do array 'transactions' (que manipulamos no Drag and Drop).
-    // Se quiser manter data como critério de desempate secundário, ok, mas para DnD funcionar
-    // a ordem do array deve prevalecer.
-    return filtered; 
   }, [transactions, curMonth, curYear, searchTerm]);
 
   const statsMonth = useMemo(() => {
@@ -622,34 +598,36 @@ const StatCard = ({ label, value, color }: any) => (
   </div>
 );
 
-// Atualizado para aceitar onDropCard e onDropColumn separados
 const KanbanColumn = ({ title, items, bg, color, onClickItem, onDropColumn, onDropCard, onDragStart, status }: any) => (
   <div 
-    onDragOver={(e) => e.preventDefault()}
-    onDrop={(e) => onDropColumn(e, status)} // Drop na área vazia da coluna
+    onDragOver={(e) => {
+        e.preventDefault();
+        // Permite o drop no container
+    }}
+    onDrop={(e) => onDropColumn(e, status)} 
     style={{ flex: 1, background: '#e2e8f0', borderRadius: '10px', display: 'flex', flexDirection: 'column', padding: '0.8rem', minWidth: '280px' }}
   >
     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontWeight: 700, color: '#64748b', fontSize: '0.8rem', textTransform: 'uppercase' }}>
       <span>{title}</span><span>{items.length}</span>
     </div>
     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem', minHeight: '100px' }}>
-      {items.map((t: ITransaction) => (
+      {items.map((t: ITransactionExtended) => (
         <div 
           key={t._id || t.id} 
           draggable={true} 
           onDragStart={(e) => onDragStart(e, t._id || t.id)}
-          // Drop EM CIMA de um card existente para reordenar
           onDrop={(e) => onDropCard(e, t._id || t.id, status)}
-          onDragOver={(e) => e.preventDefault()} // Necessário para permitir drop
+          onDragOver={(e) => e.preventDefault()} 
           onClick={(e) => {
-             e.stopPropagation(); // Evita bubble se necessário
+             e.stopPropagation();
              onClickItem(t);
           }} 
           style={{ 
             background: 'white', padding: '0.8rem', borderRadius: '8px', 
             boxShadow: '0 1px 2px rgba(0,0,0,0.1)', cursor: 'grab', 
             borderLeft: `4px solid ${t.type === 'income' ? '#16a34a' : '#dc2626'}`,
-            transition: 'transform 0.2s'
+            transition: 'transform 0.2s',
+            position: 'relative'
           }}
           onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
           onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
