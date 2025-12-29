@@ -89,16 +89,62 @@ export default function FinanLitoPage() {
     loadData();
   }, [curYear, curMonth]);
 
+  // --- FUNÇÃO DE AUTO-CORREÇÃO DE ATRASADOS ---
+  async function checkAndMigrateOverdue(list: ITransactionExtended[]) {
+    const now = new Date();
+    const updates: Promise<any>[] = [];
+    let hasChanges = false;
+
+    // Mapeia a lista verificando datas
+    const updatedList = list.map(t => {
+      // Regra: Se está pendente E a data é anterior a agora
+      if (t.status === 'pending') {
+        const tDate = new Date(t.date);
+        
+        // Adicionamos uma pequena tolerância de 1 minuto para evitar bugs de fuso horário limite
+        // mas rigorosamente: se tDate < now, venceu.
+        if (tDate < now) {
+          hasChanges = true;
+          
+          // Prepara a requisição para salvar no banco
+          // Usamos o ID correto (_id ou id)
+          updates.push(
+            FinanLitoService.update(t._id || t.id || '', { status: 'overdue' }, token)
+              .catch(err => console.error(`Falha ao auto-atualizar transação ${t.title}`, err))
+          );
+
+          // Retorna o item já com o status novo para a UI
+          return { ...t, status: 'overdue' } as ITransactionExtended;
+        }
+      }
+      return t;
+    });
+
+    // Se houve mudanças, aguarda o backend sincronizar (em paralelo para ser rápido)
+    if (updates.length > 0) {
+      await Promise.all(updates);
+      console.log(`Auto-Check: ${updates.length} itens movidos para Atrasado.`);
+    }
+
+    return updatedList;
+  }
+
   async function loadData() {
     setLoading(true);
     try {
       const data = await FinanLitoService.getAll(undefined, curYear, token);
-      // Se o backend não traz ordem, usamos a ordem do array original ou data como fallback
+      
+      // 1. Garante a propriedade de ordem (do passo anterior)
       const dataWithOrder = data.map((t: any, index: number) => ({
           ...t,
-          order: t.order !== undefined ? t.order : index // Preserva ordem se existir, senão cria
+          order: t.order !== undefined ? t.order : index
       }));
-      setTransactions(dataWithOrder);
+
+      // 2. EXECUTAR VERIFICAÇÃO DE ATRASOS
+      // Isso garante que, assim que os dados chegam, nós "limpamos" o que venceu
+      const sanitizedData = await checkAndMigrateOverdue(dataWithOrder);
+
+      setTransactions(sanitizedData);
     } catch (error) {
       console.error("Erro ao carregar finanças", error);
     } finally {
@@ -188,7 +234,7 @@ export default function FinanLitoPage() {
     // Como estamos editando apenas o frontend, vou salvar apenas o status via API existente.
     try {
         if (draggedItem.status !== transactions[draggedItemIndex].status) {
-            await FinanLitoService.update(draggedId, { status: newStatus }, token);
+            await FinanLitoService.update(draggedId, { status: draggedItem.status }, token);
         }
         // TODO: Criar endpoint FinanLitoService.updateOrder(allItems) para salvar a ordem
     } catch (error) {
