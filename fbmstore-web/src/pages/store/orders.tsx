@@ -32,6 +32,7 @@ const OrdersScreen: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status?.toUpperCase()) {
       case 'DONE': 
+      case 'ACTIVE': 
       case 'SUCCESS':
       case 'PAID':
         return '#10b981'; // Verde Sucesso
@@ -57,7 +58,8 @@ const OrdersScreen: React.FC = () => {
         'IN_PRODUCTION': 'Ativa',
         'DONE': 'Pago / Ativa',
         'CANCELED': 'Cancelada',
-        'FAILED': 'Falhou'
+        'FAILED': 'Falhou',
+        'ACTIVE': 'Ativa'
     };
     return map[status?.toUpperCase()] || status;
   };

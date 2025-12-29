@@ -69,6 +69,7 @@ const OrderDetailsScreen: React.FC = () => {
         'PENDING': 'Pendente',
         'IN_PRODUCTION': 'Ativa',
         'DONE': 'Pago / Ativa',
+        'ACTIVE': 'Ativa',
         'CANCELED': 'Cancelada',
         'FAILED': 'Falhou'
     };
@@ -78,6 +79,7 @@ const OrderDetailsScreen: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status?.toUpperCase()) {
       case 'DONE': 
+      case 'ACTIVE': 
       case 'SUCCESS':
       case 'PAID':
         return '#10b981'; // Verde

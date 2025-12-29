@@ -144,7 +144,7 @@ const PopPage: React.FC = () => {
         </p>
 
         <p style={styles.paragraph}>
-          Esta política é efetiva a partir de <strong>1 August 2025 17:20</strong>.
+          Esta política é efetiva a partir de <strong>1 Agosto 2025 17:20</strong>.
         </p>
       </main>
 

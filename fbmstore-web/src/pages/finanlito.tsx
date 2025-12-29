@@ -25,27 +25,20 @@ const parseISOToDateBR = (isoStr: string) => {
     if (!isoStr) return '';
     try {
         const d = new Date(isoStr);
-        // Ajuste fuso visual
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); 
         const pad = (n: number) => n.toString().padStart(2, '0');
         return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
     } catch { return ''; }
 };
 
-// Converte BR (25/12/2023 14:30) para ISO (2023-12-25T14:30:00.000Z)
+// Converte BR para ISO
 const parseDateBRToISO = (str: string) => {
     if (!str || str.length < 10) return new Date().toISOString();
     try {
-        // Tenta separar data e hora
         const [datePart, timePart] = str.split(' ');
         const [d, m, y] = datePart.split('/').map(Number);
-        
         let h = 0, min = 0;
-        if (timePart) {
-            [h, min] = timePart.split(':').map(Number);
-        }
-        
-        // Cria data segura
+        if (timePart) { [h, min] = timePart.split(':').map(Number); }
         if (!y || !m || !d) throw new Error("Data inválida");
         return new Date(y, m - 1, d, h || 0, min || 0).toISOString();
     } catch (e) {
@@ -53,7 +46,6 @@ const parseDateBRToISO = (str: string) => {
     }
 };
 
-// Converte ISO para formato aceito pelo input type="datetime-local" (YYYY-MM-DDTHH:MM)
 const toNativeInputFormat = (isoDate: string) => {
     if (!isoDate) return '';
     const d = new Date(isoDate);
@@ -61,10 +53,15 @@ const toNativeInputFormat = (isoDate: string) => {
     return d.toISOString().slice(0, 16);
 }
 
+// Interface estendida localmente para garantir a propriedade de ordem (caso não venha do back ainda)
+interface ITransactionExtended extends ITransaction {
+    order?: number; 
+}
+
 // --- COMPONENTE PRINCIPAL ---
 
 export default function FinanLitoPage() {
-  const [transactions, setTransactions] = useState<ITransaction[]>([]);
+  const [transactions, setTransactions] = useState<ITransactionExtended[]>([]);
   const [curYear, setCurYear] = useState(new Date().getFullYear());
   const [curMonth, setCurMonth] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,9 +80,7 @@ export default function FinanLitoPage() {
   const [formStatus, setFormStatus] = useState<'pending' | 'paid' | 'overdue'>('pending');
   const [formDate, setFormDate] = useState('');
   
-  // Ref para o input nativo de data oculto
   const hiddenDateInputRef = useRef<HTMLInputElement>(null);
-
   const token = localStorage.getItem('token') || "";
   const navigate = useNavigate();
 
@@ -98,7 +93,12 @@ export default function FinanLitoPage() {
     setLoading(true);
     try {
       const data = await FinanLitoService.getAll(undefined, curYear, token);
-      setTransactions(data);
+      // Se o backend não traz ordem, usamos a ordem do array original ou data como fallback
+      const dataWithOrder = data.map((t: any, index: number) => ({
+          ...t,
+          order: t.order !== undefined ? t.order : index // Preserva ordem se existir, senão cria
+      }));
+      setTransactions(dataWithOrder);
     } catch (error) {
       console.error("Erro ao carregar finanças", error);
     } finally {
@@ -106,29 +106,99 @@ export default function FinanLitoPage() {
     }
   }
 
-  // Drag and Drop
+  // --- LÓGICA DRAG AND DROP AVANÇADA (TRELLO STYLE) ---
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('text/plain', id);
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDrop = async (e: React.DragEvent, newStatus: string) => {
+  /**
+   * Drop na COLUNA (move para o final da coluna ou muda status)
+   */
+  const handleDropColumn = async (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
-    const id = e.dataTransfer.getData('text/plain');
-    const transaction = transactions.find(t => (t._id === id || t.id === id));
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (!draggedId) return;
 
-    if (transaction && transaction.status !== newStatus) {
-        const updated = { ...transaction, status: newStatus as any };
-        setTransactions(prev => prev.map(t => (t._id === id || t.id === id) ? updated : t));
-        try {
-            await FinanLitoService.update(id, updated, token);
-        } catch (error) {
-            loadData();
+    // Evita conflito se soltou em cima de um card (que já trata o drop)
+    if (e.target !== e.currentTarget) return;
+
+    updateTransactionPosition(draggedId, newStatus, null); // Null = final da lista
+  };
+
+  /**
+   * Drop no CARD (insere antes ou depois do card alvo)
+   */
+  const handleDropCard = (e: React.DragEvent, targetId: string, status: string) => {
+      e.preventDefault();
+      e.stopPropagation(); // Impede que o drop suba para a coluna
+      const draggedId = e.dataTransfer.getData('text/plain');
+      
+      if (draggedId === targetId) return;
+      updateTransactionPosition(draggedId, status, targetId);
+  }
+
+  const updateTransactionPosition = async (draggedId: string, newStatus: string, targetId: string | null) => {
+    const allItems = [...transactions];
+    const draggedItemIndex = allItems.findIndex(t => (t._id === draggedId || t.id === draggedId));
+    if (draggedItemIndex === -1) return;
+
+    const draggedItem = { ...allItems[draggedItemIndex] };
+    
+    // Remove o item da posição original
+    allItems.splice(draggedItemIndex, 1);
+    
+    // Atualiza status
+    draggedItem.status = newStatus as any;
+
+    // Lógica de Reordenação Visual
+    // Filtramos apenas os itens visíveis no mês/ano atual para calcular a posição visual correta
+    const currentViewItems = allItems.filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === curMonth && d.getFullYear() === curYear;
+    }); // Nota: draggedItem já não está aqui pois foi removido acima
+
+    let insertIndex = -1;
+
+    if (targetId) {
+        // Encontra onde está o card alvo na lista GERAL, mas baseado na visualização
+        const targetIndexInView = currentViewItems.findIndex(t => (t._id === targetId || t.id === targetId));
+        // Se achou na view, precisamos achar o índice real no array 'allItems' para inserir corretamente
+        if (targetIndexInView !== -1) {
+             const targetItem = currentViewItems[targetIndexInView];
+             insertIndex = allItems.indexOf(targetItem);
         }
+    }
+
+    if (insertIndex !== -1) {
+        allItems.splice(insertIndex, 0, draggedItem);
+    } else {
+        // Se não tem target (dropou na coluna vazia), adiciona ao final (mas cuidado com a data,
+        // no mundo real idealmente você mudaria a data/order, aqui vamos apenas dar push no array principal
+        // mas para UX ficar perfeita, o ideal é inserir logo após o último item deste mês)
+        allItems.push(draggedItem);
+    }
+
+    // Atualiza estado local imediatamente para feedback visual
+    setTransactions(allItems);
+
+    // PERSISTÊNCIA (IMPORTANTE PARA O CEO/DEV):
+    // Aqui você deve chamar seu backend para salvar a nova ordem ("order" field) e o novo status.
+    // Como estamos editando apenas o frontend, vou salvar apenas o status via API existente.
+    try {
+        if (draggedItem.status !== transactions[draggedItemIndex].status) {
+            await FinanLitoService.update(draggedId, { status: newStatus }, token);
+        }
+        // TODO: Criar endpoint FinanLitoService.updateOrder(allItems) para salvar a ordem
+    } catch (error) {
+        console.error("Erro ao atualizar", error);
+        loadData(); // Reverte em caso de erro
     }
   };
 
-  // Cálculos
+  // --- CÁLCULOS E MEMOS ---
+
   const yearData = useMemo(() => {
     return months.map((m, idx) => {
       const items = transactions.filter(t => {
@@ -143,7 +213,6 @@ export default function FinanLitoPage() {
 
   const globalBalance = useMemo(() => {
     return transactions
-      // FILTRO DE ANO: Garante que só somamos o que pertence ao ano selecionado
       .filter(t => new Date(t.date).getFullYear() === curYear)
       .reduce((acc, t) => t.type === 'income' ? acc + Number(t.amount) : acc - Number(t.amount), 0);
   }, [transactions, curYear]);
@@ -151,7 +220,6 @@ export default function FinanLitoPage() {
   function openMonth(idx: number) { setCurMonth(idx); }
   function goHome() { setCurMonth(null); }
 
-  // Máscara de Moeda
   const currencyMask = (value: string) => {
     if (!value) return "";
     const onlyDigits = value.replace(/\D/g, "");
@@ -221,14 +289,10 @@ export default function FinanLitoPage() {
     }
   }
 
-  // --- HANDLERS INTELIGENTES ---
-
   // Função de Replicar
   async function handleReplicate() {
     if (curMonth === null) return;
-    
     if (!confirm(`Deseja copiar todos os lançamentos de ${months[curMonth]} para o próximo mês?`)) return;
-    
     setLoading(true);
     try {
         const res = await FinanLitoService.replicate(curMonth, curYear, token);
@@ -241,7 +305,6 @@ export default function FinanLitoPage() {
     }
   }
 
-  // Handlers de Mudança nos Inputs
   const handleChangeAmount = (e: React.ChangeEvent<HTMLInputElement>) => {
     const masked = currencyMask(e.target.value);
     setFormAmount(masked);
@@ -254,7 +317,6 @@ export default function FinanLitoPage() {
     }
   }
 
-  // Data: Gatilho do Calendário
   const openCalendar = () => {
     if (hiddenDateInputRef.current) {
         if (typeof hiddenDateInputRef.current.showPicker === 'function') {
@@ -280,11 +342,19 @@ export default function FinanLitoPage() {
 
   const monthFiltered = useMemo(() => {
     if (curMonth === null) return [];
-    return transactions.filter(t => {
+    
+    // 1. Filtra por mês, ano e busca
+    const filtered = transactions.filter(t => {
       const d = new Date(t.date);
       return d.getMonth() === curMonth && d.getFullYear() === curYear &&
         (t.title.toLowerCase().includes(searchTerm.toLowerCase()) || (t.description?.toLowerCase().includes(searchTerm.toLowerCase())));
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    });
+
+    // 2. ORDENAÇÃO: Removemos a ordenação forçada por data.
+    // Agora confiamos na ordem do array 'transactions' (que manipulamos no Drag and Drop).
+    // Se quiser manter data como critério de desempate secundário, ok, mas para DnD funcionar
+    // a ordem do array deve prevalecer.
+    return filtered; 
   }, [transactions, curMonth, curYear, searchTerm]);
 
   const statsMonth = useMemo(() => {
@@ -295,9 +365,6 @@ export default function FinanLitoPage() {
 
   return (
     <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Segoe UI', sans-serif" }}>
-      {/* ESTILO INTERNO PARA RESPONSIVIDADE
-        Substitui a media query inline que quebrava o build
-      */}
       <style>{`
         .desktop-only { display: none; }
         @media (min-width: 768px) {
@@ -382,11 +449,9 @@ export default function FinanLitoPage() {
                 />
               </div>
 
-              {/* --- BOTÃO DE REPLICAR (CORRIGIDO) --- */}
               <button onClick={handleReplicate} title="Copiar lançamentos para o próximo mês" style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <MdContentCopy /> <span className="desktop-only">Replicar</span>
               </button>
-              {/* ----------------------------------- */}
 
               <button onClick={() => handleOpenModal()} style={{ background: '#2563eb', color: 'white', border: 'none', padding: '0 1.5rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <MdAdd /> Novo
@@ -400,7 +465,8 @@ export default function FinanLitoPage() {
                     items={monthFiltered.filter(t => t.status === 'pending')} 
                     bg="#fef9c3" color="#854d0e" 
                     onClickItem={handleOpenModal} 
-                    onDrop={handleDrop} 
+                    onDropColumn={handleDropColumn}
+                    onDropCard={handleDropCard}
                     onDragStart={handleDragStart} 
                 />
                 <KanbanColumn 
@@ -408,7 +474,8 @@ export default function FinanLitoPage() {
                     items={monthFiltered.filter(t => t.status === 'overdue')} 
                     bg="#fee2e2" color="#991b1b" 
                     onClickItem={handleOpenModal} 
-                    onDrop={handleDrop} 
+                    onDropColumn={handleDropColumn}
+                    onDropCard={handleDropCard} 
                     onDragStart={handleDragStart} 
                 />
                 <KanbanColumn 
@@ -416,7 +483,8 @@ export default function FinanLitoPage() {
                     items={monthFiltered.filter(t => t.status === 'paid')} 
                     bg="#dcfce7" color="#166534" 
                     onClickItem={handleOpenModal} 
-                    onDrop={handleDrop} 
+                    onDropColumn={handleDropColumn}
+                    onDropCard={handleDropCard} 
                     onDragStart={handleDragStart} 
                 />
               </div>
@@ -508,22 +576,29 @@ const StatCard = ({ label, value, color }: any) => (
   </div>
 );
 
-const KanbanColumn = ({ title, items, bg, color, onClickItem, onDrop, onDragStart, status }: any) => (
+// Atualizado para aceitar onDropCard e onDropColumn separados
+const KanbanColumn = ({ title, items, bg, color, onClickItem, onDropColumn, onDropCard, onDragStart, status }: any) => (
   <div 
     onDragOver={(e) => e.preventDefault()}
-    onDrop={(e) => onDrop(e, status)}
+    onDrop={(e) => onDropColumn(e, status)} // Drop na área vazia da coluna
     style={{ flex: 1, background: '#e2e8f0', borderRadius: '10px', display: 'flex', flexDirection: 'column', padding: '0.8rem', minWidth: '280px' }}
   >
     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontWeight: 700, color: '#64748b', fontSize: '0.8rem', textTransform: 'uppercase' }}>
       <span>{title}</span><span>{items.length}</span>
     </div>
-    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem', minHeight: '100px' }}>
       {items.map((t: ITransaction) => (
         <div 
           key={t._id || t.id} 
           draggable={true} 
-          onDragStart={(e) => onDragStart(e, t._id || t.id)} 
-          onClick={() => onClickItem(t)} 
+          onDragStart={(e) => onDragStart(e, t._id || t.id)}
+          // Drop EM CIMA de um card existente para reordenar
+          onDrop={(e) => onDropCard(e, t._id || t.id, status)}
+          onDragOver={(e) => e.preventDefault()} // Necessário para permitir drop
+          onClick={(e) => {
+             e.stopPropagation(); // Evita bubble se necessário
+             onClickItem(t);
+          }} 
           style={{ 
             background: 'white', padding: '0.8rem', borderRadius: '8px', 
             boxShadow: '0 1px 2px rgba(0,0,0,0.1)', cursor: 'grab', 
@@ -533,12 +608,12 @@ const KanbanColumn = ({ title, items, bg, color, onClickItem, onDrop, onDragStar
           onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
           onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
             <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>{t.title}</span>
             <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? '#16a34a' : '#dc2626' }}>{t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}</span>
           </div>
-          <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem' }}>
+          <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
             <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
             <span>{t.type === 'income' ? 'REC' : 'DESP'}</span>
           </div>
