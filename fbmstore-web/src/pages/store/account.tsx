@@ -136,55 +136,58 @@ const AccountScreen: React.FC = () => {
   // --- AÇÃO DE ATUALIZAR ---
 
   const handleUpdateRegister = async () => {
-    // Validações básicas
-    if (!name || !doc.rawValue || !telephone || !street) {
-        showToast('warning', 'Atenção', 'Preencha os campos obrigatórios.');
-        return;
-    }
+    const token = getToken();
+    if (token) {
+      // Validações básicas
+      if (!name || !doc.rawValue || !telephone || !street) {
+          showToast('warning', 'Atenção', 'Preencha os campos obrigatórios.');
+          return;
+      }
 
-    // Validação do Documento
-    if (!doc.isValid) {
-        showToast('error', 'Documento Inválido', 'Verifique o CPF ou CNPJ digitado.');
-        return;
-    }
+      // Validação do Documento
+      if (!doc.isValid) {
+          showToast('error', 'Documento Inválido', 'Verifique o CPF ou CNPJ digitado.');
+          return;
+      }
 
-    const cleanPhone = telephone.replace(/\D/g, "");
-    const cleanCep = cep.replace(/\D/g, "");
+      const cleanPhone = telephone.replace(/\D/g, "");
+      const cleanCep = cep.replace(/\D/g, "");
 
-    const person: Person = { 
-        name, 
-        telephone: cleanPhone,
-        document: doc.rawValue
-    };
+      const person: Person = { 
+          name, 
+          telephone: cleanPhone,
+          document: doc.rawValue
+      };
 
-    const address: Address = {
-      _id: idAddress,
-      street,
-      number,
-      cep: cleanCep,
-      city,
-      uf,
-      neighborhood,
-      complement,
-    };
+      const address: Address = {
+        _id: idAddress,
+        street,
+        number,
+        cep: cleanCep,
+        city,
+        uf,
+        neighborhood,
+        complement,
+      };
 
-    try {
-        const result = await updateRegister(clientId, person, address);
-        
-        // --- CORREÇÃO DO ERRO DE BUILD AQUI ---
-        // Usamos (result as any) para evitar o erro "Property status does not exist on type number"
-        const isSuccess = 
-            result === 204 || 
-            result === 200 || 
-            (typeof result === 'object' && (result as any)?.status === 200);
+      try {
+          const result = await updateRegister(clientId, person, address, token);
+          
+          // --- CORREÇÃO DO ERRO DE BUILD AQUI ---
+          // Usamos (result as any) para evitar o erro "Property status does not exist on type number"
+          const isSuccess = 
+              result === 204 || 
+              result === 200 || 
+              (typeof result === 'object' && (result as any)?.status === 204);
 
-        if (isSuccess) {
-            showToast('success', 'Sucesso', 'Dados atualizados com sucesso!');
-        } else {
-            showToast('error', 'Erro', 'Não foi possível atualizar os dados.');
-        }
-    } catch (e) {
-        showToast('error', 'Erro', 'Falha na comunicação com o servidor.');
+          if (isSuccess) {
+              showToast('success', 'Sucesso', 'Dados atualizados com sucesso!');
+          } else {
+              showToast('error', 'Erro', 'Não foi possível atualizar os dados.');
+          }
+      } catch (e) {
+          showToast('error', 'Erro', 'Falha na comunicação com o servidor.');
+      }
     }
   };
 

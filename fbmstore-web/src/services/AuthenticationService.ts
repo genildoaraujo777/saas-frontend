@@ -30,12 +30,15 @@ console.log('result: ',result);
     }
 }
 
-export async function updateRegister(clientId: string, person: Person, address: Address) {
+export async function updateRegister(clientId: string, person: Person, address: Address, token: string) {
     if (!clientId || !person || !address) return null;
     try {
-        const result = await api.put(`/auth/clients/update-register/${clientId}`, {
-            person, address
-        });
+        const result = await api.put(`/auth/clients/update-register/${clientId}`, 
+            {
+              person, address
+            },
+            { headers: { Authorization: `Bearer ${token}` } }, 
+        );
         return result.status;
     } catch (error) {
         console.log(error);
