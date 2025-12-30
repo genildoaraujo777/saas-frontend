@@ -43,20 +43,6 @@ export async function updateRegister(clientId: string, person: Person, address: 
     }
 }
 
-export async function sendResetPasswordCode(email: string) {
-    if (!email) return null;
-    try {
-        const result = await api.post('/auth/clients/reset-password', {
-            email
-        });
-
-        return result.data;
-    } catch (error) {
-        console.log(error);
-        return null;
-    }
-}
-
 export async function searchCodeReset(code: string) {
     if (!code) return null;
     try {
@@ -115,4 +101,49 @@ export async function checkTokenValidity(token: string) {
         // Cai no catch se a API retornar 401/403/500, então é INVÁLIDO.
         return false; // Retorna false (inválido)
     }
-};
+}
+
+export async function validateActivationCode(code: string) {
+  try {
+    const response = await api.get(`/auth/clients/active/${code}`);
+    return response.data;
+  } catch (error: any) {
+    console.error("Erro na ativação:", error);
+    // Retorna erro padronizado caso a API falhe
+    return error.response?.data || { isValidCode: false, msg: "Erro ao validar código." };
+  }
+}
+
+// 1. Enviar Código de Recuperação
+export async function sendResetPasswordCode(email: string) {
+  try {
+    // POST /auth/clients/reset-password
+    const response = await api.post('/auth/clients/reset-password', { email });
+    return response.data;
+  } catch (error: any) {
+    return error.response?.data || { success: false, msg: "Erro ao enviar código." };
+  }
+}
+
+// 2. Validar o Código (Igual ao de ativação, mas para reset)
+export async function validateResetCode(code: string) {
+  try {
+    // GET /auth/clients/reset-password/:code
+    const response = await api.get(`/auth/clients/reset-password/${code}`);
+    return response.data;
+  } catch (error: any) {
+    return error.response?.data || { isValid: false, msg: "Código inválido." };
+  }
+}
+
+// 3. Atualizar a Senha
+export async function updatePassword(loginData: any) {
+  try {
+    // POST /auth/clients/update-password
+    // Espera: { email, code, newPassword, confirmNewPassword }
+    const response = await api.post('/auth/clients/update-password', loginData);
+    return response.data;
+  } catch (error: any) {
+    return error.response?.data || { success: false, msg: "Erro ao atualizar senha." };
+  }
+}

@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "@/pages/login";
 import SignUp from "@/pages/register";
-import ResetPasswordPage from "@/pages/reset_password";
 import HomePage from "@/pages/home";
 import AccountScreen from "@/pages/store/account";
 import PopPage from "@/pages/pop";
@@ -23,6 +22,8 @@ import CadSupplierPage from "@/pages/cadSupplier";
 import ClientsScreen from "@/pages/clientes";
 import FinanLitoPage from "@/pages/finanlito";
 import SubscriptionPage from "@/pages/subscription/[productId]";
+import AccountActive from "@/pages/account-active";
+import ResetPasswordPage from "@/pages/reset-password";
 
 export default function AppRoutes() {
   return (
@@ -31,11 +32,12 @@ export default function AppRoutes() {
         {/* ambas funcionam */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/account-active" element={<AccountActive />} />
 
         <Route path="/cart" element={<CartScreen />} />
         <Route path="/politica-privacidade" element={<PopPage />} />
         <Route path="/register" element={<SignUp />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/reset_password" element={<ResetPasswordPage />} />
 
         <Route path="/product/:productId" element={<ProductDetails />} />
         <Route path="/store/orders/:mode?" element={<OrdersScreen />} />

@@ -30,6 +30,7 @@ export interface User extends Person {
 export interface Person {
   name: string;
   telephone: string;
+  document: string;
 }
 
 export interface Address {

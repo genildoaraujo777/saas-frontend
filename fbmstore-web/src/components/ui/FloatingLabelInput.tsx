@@ -1,5 +1,5 @@
 // src/components/ui/FloatingLabelInput.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { forwardRef, useEffect, useMemo, useState } from 'react';
 
 type CSSDimension = number | string;
 
@@ -56,7 +56,7 @@ function mapKeyboard(
   }
 }
 
-export default function FloatingLabelInput({
+const FloatingLabelInput = forwardRef<HTMLInputElement, Props>(({
   label,
   value,
   onFocus,
@@ -69,9 +69,9 @@ export default function FloatingLabelInput({
   autoCapitalize = 'off',
   keyboardType,
   style,
-  placeholder = '', // a label faz papel de placeholder
+  placeholder = '',
   ...rest
-}: Props) {
+}, ref) => {
   const [focused, setFocused] = useState(false);
 
   // 0 = base, 1 = flutuando
@@ -129,6 +129,7 @@ export default function FloatingLabelInput({
       <input
         {...rest}
         {...mapped}
+        ref={ref}
         value={value as any}
         onFocus={(e) => {
           setFocused(true);
@@ -155,7 +156,9 @@ export default function FloatingLabelInput({
       />
     </div>
   );
-}
+});
+
+export default FloatingLabelInput;
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
