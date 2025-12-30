@@ -171,7 +171,7 @@ const AccountScreen: React.FC = () => {
     try {
         const result = await updateRegister(clientId, person, address);
         // O backend pode retornar 204 (No Content) ou 200 com objeto
-        if (result === 204 || (result && result.status === 200) || result) {
+        if (result === 204 || (result && result.status === 204) || result) {
             showToast('success', 'Sucesso', 'Dados atualizados com sucesso!');
         } else {
             showToast('error', 'Erro', 'Não foi possível atualizar os dados.');

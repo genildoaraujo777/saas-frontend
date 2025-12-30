@@ -36,7 +36,7 @@ export async function updateRegister(clientId: string, person: Person, address: 
         const result = await api.put(`/auth/clients/update-register/${clientId}`, {
             person, address
         });
-        return result.status;
+        return result;
     } catch (error) {
         console.log(error);
         return null;
