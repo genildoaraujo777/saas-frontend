@@ -154,7 +154,7 @@ const AccountScreen: React.FC = () => {
     const person: Person = { 
         name, 
         telephone: cleanPhone,
-        document: doc.rawValue // Enviando o documento atualizado
+        document: doc.rawValue
     };
 
     const address: Address = {
@@ -170,8 +170,15 @@ const AccountScreen: React.FC = () => {
 
     try {
         const result = await updateRegister(clientId, person, address);
-        // O backend pode retornar 204 (No Content) ou 200 com objeto
-        if (result === 204 || (result && result.status === 204) || result) {
+        
+        // --- CORREÇÃO DO ERRO DE BUILD AQUI ---
+        // Usamos (result as any) para evitar o erro "Property status does not exist on type number"
+        const isSuccess = 
+            result === 204 || 
+            result === 200 || 
+            (typeof result === 'object' && (result as any)?.status === 200);
+
+        if (isSuccess) {
             showToast('success', 'Sucesso', 'Dados atualizados com sucesso!');
         } else {
             showToast('error', 'Erro', 'Não foi possível atualizar os dados.');
