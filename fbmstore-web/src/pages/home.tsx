@@ -334,12 +334,9 @@ export default HomePage;
 const styles: Record<string, React.CSSProperties> = {
   page: { 
     minHeight: "100vh", 
-    background: "#f8fafc", 
-    display: "flex",
-    flexDirection: "column" as const, 
-    width: "100%",
-    boxSizing: "border-box",
-    overflowX: "hidden", // Previne scroll horizontal indesejado
+    background: "#fff", 
+    display: "flex", 
+    flexDirection: "column" as const 
   },
 
   header: {
