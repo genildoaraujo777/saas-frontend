@@ -54,7 +54,7 @@ export default function SubscriptionPage() {
     return ordersClient.find(order => {
         const status = order.statusOrder?.toUpperCase();
         // Inclui CANCELED aqui para podermos mostrar o botão de "Assinatura Inativa" ou data final se necessário
-        const isValidOrder = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE', 'CANCELED'].includes(status);
+        const isValidOrder = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE', 'CANCELED', 'TRIALING'].includes(status);
         if (!isValidOrder) return false;
 
         return order.itemsOrder.some((item: any) => {
@@ -72,7 +72,7 @@ export default function SubscriptionPage() {
   // Se estiver cancelado, mas não agendado (ou seja, já expirou ou foi cancelado manual imediato)
   const isFullyCanceled = activeSubscription?.statusOrder?.toUpperCase() === 'CANCELED';
   // Verifica se ainda tem acesso (Ativo OU Cancelado com Agendamento)
-  const hasAccess = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE'].includes(activeSubscription?.statusOrder?.toUpperCase() || '');
+  const hasAccess = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE', 'TRIALING'].includes(activeSubscription?.statusOrder?.toUpperCase() || '');
 
   // 2. Função de Cancelar Assinatura
   async function handleCancelSubscription() {
@@ -176,13 +176,20 @@ export default function SubscriptionPage() {
         }
 
         const userEmail = (loggedClient.client as any).email || "cliente@fbmstore.com";
+
+        // 3. LÓGICA PARA DEFINIR SE TEM TRIAL
+        // Você pode verificar pelo ID do produto, pelo Código ou pelo Nome
+        // Exemplo: Se o nome contiver "Financeiro", dá 7 dias.
+        const hasTrial = product?.description?.toLowerCase().includes("financeiro");
+
         const checkoutPayload = {
             provider: 'stripe',
             amount: finalPrice, 
             productName: product?.name || product?.description,
             productDescription: product?.description,
             orderId: createdOrder._id, 
-            clientEmail: userEmail
+            clientEmail: userEmail,
+            trialDays: hasTrial ? 7 : 0
         };
 
         const paymentResponse = await api.post('/pagto/checkout/process', checkoutPayload, {
@@ -345,7 +352,11 @@ export default function SubscriptionPage() {
                         transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)'
                     }}
                 >
-                    {processing ? 'Criando assinatura...' : <><MdRocketLaunch size={22} /> Assinar Agora</>}
+                    {processing ? 'Criando assinatura...' : (
+                        product?.description?.toLowerCase().includes("financeiro") ? 
+                        <><MdRocketLaunch size={22} /> Testar 7 Dias Grátis</> : 
+                        <><MdRocketLaunch size={22} /> Assinar Agora</>
+                    )}
                 </button>
             )}
             
