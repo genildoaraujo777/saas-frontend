@@ -334,9 +334,12 @@ export default HomePage;
 const styles: Record<string, React.CSSProperties> = {
   page: { 
     minHeight: "100vh", 
-    background: "#fff", 
-    display: "flex", 
-    flexDirection: "column" as const 
+    background: "#f8fafc", 
+    display: "flex",
+    flexDirection: "column" as const, 
+    width: "100%",
+    boxSizing: "border-box",
+    overflowX: "hidden", // Previne scroll horizontal indesejado
   },
 
   header: {
@@ -358,7 +361,8 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: 1200,
     margin: "0 auto",
     padding: "20px",
-    flex: 1 
+    flex: 1,
+    boxSizing: "border-box", // <--- A CORREÇÃO MÁGICA 1 (Evita estourar a tela)
   },
 
   searchBarWrap: {
@@ -371,6 +375,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#fff",
     paddingRight: 12,
     width: "100%",
+    boxSizing: "border-box", // <--- CORREÇÃO MÁGICA 2
     boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
   searchInput: { 
@@ -387,14 +392,13 @@ const styles: Record<string, React.CSSProperties> = {
 
   productsGrid: {
     display: "grid",
-    // MUDANÇA 1: Reduzi de 340px para 280px para caber em qualquer Android/iPhone pequeno
+    // AJUSTE: Reduzi para 280px para caber confortavelmente em qualquer celular
     gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
     gap: 24,
     padding: "10px 0",
     width: "100%",
     boxSizing: "border-box",
-    // MUDANÇA 2: Isso força os itens a ficarem no meio se não preencherem a linha toda
-    justifyContent: "center", 
+    justifyContent: "center", // Centraliza os cards se sobrar espaço
   },
   noProductsText: { textAlign: 'center', color: '#64748b', fontSize: 16, marginTop: 40 },
 
