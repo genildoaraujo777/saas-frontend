@@ -92,7 +92,7 @@ const ResetPasswordPage: React.FC = () => {
       return;
     }
     if (!validatePasswordComplexity(newPassword)) {
-      alert("A senha deve conter Maiúscula, Minúscula, Número e Especial.");
+      alert("A senha deve conter Maiúscula, Minúscula, Número e Caracter Especial.");
       return;
     }
 

@@ -112,7 +112,7 @@ const RegisterPage: React.FC = () => {
         return;
       }
       if (!validatePasswordComplexity(password)) {
-        showToast("Senha fraca", "Sua senha precisa ser mais forte.");
+        showToast("Senha fraca", "A senha deve conter Maiúscula, Minúscula, Número e Caracter Especial.");
         return;
       }
       setStep(2);
