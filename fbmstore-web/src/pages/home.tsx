@@ -339,7 +339,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column" as const, 
     width: "100%",
     boxSizing: "border-box",
-    overflowX: "hidden",
+    overflowX: "hidden", // Previne scroll horizontal indesejado
   },
 
   header: {
@@ -390,11 +390,14 @@ const styles: Record<string, React.CSSProperties> = {
 
   productsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", 
+    // MUDANÇA 1: Reduzi de 340px para 280px para caber em qualquer Android/iPhone pequeno
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
     gap: 24,
     padding: "10px 0",
     width: "100%",
     boxSizing: "border-box",
+    // MUDANÇA 2: Isso força os itens a ficarem no meio se não preencherem a linha toda
+    justifyContent: "center", 
   },
   noProductsText: { textAlign: 'center', color: '#64748b', fontSize: 16, marginTop: 40 },
 

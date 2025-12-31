@@ -514,7 +514,52 @@ export default function FinanLitoPage() {
                 <div><label style={lblStyle}>Tipo</label><select style={inpStyle} value={formType} onChange={e => setFormType(e.target.value as any)}><option value="expense">Despesa</option><option value="income">Receita</option></select></div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div><label style={lblStyle}>Data</label><div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><input type="text" required style={inpStyle} value={formDate} onChange={e => setFormDate(e.target.value)} placeholder="DD/MM/AAAA HH:MM" /><button type="button" onClick={openCalendar} style={{ background: '#e2e8f0', border: 'none', padding: '0.7rem', borderRadius: '6px', cursor: 'pointer', color: '#475569' }}><MdCalendarToday size={20} /></button><input type="datetime-local" ref={hiddenDateInputRef} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '1px' }} defaultValue={parseDateBRToISO(formDate) ? toNativeInputFormat(parseDateBRToISO(formDate)) : ''} onChange={handleNativeDateChange} /></div></div>
+                <div>
+                  <label style={lblStyle}>Data</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+                    
+                    {/* Input de Texto (Visual apenas) */}
+                    <input 
+                        type="text" 
+                        required 
+                        style={inpStyle} 
+                        value={formDate} 
+                        onChange={e => setFormDate(e.target.value)} 
+                        placeholder="DD/MM/AAAA HH:MM" 
+                    />
+
+                    {/* Botão com o Ícone (Visual) + Input Nativo (Funcional Invisível) */}
+                    <div style={{ position: 'relative', width: '45px', height: '42px' }}>
+                        {/* O Ícone fica embaixo */}
+                        <button 
+                            type="button" 
+                            style={{ 
+                                background: '#e2e8f0', border: 'none', 
+                                width: '100%', height: '100%',
+                                borderRadius: '6px', color: '#475569',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}
+                        >
+                            <MdCalendarToday size={20} />
+                        </button>
+
+                        {/* O Input Nativo fica por cima, invisível, mas clicável */}
+                        <input 
+                            type="datetime-local" 
+                            style={{ 
+                                position: 'absolute', 
+                                top: 0, left: 0, 
+                                width: '100%', height: '100%', 
+                                opacity: 0, 
+                                cursor: 'pointer',
+                                zIndex: 10 // Garante que fica na frente do botão
+                            }} 
+                            onChange={handleNativeDateChange} 
+                        />
+                    </div>
+
+                  </div>
+                </div>
                 <div><label style={lblStyle}>Status</label><select style={inpStyle} value={formStatus} onChange={e => setFormStatus(e.target.value as any)}><option value="pending">Pendente</option><option value="paid">Pago</option><option value="overdue">Atrasado</option></select></div>
               </div>
               <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
