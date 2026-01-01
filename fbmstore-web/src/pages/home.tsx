@@ -6,7 +6,7 @@ import { useCategory } from "@/contexts/CategoryContext";
 import { useStock } from "@/contexts/StockContext";
 import { useSupplier } from "@/contexts/SupplierContext";
 import { CartItem } from "@/types";
-import { MdMenu, MdRocketLaunch } from "react-icons/md";
+import { MdMenu, MdRocketLaunch, MdLogin } from "react-icons/md"; // Adicionei MdLogin para o ícone de acesso
 import { useClient } from "@/contexts/ClientContext";
 import { useOrder } from "@/contexts/OrderContext";
 import { useSubscriptionCheck } from "@/hooks/useSubscriptionCheck";
@@ -16,7 +16,9 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { clients, fetchClients, loggedClient, isAdmin, logoutClient } = useClient();
 
-  // Mantemos o hook do carrinho caso queira usar o ícone no header
+  // 1. IMPORTANTE: Pegamos 'ordersClient' aqui para checar as assinaturas
+  const { searchOrders, ordersClient } = useOrder(); 
+
   const { cartItems } = useCart();
   const { categoriesItems } = useCategory();
   const { suppliersItems } = useSupplier();
@@ -30,20 +32,17 @@ const HomePage: React.FC = () => {
   const [supplierId, setSupplierId] = useState("");
   const [noFetchMore, setNoFetchMore] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
-  const { searchOrders } = useOrder();
 
   const listRef = useRef<HTMLDivElement | null>(null);
   // @ts-ignore
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-  // Memoiza produtos
   const memoizedProducts = useMemo(() => {
     return stockItems;
   }, [stockItems]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    // Se tem token e usuário logado, busca os pedidos para atualizar o 'hasActiveFinance'
     if (token && loggedClient) {
         searchOrders(token, isAdmin).catch(err => 
             console.error("Erro ao verificar assinaturas em background:", err)
@@ -51,12 +50,10 @@ const HomePage: React.FC = () => {
     }
   }, [loggedClient, isAdmin]);
 
-  // Inicial / quando muda lista
   useEffect(() => {
     if (!searchQuery) setFilteredProducts(memoizedProducts);
   }, [memoizedProducts, searchQuery]);
 
-  // Busca por texto
   useEffect(() => {
     if (searchQuery === "") {
       handleSearch();
@@ -150,18 +147,62 @@ const HomePage: React.FC = () => {
     if (!isLoading && !notIsLoading) fetchMoreProducts();
   };
 
-  // Item (memo) - Modificado para estilo SaaS
+  // --- INTERFACE DO ITEM ---
   interface ItemProps {
     product: CartItem;
     itemIndex: number;
+    // 2. Adicionamos a lista de pedidos nas props
+    ordersClient?: any[];
   }
 
   const ItemComponent = React.memo(
-    ({ product, itemIndex }: ItemProps) => {
+    ({ product, itemIndex, ordersClient }: ItemProps) => {
       
       const truncateDescription = (description: string) => {
           return description.length > 50 ? description.slice(0, 50) + '...' : description;
       };
+
+      // 3. LÓGICA DE VERIFICAÇÃO DE ASSINATURA ATIVA
+      const hasActiveSubscription = useMemo(() => {
+        if (!ordersClient) return false;
+
+        return ordersClient.some(order => {
+            const status = order.statusOrder?.toUpperCase();
+            // Status que consideram acesso liberado
+            const hasAccess = ['DONE', 'PAID', 'SUCCESS', 'ACTIVE', 'TRIALING'].includes(status);
+            if (!hasAccess) return false;
+
+            // Verifica se este produto está dentro do pedido
+            return order.itemsOrder.some((item: any) => {
+                const itemId = typeof item === 'string' ? item : item.product?._id || item._id;
+                // Compara IDs ou Códigos se houver
+                if (itemId === product._id) return true;
+                if (product.code && typeof item !== 'string' && item.product?.code === product.code) return true;
+                return false;
+            });
+        });
+      }, [ordersClient, product]);
+
+      // 4. LÓGICA DE ROTA (Acessar Produto vs Assinar)
+      let buttonText = product.quantityStock === 0 ? "Indisponível" : "Ver Detalhes";
+      let buttonLink = `/subscribe/${product._id!!}`;
+      let ButtonIcon = MdRocketLaunch;
+      let buttonStyle = { ...styles.btn };
+
+      if (hasActiveSubscription) {
+          buttonText = "Acessar Produto";
+          ButtonIcon = MdLogin;
+          // Muda o estilo para verde para destacar que já tem acesso
+          buttonStyle = { ...styles.btn, background: "#10b981", boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.4)' };
+          
+          // Roteamento específico por Produto
+          const isFinance = product.description?.toLowerCase().includes('financeiro') || product.name?.toLowerCase().includes('financeiro');
+          
+          if (isFinance) {
+              buttonLink = '/finanlito';
+          } 
+          // Adicione outros 'else if' aqui para outros produtos futuros
+      }
 
       return (
         <div 
@@ -174,7 +215,6 @@ const HomePage: React.FC = () => {
         >
           
           <div style={styles.cardBody}>
-            {/* ⬅️ ÁREA DA IMAGEM */}
             <div style={styles.itemImageArea}>
               <img
                 src={`${BASE_URL}/files/image?fileName=${product.imagePaths[0]}`}
@@ -184,7 +224,6 @@ const HomePage: React.FC = () => {
               />
             </div>
 
-            {/* ➡️ ÁREA DE INFORMAÇÕES */}
             <div style={styles.itemInfoArea}>
               <div>
                   <h3 style={{ fontSize: 18, marginBottom: 8, fontWeight: 700, color: '#1e293b' }}>
@@ -196,19 +235,18 @@ const HomePage: React.FC = () => {
                   
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
                     <span style={{ fontSize: 14, color: '#94a3b8' }}>A partir de</span>
-                    {/* Preço formatado com segurança */}
                     <p style={styles.price}>{product.price}<span style={{fontSize: 14, fontWeight: 400}}>/mês</span></p>
                   </div>
               </div>
             </div>
           </div>
           
-          {/* ⬇️ BOTÃO DE ASSINATURA */}
+          {/* BOTÃO DINÂMICO */}
           <div style={{ ...styles.rowBetween, marginTop: 15 }}> 
             <Link
-              to={`/subscribe/${product._id!!}`}
+              to={buttonLink}
               style={{
-                ...styles.btn,
+                ...buttonStyle,
                 width: '100%',
                 textDecoration: "none", 
                 display: "flex",
@@ -218,8 +256,8 @@ const HomePage: React.FC = () => {
                 ...(product.quantityStock === 0 ? { opacity: 0.6, cursor: 'not-allowed', pointerEvents: 'none' } : null),
               }}
             >
-              <MdRocketLaunch size={18} />
-              {product.quantityStock === 0 ? "Indisponível" : "Ver Detalhes"}
+              <ButtonIcon size={18} />
+              {buttonText}
             </Link>
           </div>
         </div>
@@ -227,21 +265,21 @@ const HomePage: React.FC = () => {
     }
   );
 
-  // Render item
+  // 5. Passando ordersClient para o renderProduct
   const renderProduct = useCallback(
     (item: CartItem, index: number) => (
       <ItemComponent
         key={item._id!!}
         product={item}
         itemIndex={index}
+        ordersClient={ordersClient} // <--- Passando a prop aqui
       />
     ),
-    []
+    [ordersClient] // <--- Adicionado na dependência para atualizar quando carregar os pedidos
   );
 
   return (
     <div style={styles.page}>
-      {/* Header */}
       <header style={styles.header}>
               <button
                 onClick={() => setMenuVisible((p) => !p)}
@@ -257,7 +295,6 @@ const HomePage: React.FC = () => {
               <span style={{ width: 30 }} />
             </header>
 
-      {/* Conteúdo */}
       <main style={styles.container} ref={listRef}>
         <div style={styles.searchBarWrap}>
           <input
@@ -278,13 +315,11 @@ const HomePage: React.FC = () => {
           )}
         </div>
 
-        {/* Lista */}
         <div style={styles.productsGrid}>
           {filteredProducts.map((item, idx) => 
             item.disable ? <></> : renderProduct(item, idx))}
         </div>
 
-        {/* Footer da lista */}
         {isLoading ? (
           <p style={{ textAlign: "center", padding: 20 }}>Carregando…</p>
         ) : (
@@ -298,7 +333,6 @@ const HomePage: React.FC = () => {
         )}
       </main>
 
-      {/* Menu lateral */}
       <Menu
         visible={menuVisible}
         setVisible={setMenuVisible}
@@ -339,7 +373,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column" as const, 
     width: "100%",
     boxSizing: "border-box",
-    overflowX: "hidden", // Previne scroll horizontal indesejado
+    overflowX: "hidden", 
   },
 
   header: {
@@ -362,7 +396,7 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "0 auto",
     padding: "20px",
     flex: 1,
-    boxSizing: "border-box", // <--- A CORREÇÃO MÁGICA 1 (Evita estourar a tela)
+    boxSizing: "border-box",
   },
 
   searchBarWrap: {
@@ -375,7 +409,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#fff",
     paddingRight: 12,
     width: "100%",
-    boxSizing: "border-box", // <--- CORREÇÃO MÁGICA 2
+    boxSizing: "border-box",
     boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
   searchInput: { 
@@ -392,17 +426,15 @@ const styles: Record<string, React.CSSProperties> = {
 
   productsGrid: {
     display: "grid",
-    // AJUSTE: Reduzi para 280px para caber confortavelmente em qualquer celular
     gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
     gap: 24,
     padding: "10px 0",
     width: "100%",
     boxSizing: "border-box",
-    justifyContent: "center", // Centraliza os cards se sobrar espaço
+    justifyContent: "center",
   },
   noProductsText: { textAlign: 'center', color: '#64748b', fontSize: 16, marginTop: 40 },
 
-  // CARD ESTILO SAAS
   card: {
     background: "#fff",
     borderRadius: 16,
@@ -452,7 +484,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   price: { 
     fontSize: 24, 
-    color: "#4f46e5", // Indigo Primary
+    color: "#4f46e5", 
     fontWeight: 800 as const, 
     margin: 0 
   },
@@ -465,7 +497,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   btn: {
-    background: "#4f46e5", // Indigo 600
+    background: "#4f46e5",
     color: "#fff",
     padding: "14px 20px",
     borderRadius: 10,
