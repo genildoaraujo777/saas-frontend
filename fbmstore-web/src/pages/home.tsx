@@ -196,7 +196,7 @@ const HomePage: React.FC = () => {
           buttonStyle = { ...styles.btn, background: "#10b981", boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.4)' };
           
           // Roteamento específico por Produto
-          const isFinance = product.description?.toLowerCase().includes('financeiro') || product.name?.toLowerCase().includes('financeiro');
+          const isFinance = product.description?.toLowerCase().includes('financeiro');
           
           if (isFinance) {
               buttonLink = '/finanlito';
