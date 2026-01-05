@@ -78,9 +78,20 @@ export default function FinanLitoPage() {
   const token = localStorage.getItem('token') || "";
   const navigate = useNavigate();
 
+  // --- SEGURANÇA: CHECAGEM DE LOGIN ---
+  useEffect(() => {
+    // Se não tiver token, ALERTA e TCHAU
+    if (!token) {
+        alert("Você precisa estar logado para acessar o FBM Finanças.");
+        // Redireciona enviando o state 'from', assim seu Login pode mandar o usuário
+        // de volta pra cá depois de autenticar (boa UX!)
+        navigate('/login', { state: { from: '/finanlito' } });
+    }
+  }, [token, navigate]);
+
   useEffect(() => {
     loadData();
-  }, [curYear, curMonth]);
+  }, [curYear, curMonth, token]);
 
   async function checkAndMigrateOverdue(list: ITransactionExtended[]) {
     const now = new Date();
@@ -423,6 +434,7 @@ export default function FinanLitoPage() {
     return { inc, exp, bal: inc - exp };
   }, [monthFiltered]);
 
+  if (!token) return null;
   return (
     <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Segoe UI', sans-serif" }}>
       <style>{`
