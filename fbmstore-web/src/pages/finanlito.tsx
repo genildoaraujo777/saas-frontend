@@ -83,28 +83,36 @@ export default function FinanLitoPage() {
   }, [curYear, curMonth]);
 
   async function checkAndMigrateOverdue(list: ITransactionExtended[]) {
-    const now = new Date();
-    const updates: Promise<any>[] = [];
-    let hasChanges = false;
+    const now = new Date();
+    // AQUI ESTÁ A CORREÇÃO:
+    // Zeramos a hora para considerar o início do dia de hoje.
+    // Assim, qualquer hora de "hoje" será maior ou igual a "hoje 00:00", e não cairá no atrasado.
+    now.setHours(0, 0, 0, 0); 
 
-    const updatedList = list.map(t => {
-      if (t.status === 'pending') {
-        const tDate = new Date(t.date);
-        if (tDate < now) {
-          hasChanges = true;
-          updates.push(
-            FinanLitoService.update(t._id || t.id || '', { status: 'overdue' }, token)
-              .catch(err => console.error(`Falha ao auto-atualizar transação ${t.title}`, err))
-          );
-          return { ...t, status: 'overdue' } as ITransactionExtended;
-        }
-      }
-      return t;
-    });
+    const updates: Promise<any>[] = [];
+    let hasChanges = false;
 
-    if (updates.length > 0) Promise.all(updates); 
-    return updatedList;
-  }
+    const updatedList = list.map(t => {
+      if (t.status === 'pending') {
+        const tDate = new Date(t.date);
+        
+        // Se a data da transação for MENOR que o início do dia de hoje
+        // significa que é de ontem para trás.
+        if (tDate < now) {
+          hasChanges = true;
+          updates.push(
+            FinanLitoService.update(t._id || t.id || '', { status: 'overdue' }, token)
+              .catch(err => console.error(`Falha ao auto-atualizar transação ${t.title}`, err))
+          );
+          return { ...t, status: 'overdue' } as ITransactionExtended;
+        }
+      }
+      return t;
+    });
+
+    if (updates.length > 0) Promise.all(updates); 
+    return updatedList;
+  }
 
   async function loadData() {
     setLoading(true);
