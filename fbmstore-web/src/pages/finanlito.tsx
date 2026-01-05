@@ -313,19 +313,59 @@ export default function FinanLitoPage() {
   }
 
   async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    const val = parseCurrencyToFloat(formAmount);
-    const isoDate = parseDateBRToISO(formDate);
-    const payload = {
-      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate
-    };
-    try {
-      if (formId) await FinanLitoService.update(formId, payload, token);
-      else await FinanLitoService.create(payload, token);
-      setIsModalOpen(false);
-      loadData();
-    } catch (err) { alert('Erro ao salvar'); }
-  }
+    e.preventDefault();
+    
+    // --- INÍCIO DA VERIFICAÇÃO DE DUPLICIDADE ---
+    // Só verificamos se for uma NOVA criação (!formId)
+    if (!formId) {
+        // 1. Descobrir o mês/ano da data que o usuário digitou no form
+        // A função parseDateBRToISO já existe no seu código, vamos usá-la
+        const isoDateTemp = parseDateBRToISO(formDate);
+        const dateObj = new Date(isoDateTemp);
+        const targetMonth = dateObj.getMonth();
+        const targetYear = dateObj.getFullYear();
+
+        // 2. Normalizar o título que está sendo digitado (sem espaços, minúsculo)
+        const cleanNewTitle = formTitle.trim().toLowerCase();
+
+        // 3. Procurar nos cards JÁ EXISTENTES (apenas do mesmo mês/ano)
+        const possibleDuplicate = transactions.find(t => {
+            const tDate = new Date(t.date);
+            // Verifica se é do mesmo mês/ano
+            if (tDate.getMonth() !== targetMonth || tDate.getFullYear() !== targetYear) return false;
+
+            const cleanExistingTitle = t.title.trim().toLowerCase();
+            
+            // Verifica semelhança: "Mercado" parece com "Supermercado"? Sim.
+            // Verifica se um está contido no outro
+            return cleanExistingTitle.includes(cleanNewTitle) || cleanNewTitle.includes(cleanExistingTitle);
+        });
+
+        // 4. Se achou, pergunta pro chefe (o usuário)
+        if (possibleDuplicate) {
+            const confirmDup = window.confirm(
+                `Atenção: Já existe um card semelhante neste mês: \n\n"${possibleDuplicate.title}" (R$ ${fmtCurrency(possibleDuplicate.amount)})\n\nDeseja incluir este novo mesmo assim?`
+            );
+            // Se o usuário clicar em CANCELAR, paramos a função aqui.
+            if (!confirmDup) return; 
+        }
+    }
+    // --- FIM DA VERIFICAÇÃO ---
+
+    const val = parseCurrencyToFloat(formAmount);
+    const isoDate = parseDateBRToISO(formDate);
+    
+    const payload = {
+      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate
+    };
+
+    try {
+      if (formId) await FinanLitoService.update(formId, payload, token);
+      else await FinanLitoService.create(payload, token);
+      setIsModalOpen(false);
+      loadData();
+    } catch (err) { alert('Erro ao salvar'); }
+  }
 
   async function handleDelete() {
     if (!formId || !confirm('Excluir transação?')) return;
