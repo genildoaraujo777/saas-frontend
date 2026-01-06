@@ -11,6 +11,7 @@ import { CategoryProvider } from '@/contexts/CategoryContext';
 import { SupplierProvider } from '@/contexts/SupplierContext';
 import { ClientProvider } from '@/contexts/ClientContext';
 import { WhatsAppButton } from '@/components/ui/WhatsAppButton';
+import { TenantProvider } from '@/contexts/TenantContext';
 
 type Props = { children?: React.ReactNode };
 
