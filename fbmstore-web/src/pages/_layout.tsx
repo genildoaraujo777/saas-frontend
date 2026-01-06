@@ -24,7 +24,9 @@ export default function RootLayout({ children }: Props) {
               <StockProvider>
                 <CartProvider>
                   <ClientProvider>
-                  {children /* No web, o roteamento (React Router) entra aqui como children */}
+                    <TenantProvider>
+                      {children /* No web, o roteamento (React Router) entra aqui como children */}
+                    </TenantProvider>
                   <WhatsAppButton />
                   </ClientProvider>
                 </CartProvider>

@@ -2,6 +2,8 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { FinanLitoService, ITransaction } from '../services/FinanLitoService';
 import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
+// IMPORTANTE: Importando o contexto que criamos para pegar as cores e nomes
+import { useTenant } from '../contexts/TenantContext';
 
 // --- UTILITÁRIOS ---
 
@@ -38,13 +40,6 @@ const parseDateBRToISO = (str: string) => {
     }
 };
 
-const toNativeInputFormat = (isoDate: string) => {
-    if (!isoDate) return '';
-    const d = new Date(isoDate);
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().slice(0, 16);
-}
-
 interface ITransactionExtended extends ITransaction {
     order?: number; 
 }
@@ -52,16 +47,19 @@ interface ITransactionExtended extends ITransaction {
 // --- COMPONENTE PRINCIPAL ---
 
 export default function FinanLitoPage() {
+  // 1. Hook do White Label (Cores e Textos Dinâmicos)
+  const { colors, terms } = useTenant();
+  
   const [transactions, setTransactions] = useState<ITransactionExtended[]>([]);
   const [curYear, setCurYear] = useState(new Date().getFullYear());
   const [curMonth, setCurMonth] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Estados Drag and Drop Visual (Trello Style)
+  // Estados Drag and Drop
   const [draggedItem, setDraggedItem] = useState<ITransactionExtended | null>(null);
   const [dropPlaceholder, setDropPlaceholder] = useState<{ status: string, index: number } | null>(null);
 
-  // Estados do Modal / Form
+  // Estados Modal / Form
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -80,50 +78,39 @@ export default function FinanLitoPage() {
 
   // --- SEGURANÇA: CHECAGEM DE LOGIN ---
   useEffect(() => {
-    // Se não tiver token, ALERTA e TCHAU
     if (!token) {
-        alert("Você precisa estar logado para acessar o FBM Finanças.");
-        // Redireciona enviando o state 'from', assim seu Login pode mandar o usuário
-        // de volta pra cá depois de autenticar (boa UX!)
+        alert(`Você precisa estar logado para acessar o ${terms.appName}.`);
         navigate('/login', { state: { from: '/finanlito' } });
     }
-  }, [token, navigate]);
+  }, [token, navigate, terms.appName]);
 
   useEffect(() => {
-    loadData();
+    if (token) loadData();
   }, [curYear, curMonth, token]);
 
   async function checkAndMigrateOverdue(list: ITransactionExtended[]) {
-    const now = new Date();
-    // AQUI ESTÁ A CORREÇÃO:
-    // Zeramos a hora para considerar o início do dia de hoje.
-    // Assim, qualquer hora de "hoje" será maior ou igual a "hoje 00:00", e não cairá no atrasado.
+    const now = new Date();
+    // CORREÇÃO DE DATA: Considera apenas o início do dia de hoje (00:00:00)
     now.setHours(0, 0, 0, 0); 
 
-    const updates: Promise<any>[] = [];
-    let hasChanges = false;
+    const updates: Promise<any>[] = [];
+    const updatedList = list.map(t => {
+      if (t.status === 'pending') {
+        const tDate = new Date(t.date);
+        if (tDate < now) {
+          updates.push(
+            FinanLitoService.update(t._id || t.id || '', { status: 'overdue' }, token)
+              .catch(err => console.error(`Falha ao auto-atualizar transação`, err))
+          );
+          return { ...t, status: 'overdue' } as ITransactionExtended;
+        }
+      }
+      return t;
+    });
 
-    const updatedList = list.map(t => {
-      if (t.status === 'pending') {
-        const tDate = new Date(t.date);
-        
-        // Se a data da transação for MENOR que o início do dia de hoje
-        // significa que é de ontem para trás.
-        if (tDate < now) {
-          hasChanges = true;
-          updates.push(
-            FinanLitoService.update(t._id || t.id || '', { status: 'overdue' }, token)
-              .catch(err => console.error(`Falha ao auto-atualizar transação ${t.title}`, err))
-          );
-          return { ...t, status: 'overdue' } as ITransactionExtended;
-        }
-      }
-      return t;
-    });
-
-    if (updates.length > 0) Promise.all(updates); 
-    return updatedList;
-  }
+    if (updates.length > 0) Promise.all(updates); 
+    return updatedList;
+  }
 
   async function loadData() {
     setLoading(true);
@@ -139,21 +126,17 @@ export default function FinanLitoPage() {
       const sanitizedData = await checkAndMigrateOverdue(dataWithOrder);
       setTransactions(sanitizedData);
     } catch (error) {
-      console.error("Erro ao carregar finanças", error);
+      console.error("Erro ao carregar dados", error);
     } finally {
       setLoading(false);
     }
   }
 
-  // --- DRAG AND DROP LÓGICA VISUAL ---
-
+  // --- DRAG AND DROP ---
   const handleDragStart = (e: React.DragEvent, item: ITransactionExtended) => {
     setDraggedItem(item);
     e.dataTransfer.setData('text/plain', item._id || item.id || '');
     e.dataTransfer.effectAllowed = "move";
-    
-    // Imagem fantasma padrão do browser (opcional, podemos deixar o browser gerar)
-    // Mas setamos o estado para renderizar o placeholder
   };
 
   const handleDragEnd = () => {
@@ -161,26 +144,16 @@ export default function FinanLitoPage() {
     setDropPlaceholder(null);
   };
 
-  // Evento disparado quando arrastamos SOBRE um card ou coluna
   const onDragOverCard = (e: React.DragEvent, targetIndex: number, status: string) => {
       e.preventDefault();
       e.stopPropagation();
-
       if (!draggedItem) return;
-
-      // Cálculo mágico: Pega a altura do card alvo
       const targetRect = e.currentTarget.getBoundingClientRect();
       const clientY = e.clientY;
       const targetMiddleY = targetRect.top + targetRect.height / 2;
-
-      // Se mouse estiver ACIMA da metade, insere ANTES (index atual)
-      // Se mouse estiver ABAIXO da metade, insere DEPOIS (index + 1)
       let newIndex = targetIndex;
-      if (clientY > targetMiddleY) {
-          newIndex = targetIndex + 1;
-      }
+      if (clientY > targetMiddleY) newIndex = targetIndex + 1;
 
-      // Só atualiza o estado se mudou (para evitar re-renders excessivos)
       if (!dropPlaceholder || dropPlaceholder.index !== newIndex || dropPlaceholder.status !== status) {
           setDropPlaceholder({ status, index: newIndex });
       }
@@ -188,7 +161,6 @@ export default function FinanLitoPage() {
 
   const onDragOverColumn = (e: React.DragEvent, status: string, listLength: number) => {
       e.preventDefault();
-      // Se arrastou para a área vazia da coluna, joga pro final
       if (!dropPlaceholder || dropPlaceholder.status !== status) {
          setDropPlaceholder({ status, index: listLength });
       }
@@ -197,17 +169,13 @@ export default function FinanLitoPage() {
   const handleDrop = async (e: React.DragEvent, status: string) => {
       e.preventDefault();
       e.stopPropagation();
-      
       const draggedId = e.dataTransfer.getData('text/plain');
       if (!draggedId || !dropPlaceholder) {
           handleDragEnd();
           return;
       }
-
-      // Usa o índice visual calculado pelo placeholder
       const finalIndex = dropPlaceholder.index;
       await updateTransactionPosition(draggedId, status, finalIndex);
-      
       handleDragEnd();
   };
 
@@ -217,48 +185,31 @@ export default function FinanLitoPage() {
     if (draggedItemIndex === -1) return;
 
     const item = { ...allItems[draggedItemIndex] };
-    
-    // 1. Remove da lista original
     allItems.splice(draggedItemIndex, 1);
-    
-    // 2. Atualiza status
     item.status = newStatus as any;
 
-    // 3. Traduzir o "Visual Index" (dentro da coluna filtrada) para o "Real Index" (no array global)
-    // Precisamos achar onde inserir no array global 'allItems'
-    // Filtramos os itens visíveis daquela coluna para achar o vizinho
     const columnItems = allItems.filter(t => {
         const d = new Date(t.date);
         return d.getMonth() === curMonth && d.getFullYear() === curYear && t.status === newStatus;
     });
 
-    let globalInsertIndex = allItems.length; // Default: final
-
+    let globalInsertIndex = allItems.length;
     if (columnItems.length > 0) {
         if (visualIndex >= columnItems.length) {
-            // Inserir após o último item da coluna
             const lastItem = columnItems[columnItems.length - 1];
             globalInsertIndex = allItems.indexOf(lastItem) + 1;
         } else {
-            // Inserir antes do item que está na posição visualIndex
             const targetItem = columnItems[visualIndex];
             globalInsertIndex = allItems.indexOf(targetItem);
         }
     }
-
-    // Ajuste de segurança
     if (globalInsertIndex < 0) globalInsertIndex = 0;
     if (globalInsertIndex > allItems.length) globalInsertIndex = allItems.length;
 
-    // 4. Insere
     allItems.splice(globalInsertIndex, 0, item);
-
-    // 5. Reindexar
     const reorderedItems = allItems.map((t, idx) => ({ ...t, order: idx }));
-
     setTransactions(reorderedItems);
 
-    // 6. Persistir
     try {
         const orderPayload = reorderedItems.map(t => ({ id: t._id || t.id || '', order: t.order || 0 }));
         FinanLitoService.updateOrder(orderPayload, token).catch(e => console.warn(e));
@@ -324,59 +275,45 @@ export default function FinanLitoPage() {
   }
 
   async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    
-    // --- INÍCIO DA VERIFICAÇÃO DE DUPLICIDADE ---
-    // Só verificamos se for uma NOVA criação (!formId)
+    e.preventDefault();
+    
+    // --- VERIFICAÇÃO DE DUPLICIDADE ---
     if (!formId) {
-        // 1. Descobrir o mês/ano da data que o usuário digitou no form
-        // A função parseDateBRToISO já existe no seu código, vamos usá-la
         const isoDateTemp = parseDateBRToISO(formDate);
         const dateObj = new Date(isoDateTemp);
         const targetMonth = dateObj.getMonth();
         const targetYear = dateObj.getFullYear();
-
-        // 2. Normalizar o título que está sendo digitado (sem espaços, minúsculo)
         const cleanNewTitle = formTitle.trim().toLowerCase();
 
-        // 3. Procurar nos cards JÁ EXISTENTES (apenas do mesmo mês/ano)
         const possibleDuplicate = transactions.find(t => {
             const tDate = new Date(t.date);
-            // Verifica se é do mesmo mês/ano
             if (tDate.getMonth() !== targetMonth || tDate.getFullYear() !== targetYear) return false;
-
             const cleanExistingTitle = t.title.trim().toLowerCase();
-            
-            // Verifica semelhança: "Mercado" parece com "Supermercado"? Sim.
-            // Verifica se um está contido no outro
             return cleanExistingTitle.includes(cleanNewTitle) || cleanNewTitle.includes(cleanExistingTitle);
         });
 
-        // 4. Se achou, pergunta pro chefe (o usuário)
         if (possibleDuplicate) {
             const confirmDup = window.confirm(
-                `Atenção: Já existe um card semelhante neste mês: \n\n"${possibleDuplicate.title}" (R$ ${fmtCurrency(possibleDuplicate.amount)})\n\nDeseja incluir este novo mesmo assim?`
+                `Atenção: Já existe um lançamento semelhante neste mês: \n\n"${possibleDuplicate.title}" (R$ ${fmtCurrency(possibleDuplicate.amount)})\n\nDeseja incluir este novo mesmo assim?`
             );
-            // Se o usuário clicar em CANCELAR, paramos a função aqui.
             if (!confirmDup) return; 
         }
     }
-    // --- FIM DA VERIFICAÇÃO ---
-
-    const val = parseCurrencyToFloat(formAmount);
-    const isoDate = parseDateBRToISO(formDate);
     
-    const payload = {
-      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate
-    };
+    const val = parseCurrencyToFloat(formAmount);
+    const isoDate = parseDateBRToISO(formDate);
+    
+    const payload = {
+      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate
+    };
 
-    try {
-      if (formId) await FinanLitoService.update(formId, payload, token);
-      else await FinanLitoService.create(payload, token);
-      setIsModalOpen(false);
-      loadData();
-    } catch (err) { alert('Erro ao salvar'); }
-  }
+    try {
+      if (formId) await FinanLitoService.update(formId, payload, token);
+      else await FinanLitoService.create(payload, token);
+      setIsModalOpen(false);
+      loadData();
+    } catch (err) { alert('Erro ao salvar'); }
+  }
 
   async function handleDelete() {
     if (!formId || !confirm('Excluir transação?')) return;
@@ -406,10 +343,6 @@ export default function FinanLitoPage() {
     if (formAmount.includes('R$')) setFormAmount(formAmount.replace('R$', '').trim());
   }
 
-  const openCalendar = () => {
-    if (hiddenDateInputRef.current) hiddenDateInputRef.current.showPicker ? hiddenDateInputRef.current.showPicker() : hiddenDateInputRef.current.focus();
-  };
-
   const handleNativeDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isoVal = e.target.value;
     if (isoVal) {
@@ -435,12 +368,13 @@ export default function FinanLitoPage() {
   }, [monthFiltered]);
 
   if (!token) return null;
+
   return (
-    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Segoe UI', sans-serif" }}>
+    // Estilo Dinâmico: Cor de Fundo
+    <div style={{ backgroundColor: colors.background, minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Segoe UI', sans-serif" }}>
       <style>{`
         .desktop-only { display: none; }
         @media (min-width: 768px) { .desktop-only { display: inline; } }
-        /* Animação do placeholder */
         @keyframes fadeIn { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: scaleY(1); } }
         .ghost-placeholder {
             animation: fadeIn 0.15s ease-out forwards;
@@ -448,19 +382,19 @@ export default function FinanLitoPage() {
             border: 2px dashed #94a3b8;
             border-radius: 8px;
             margin-bottom: 0.8rem;
-            height: 100px; /* Altura média de um card */
+            height: 100px;
         }
       `}</style>
 
-      {/* HEADER */}
+      {/* HEADER DINÂMICO */}
       <header style={{ background: '#fff', padding: '0.8rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ fontSize: '1.3rem', fontWeight: 800, color: colors.primary, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <button type="button" onClick={() => navigate(-1)} style={{ ...btnBase, background: '#e2e8f0', color: '#475569', padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}> <MdArrowBack /> Voltar</button>
-          <i className="fas fa-chart-line"></i> FBM Finanças
+          <i className="fas fa-chart-line"></i> {terms.appName}
         </div>
         <div style={{ textAlign: 'right' }}>
           <label style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 'bold', display: 'block' }}>Saldo Geral {curYear}</label>
-          <h2 style={{ fontSize: '1.2rem', margin: 0, color: globalBalance >= 0 ? '#0f172a' : '#dc2626' }}>{fmtCurrency(globalBalance)}</h2>
+          <h2 style={{ fontSize: '1.2rem', margin: 0, color: globalBalance >= 0 ? colors.income : colors.expense }}>{fmtCurrency(globalBalance)}</h2>
         </div>
       </header>
 
@@ -468,26 +402,29 @@ export default function FinanLitoPage() {
       <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
         {curMonth === null && (
           <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-             {/* ... CÓDIGO DO ANO (MANTIDO IGUAL) ... */}
              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', marginBottom: '2rem', background: 'white', padding: '0.5rem 1rem', borderRadius: '50px', width: 'fit-content', marginInline: 'auto', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
               <button onClick={() => setCurYear(curYear - 1)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}><MdChevronLeft /></button>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, minWidth: '80px', textAlign: 'center', margin: 0 }}>{curYear}</h2>
               <button onClick={() => setCurYear(curYear + 1)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}><MdChevronRight /></button>
             </div>
+            
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
               {yearData.map(m => (
                 <div key={m.index} onClick={() => openMonth(m.index)}
                   style={{ 
                     background: '#fff', borderRadius: '10px', padding: '1.5rem', cursor: 'pointer', 
-                    border: '1px solid #e2e8f0', borderTop: `4px solid ${m.count > 0 ? (m.bal >= 0 ? '#16a34a' : '#dc2626') : '#cbd5e1'}`,
+                    border: '1px solid #e2e8f0', 
+                    // Borda dinâmica baseada nas cores do tema
+                    borderTop: `4px solid ${m.count > 0 ? (m.bal >= 0 ? colors.income : colors.expense) : '#cbd5e1'}`,
                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' 
                   }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}><span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{m.name}</span><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#64748b' }}>{m.count}</span></div>
                   <div style={{ fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#16a34a', fontWeight: 600 }}>Receitas</span><span>{fmtCurrency(m.inc)}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#dc2626', fontWeight: 600 }}>Despesas</span><span>{fmtCurrency(m.exp)}</span></div>
+                    {/* Textos dinâmicos: Receitas/Despesas */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: colors.income, fontWeight: 600 }}>{terms.income}</span><span>{fmtCurrency(m.inc)}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: colors.expense, fontWeight: 600 }}>{terms.expense}</span><span>{fmtCurrency(m.exp)}</span></div>
                   </div>
-                  <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px dashed #e2e8f0', fontWeight: 800, fontSize: '1.1rem', textAlign: 'right', color: m.bal >= 0 ? '#0f172a' : '#dc2626' }}>{fmtCurrency(m.bal)}</div>
+                  <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px dashed #e2e8f0', fontWeight: 800, fontSize: '1.1rem', textAlign: 'right', color: m.bal >= 0 ? colors.income : colors.expense }}>{fmtCurrency(m.bal)}</div>
                 </div>
               ))}
             </div>
@@ -500,26 +437,32 @@ export default function FinanLitoPage() {
               <button onClick={goHome} style={{ background: 'white', border: '1px solid #cbd5e1', padding: '0.5rem 1rem', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MdArrowBack /> Voltar</button>
               <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{months[curMonth]} de {curYear}</h2>
             </div>
+            
+            {/* StatCards com Labels Dinâmicos */}
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '5px' }}>
-              <StatCard label="Receitas (Mês)" value={statsMonth.inc} color="#16a34a" />
-              <StatCard label="Despesas (Mês)" value={statsMonth.exp} color="#dc2626" />
-              <StatCard label="Saldo (Mês)" value={statsMonth.bal} color={statsMonth.bal >= 0 ? '#16a34a' : '#dc2626'} />
+              <StatCard label={`${terms.income} (Mês)`} value={statsMonth.inc} color={colors.income} />
+              <StatCard label={`${terms.expense} (Mês)`} value={statsMonth.exp} color={colors.expense} />
+              <StatCard label="Saldo (Mês)" value={statsMonth.bal} color={statsMonth.bal >= 0 ? colors.income : colors.expense} />
             </div>
+
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
               <div style={{ flex: 1, position: 'relative' }}>
                 <MdSearch style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
                 <input type="text" placeholder="Buscar no mês atual..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.7rem 1rem 0.7rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '10px', outline: 'none' }} />
               </div>
+              {/* Botão Replicar com cor Primary */}
               <button onClick={handleReplicate} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MdContentCopy /> <span className="desktop-only">Replicar</span></button>
-              <button onClick={() => handleOpenModal()} style={{ background: '#2563eb', color: 'white', border: 'none', padding: '0 1.5rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MdAdd /> Novo</button>
+              {/* Botão Novo com cor Primary */}
+              <button onClick={() => handleOpenModal()} style={{ background: colors.primary, color: 'white', border: 'none', padding: '0 1.5rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MdAdd /> Novo</button>
             </div>
 
             <div style={{ flex: 1, overflowX: 'auto', paddingBottom: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '1rem', height: '100%', minWidth: '900px' }}>
+                {/* Repassamos colors e terms para as colunas renderizarem os cards corretamente */}
                 <KanbanColumn 
                     title="Pendente" status="pending" 
                     items={monthFiltered.filter(t => t.status === 'pending')} 
-                    bg="#fef9c3" color="#854d0e" 
+                    bg="#fef9c3" color="#854d0e" // Backgrounds pastel mantidos fixos para legibilidade
                     onClickItem={handleOpenModal} 
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
@@ -528,6 +471,7 @@ export default function FinanLitoPage() {
                     onDragOverCard={onDragOverCard}
                     dropPlaceholder={dropPlaceholder}
                     draggedItem={draggedItem}
+                    colors={colors} terms={terms}
                 />
                 <KanbanColumn 
                     title="Atrasado" status="overdue" 
@@ -541,6 +485,7 @@ export default function FinanLitoPage() {
                     onDragOverCard={onDragOverCard}
                     dropPlaceholder={dropPlaceholder}
                     draggedItem={draggedItem}
+                    colors={colors} terms={terms}
                 />
                 <KanbanColumn 
                     title="Concluído" status="paid" 
@@ -554,6 +499,7 @@ export default function FinanLitoPage() {
                     onDragOverCard={onDragOverCard}
                     dropPlaceholder={dropPlaceholder}
                     draggedItem={draggedItem}
+                    colors={colors} terms={terms}
                 />
               </div>
             </div>
@@ -561,7 +507,7 @@ export default function FinanLitoPage() {
         )}
       </div>
 
-      {/* MODAL (Mantido igual) */}
+      {/* MODAL */}
       {isModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}>
           <div style={{ background: 'white', width: '95%', maxWidth: '500px', padding: '2rem', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
@@ -571,53 +517,26 @@ export default function FinanLitoPage() {
               <div><label style={lblStyle}>Descrição</label><textarea style={inpStyle} rows={2} value={formDesc} onChange={e => setFormDesc(e.target.value)} /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div><label style={lblStyle}>Valor</label><input type="tel" required style={inpStyle} value={formAmount} onChange={handleChangeAmount} onFocus={handleAmountFocus} placeholder="R$ 0,00" /></div>
-                <div><label style={lblStyle}>Tipo</label><select style={inpStyle} value={formType} onChange={e => setFormType(e.target.value as any)}><option value="expense">Despesa</option><option value="income">Receita</option></select></div>
+                <div>
+                    <label style={lblStyle}>Tipo</label>
+                    <select style={inpStyle} value={formType} onChange={e => setFormType(e.target.value as any)}>
+                        {/* Opções dinâmicas */}
+                        <option value="expense">{terms.expense}</option>
+                        <option value="income">{terms.income}</option>
+                    </select>
+                </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={lblStyle}>Data</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
-                    
-                    {/* Input de Texto (Visual apenas) */}
-                    <input 
-                        type="text" 
-                        required 
-                        style={inpStyle} 
-                        value={formDate} 
-                        onChange={e => setFormDate(e.target.value)} 
-                        placeholder="DD/MM/AAAA HH:MM" 
-                    />
-
-                    {/* Botão com o Ícone (Visual) + Input Nativo (Funcional Invisível) */}
+                    <input type="text" required style={inpStyle} value={formDate} onChange={e => setFormDate(e.target.value)} placeholder="DD/MM/AAAA HH:MM" />
                     <div style={{ position: 'relative', width: '45px', height: '42px' }}>
-                        {/* O Ícone fica embaixo */}
-                        <button 
-                            type="button" 
-                            style={{ 
-                                background: '#e2e8f0', border: 'none', 
-                                width: '100%', height: '100%',
-                                borderRadius: '6px', color: '#475569',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}
-                        >
+                        <button type="button" style={{ background: '#e2e8f0', border: 'none', width: '100%', height: '100%', borderRadius: '6px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <MdCalendarToday size={20} />
                         </button>
-
-                        {/* O Input Nativo fica por cima, invisível, mas clicável */}
-                        <input 
-                            type="datetime-local" 
-                            style={{ 
-                                position: 'absolute', 
-                                top: 0, left: 0, 
-                                width: '100%', height: '100%', 
-                                opacity: 0, 
-                                cursor: 'pointer',
-                                zIndex: 10 // Garante que fica na frente do botão
-                            }} 
-                            onChange={handleNativeDateChange} 
-                        />
+                        <input type="datetime-local" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }} onChange={handleNativeDateChange} />
                     </div>
-
                   </div>
                 </div>
                 <div><label style={lblStyle}>Status</label><select style={inpStyle} value={formStatus} onChange={e => setFormStatus(e.target.value as any)}><option value="pending">Pendente</option><option value="paid">Pago</option><option value="overdue">Atrasado</option></select></div>
@@ -625,7 +544,7 @@ export default function FinanLitoPage() {
               <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
                 {formId && <button type="button" onClick={handleDelete} style={{ ...btnBase, background: '#fee2e2', color: '#991b1b', marginRight: 'auto' }}><MdDelete /> Excluir</button>}
                 <button type="button" onClick={() => setIsModalOpen(false)} style={{ ...btnBase, background: 'white', border: '1px solid #cbd5e1', color: '#64748b' }}>Cancelar</button>
-                <button type="submit" style={{ ...btnBase, background: '#16a34a', color: 'white' }}>Salvar</button>
+                <button type="submit" style={{ ...btnBase, background: colors.income, color: 'white' }}>Salvar</button>
               </div>
             </form>
           </div>
@@ -642,12 +561,13 @@ const StatCard = ({ label, value, color }: any) => (
   </div>
 );
 
-// --- KANBAN COLUMN ATUALIZADA COM "GHOST PLACEHOLDER" ---
+// --- KANBAN COLUMN ATUALIZADA PARA USAR COLORS E TERMS ---
 
 const KanbanColumn = ({ 
     title, items, onClickItem, 
     onDragStart, onDragEnd, onDrop, onDragOverColumn, onDragOverCard, 
-    dropPlaceholder, draggedItem, status 
+    dropPlaceholder, draggedItem, status,
+    colors, terms // Props recebidos do Pai
 }: any) => {
 
     const isPlaceholderInThisColumn = dropPlaceholder?.status === status;
@@ -665,8 +585,6 @@ const KanbanColumn = ({
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: '100px' }}>
                 {items.map((t: ITransactionExtended, index: number) => {
                     const isBeingDragged = draggedItem && (draggedItem._id === t._id || draggedItem.id === t.id);
-                    
-                    // Lógica para renderizar o Placeholder no lugar certo
                     const showPlaceholderBefore = isPlaceholderInThisColumn && dropPlaceholder.index === index;
                     
                     return (
@@ -682,27 +600,31 @@ const KanbanColumn = ({
                                 style={{ 
                                     background: 'white', padding: '0.8rem', borderRadius: '8px', 
                                     boxShadow: '0 1px 2px rgba(0,0,0,0.1)', cursor: 'grab', 
-                                    borderLeft: `4px solid ${t.type === 'income' ? '#16a34a' : '#dc2626'}`,
+                                    // Borda esquerda dinâmica
+                                    borderLeft: `4px solid ${t.type === 'income' ? colors.income : colors.expense}`,
                                     marginBottom: '0.8rem',
-                                    opacity: isBeingDragged ? 0.3 : 1, // Se for o item arrastado, fica transparente
+                                    opacity: isBeingDragged ? 0.3 : 1,
                                     transform: isBeingDragged ? 'scale(0.95)' : 'scale(1)',
                                     transition: 'all 0.2s'
                                 }}
                             >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
                                     <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>{t.title}</span>
-                                    <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? '#16a34a' : '#dc2626' }}>{t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}</span>
+                                    {/* Cor do Valor Dinâmica */}
+                                    <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense }}>
+                                        {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
+                                    </span>
                                 </div>
                                 <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
                                     <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
-                                    <span>{t.type === 'income' ? 'REC' : 'DESP'}</span>
+                                    {/* Texto Dinâmico REC/DESP (Abreviado se quiser, ou usa o termo completo) */}
+                                    <span>{t.type === 'income' ? terms.income.substring(0,3).toUpperCase() : terms.expense.substring(0,4).toUpperCase()}</span>
                                 </div>
                             </div>
                         </React.Fragment>
                     );
                 })}
-                {/* Caso especial: Placeholder no final da lista */}
                 {isPlaceholderInThisColumn && dropPlaceholder.index === items.length && (
                     <div className="ghost-placeholder"></div>
                 )}
