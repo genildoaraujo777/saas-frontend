@@ -75,6 +75,7 @@ export default function FinanLitoPage() {
   const [formType, setFormType] = useState<'income' | 'expense'>('expense');
   const [formStatus, setFormStatus] = useState<'pending' | 'paid' | 'overdue'>('pending');
   const [formDate, setFormDate] = useState('');
+  const [formIsCreditCard, setFormIsCreditCard] = useState(false);
   
   const hiddenDateInputRef = useRef<HTMLInputElement>(null);
   const token = localStorage.getItem('token') || "";
@@ -307,6 +308,7 @@ export default function FinanLitoPage() {
       setFormType(t.type);
       setFormStatus(t.status);
       setFormDate(parseISOToDateBR(t.date));
+      setFormIsCreditCard(!!t.isCreditCard);
     } else {
       setFormId(null);
       setFormTitle('');
@@ -318,12 +320,14 @@ export default function FinanLitoPage() {
       now.setFullYear(curYear);
       if (curMonth !== null) now.setMonth(curMonth);
       setFormDate(parseISOToDateBR(now.toISOString()));
+      setFormIsCreditCard(false);
     }
     setIsModalOpen(true);
   }
 
   // Adicione esta função antes do handleSave
-  async function validateBalanceForPayment(amount: number): Promise<boolean> {
+  async function validateBalanceForPayment(amount: number, isCreditCard: boolean): Promise<boolean> {
+    if (isCreditCard) return true; // Se for cartão, não precisa validar saldo do mês
     const totalIncome = monthFiltered
       .filter(t => t.type === 'income')
       .reduce((acc, t) => acc + t.amount, 0);
@@ -382,11 +386,11 @@ export default function FinanLitoPage() {
     const isoDate = parseDateBRToISO(formDate);
     
     const payload = {
-      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate
+      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate, isCreditCard: formIsCreditCard
     };
 
     if (formStatus === 'paid' && formType === 'expense') {
-      const isOk = await validateBalanceForPayment(val);
+      const isOk = await validateBalanceForPayment(val, formIsCreditCard);
       if (!isOk) return;
     }
 
@@ -552,20 +556,17 @@ export default function FinanLitoPage() {
     
     monthFiltered.forEach(t => {
       if (t.type === 'income') {
-        inc += t.amount; // Receita Total
+        inc += t.amount;
       } else {
-        exp += t.amount; // Despesa Total (Aparecerá no card de Despesas)
-        if (t.status === 'paid') {
-          paidExp += t.amount; // Apenas o que já saiu do bolso
+        exp += t.amount;
+        // AJUSTE: Só abate do saldo se for pago E NÃO for cartão de crédito
+        if (t.status === 'paid' && !t.isCreditCard) {
+          paidExp += t.amount;
         }
       }
     });
 
-    return { 
-      inc, 
-      exp, 
-      bal: inc - paidExp // O Saldo abate apenas o que foi REALMENTE pago
-    };
+    return { inc, exp, bal: inc - paidExp };
   }, [monthFiltered]);
 
   if (!token) return null;
@@ -816,6 +817,7 @@ export default function FinanLitoPage() {
             <form onSubmit={handleSave} style={{ display: 'grid', gap: '1rem' }}>
               <div><label style={lblStyle}>Título</label><input required style={inpStyle} value={formTitle} onChange={e => setFormTitle(e.target.value)} /></div>
               <div><label style={lblStyle}>Descrição</label><textarea style={inpStyle} rows={2} value={formDesc} onChange={e => setFormDesc(e.target.value)} /></div>
+              
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div><label style={lblStyle}>Valor</label><input type="tel" required style={inpStyle} value={formAmount} onChange={handleChangeAmount} onFocus={handleAmountFocus} placeholder="R$ 0,00" /></div>
                 <div>
@@ -826,6 +828,7 @@ export default function FinanLitoPage() {
                     </select>
                 </div>
               </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={lblStyle}>Data</label>
@@ -841,6 +844,23 @@ export default function FinanLitoPage() {
                 </div>
                 <div><label style={lblStyle}>Status</label><select style={inpStyle} value={formStatus} onChange={e => setFormStatus(e.target.value as any)}><option value="pending">Pendente</option><option value="paid">Pago</option><option value="overdue">Atrasado</option></select></div>
               </div>
+
+              {/* --- INSERÇÃO DO CHECKBOX DE CARTÃO DE CRÉDITO AQUI --- */}
+              {formType === 'expense' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem', padding: '0.5rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <input 
+                    type="checkbox" 
+                    id="isCreditCard"
+                    checked={formIsCreditCard} 
+                    onChange={e => setFormIsCreditCard(e.target.checked)} 
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="isCreditCard" style={{ fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', color: '#475569' }}>
+                    Pago via Cartão de Crédito (Não abate do saldo)
+                  </label>
+                </div>
+              )}
+
               <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
                 {formId && <button type="button" onClick={handleDelete} style={{ ...btnBase, background: '#fee2e2', color: '#991b1b', marginRight: 'auto' }}><MdDelete /> Excluir</button>}
                 <button type="button" onClick={() => setIsModalOpen(false)} style={{ ...btnBase, background: 'white', border: '1px solid #cbd5e1', color: '#64748b' }}>Cancelar</button>
