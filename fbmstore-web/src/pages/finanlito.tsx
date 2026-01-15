@@ -228,7 +228,7 @@ export default function FinanLitoPage() {
     const item = { ...allItems[draggedItemIndex] };
     allItems.splice(draggedItemIndex, 1);
     if (newStatus === 'paid' && item.type === 'expense') {
-      const isOk = await validateBalanceForPayment(item.amount);
+      const isOk = await validateBalanceForPayment(item.amount, formIsCreditCard);
       if (!isOk) {
         handleDragEnd();
         return;

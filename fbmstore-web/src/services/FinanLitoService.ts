@@ -10,6 +10,7 @@ export interface ITransaction {
   status: 'pending' | 'paid' | 'overdue';
   date: string;
   order?: number; // Novo campo para persistir a posição
+  isCreditCard: boolean;
 }
 
 export const FinanLitoService = {
