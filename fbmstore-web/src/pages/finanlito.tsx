@@ -228,7 +228,7 @@ export default function FinanLitoPage() {
     const item = { ...allItems[draggedItemIndex] };
     allItems.splice(draggedItemIndex, 1);
     if (newStatus === 'paid' && item.type === 'expense') {
-      const isOk = await validateBalanceForPayment(item.amount, formIsCreditCard);
+      const isOk = await validateBalanceForPayment(item.amount, !!item.isCreditCard);
       if (!isOk) {
         handleDragEnd();
         return;
@@ -327,17 +327,20 @@ export default function FinanLitoPage() {
 
   // Adicione esta função antes do handleSave
   async function validateBalanceForPayment(amount: number, isCreditCard: boolean): Promise<boolean> {
-    if (isCreditCard) return true; // Se for cartão, não precisa validar saldo do mês
+    if (isCreditCard) return true; 
+
+    // CALCULANDO EXATAMENTE IGUAL AOS CARDS DA TELA
     const totalIncome = monthFiltered
       .filter(t => t.type === 'income')
       .reduce((acc, t) => acc + t.amount, 0);
 
     const totalPaidExpenses = monthFiltered
-      .filter(t => t.type === 'expense' && t.status === 'paid')
+      .filter(t => t.type === 'expense' && t.status === 'paid' && !t.isCreditCard)
       .reduce((acc, t) => acc + t.amount, 0);
 
     const availableBalance = totalIncome - totalPaidExpenses;
 
+    // Se o saldo for menor que o valor da despesa atual (ou se já estiver negativo)
     if (amount > availableBalance) {
       const confirmNewIncome = window.confirm(
         `Atenção: Você não tem ${terms.income} suficiente declarada neste mês para cobrir este pagamento.\n\n` +
@@ -347,13 +350,12 @@ export default function FinanLitoPage() {
       );
 
       if (confirmNewIncome) {
-        // Abre o modal limpo para nova receita
         handleOpenModal(); 
         setFormType('income');
-        return false; // Interrompe o pagamento
+        return false; 
       }
     }
-    return true; // Saldo OK ou usuário ignorou o aviso
+    return true; 
   }
 
   async function handleSave(e: React.FormEvent) {
