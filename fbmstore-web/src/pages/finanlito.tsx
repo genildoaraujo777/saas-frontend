@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { FinanLitoService, ITransaction } from '../services/FinanLitoService';
-import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy } from 'react-icons/md';
+import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy, MdChecklist, MdClose } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 // IMPORTANTE: Importando o contexto que criamos para pegar as cores e nomes
 import { useTenant } from '../contexts/TenantContext';
@@ -55,6 +55,10 @@ export default function FinanLitoPage() {
   const [curMonth, setCurMonth] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // --- NOVOS ESTADOS PARA SELEÇÃO EM MASSA ---
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
   // Estados Drag and Drop
   const [draggedItem, setDraggedItem] = useState<ITransactionExtended | null>(null);
   const [dropPlaceholder, setDropPlaceholder] = useState<{ status: string, index: number } | null>(null);
@@ -86,6 +90,9 @@ export default function FinanLitoPage() {
 
   useEffect(() => {
     if (token) loadData();
+    // Reseta seleção ao mudar de contexto
+    setIsSelectionMode(false);
+    setSelectedIds([]);
   }, [curYear, curMonth, token]);
 
   async function checkAndMigrateOverdue(list: ITransactionExtended[]) {
@@ -132,8 +139,39 @@ export default function FinanLitoPage() {
     }
   }
 
+  // --- LÓGICA DE SELEÇÃO EM MASSA ---
+  const toggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    setSelectedIds([]);
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  async function handleDeleteBulk() {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Deseja excluir as ${selectedIds.length} transações selecionadas?`)) return;
+    
+    setLoading(true);
+    try {
+      const promises = selectedIds.map(id => FinanLitoService.delete(id, token));
+      await Promise.all(promises);
+      setIsSelectionMode(false);
+      setSelectedIds([]);
+      loadData();
+    } catch (err) {
+      alert('Erro ao excluir algumas transações.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // --- DRAG AND DROP ---
   const handleDragStart = (e: React.DragEvent, item: ITransactionExtended) => {
+    if (isSelectionMode) return; // Bloqueia drag se estiver selecionando
     setDraggedItem(item);
     e.dataTransfer.setData('text/plain', item._id || item.id || '');
     e.dataTransfer.effectAllowed = "move";
@@ -147,7 +185,7 @@ export default function FinanLitoPage() {
   const onDragOverCard = (e: React.DragEvent, targetIndex: number, status: string) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!draggedItem) return;
+      if (!draggedItem || isSelectionMode) return;
       const targetRect = e.currentTarget.getBoundingClientRect();
       const clientY = e.clientY;
       const targetMiddleY = targetRect.top + targetRect.height / 2;
@@ -161,6 +199,7 @@ export default function FinanLitoPage() {
 
   const onDragOverColumn = (e: React.DragEvent, status: string, listLength: number) => {
       e.preventDefault();
+      if (isSelectionMode) return;
       if (!dropPlaceholder || dropPlaceholder.status !== status) {
          setDropPlaceholder({ status, index: listLength });
       }
@@ -169,6 +208,7 @@ export default function FinanLitoPage() {
   const handleDrop = async (e: React.DragEvent, status: string) => {
       e.preventDefault();
       e.stopPropagation();
+      if (isSelectionMode) return;
       const draggedId = e.dataTransfer.getData('text/plain');
       if (!draggedId || !dropPlaceholder) {
           handleDragEnd();
@@ -186,6 +226,13 @@ export default function FinanLitoPage() {
 
     const item = { ...allItems[draggedItemIndex] };
     allItems.splice(draggedItemIndex, 1);
+    if (newStatus === 'paid' && item.type === 'expense') {
+      const isOk = await validateBalanceForPayment(item.amount);
+      if (!isOk) {
+        handleDragEnd();
+        return;
+      }
+    }
     item.status = newStatus as any;
 
     const columnItems = allItems.filter(t => {
@@ -251,6 +298,7 @@ export default function FinanLitoPage() {
   };
 
   function handleOpenModal(t?: ITransaction) {
+    if (isSelectionMode) return; // Não abre modal em modo de seleção
     if (t) {
       setFormId(t._id || t.id || '');
       setFormTitle(t.title);
@@ -272,6 +320,36 @@ export default function FinanLitoPage() {
       setFormDate(parseISOToDateBR(now.toISOString()));
     }
     setIsModalOpen(true);
+  }
+
+  // Adicione esta função antes do handleSave
+  async function validateBalanceForPayment(amount: number): Promise<boolean> {
+    const totalIncome = monthFiltered
+      .filter(t => t.type === 'income')
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const totalPaidExpenses = monthFiltered
+      .filter(t => t.type === 'expense' && t.status === 'paid')
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const availableBalance = totalIncome - totalPaidExpenses;
+
+    if (amount > availableBalance) {
+      const confirmNewIncome = window.confirm(
+        `Atenção: Você não tem ${terms.income} suficiente declarada neste mês para cobrir este pagamento.\n\n` +
+        `Saldo disponível: ${fmtCurrency(availableBalance)}\n` +
+        `Valor da despesa: ${fmtCurrency(amount)}\n\n` +
+        `Deseja adicionar uma nova ${terms.income} agora?`
+      );
+
+      if (confirmNewIncome) {
+        // Abre o modal limpo para nova receita
+        handleOpenModal(); 
+        setFormType('income');
+        return false; // Interrompe o pagamento
+      }
+    }
+    return true; // Saldo OK ou usuário ignorou o aviso
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -307,6 +385,11 @@ export default function FinanLitoPage() {
       title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate
     };
 
+    if (formStatus === 'paid' && formType === 'expense') {
+      const isOk = await validateBalanceForPayment(val);
+      if (!isOk) return;
+    }
+
     try {
       if (formId) await FinanLitoService.update(formId, payload, token);
       else await FinanLitoService.create(payload, token);
@@ -324,15 +407,118 @@ export default function FinanLitoPage() {
     } catch (err) { alert('Erro ao excluir'); }
   }
 
-  async function handleReplicate() {
-    if (curMonth === null) return;
-    if (!confirm(`Deseja copiar todos os lançamentos de ${months[curMonth]} para o próximo mês?`)) return;
+  async function handleCloneToNextMonth(t: ITransactionExtended) {
+    if (!confirm(`Deseja clonar "${t.title}" para o próximo mês?`)) return;
+
+    const date = new Date(t.date);
+    date.setMonth(date.getMonth() + 1);
+
+    // Payload corrigido com type casting para evitar o erro TS(2345)
+    const payload = {
+      title: t.title,
+      description: t.description,
+      amount: t.amount,
+      type: t.type,
+      status: 'pending' as 'pending' | 'paid' | 'overdue',
+      date: date.toISOString()
+    };
+
     setLoading(true);
     try {
-        const res = await FinanLitoService.replicate(curMonth, curYear, token);
-        alert(res.message);
+      await FinanLitoService.create(payload, token);
+      alert('Lançamento clonado com sucesso!');
+      loadData();
+    } catch (err) {
+      alert('Erro ao clonar lançamento.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReplicate() {
+    if (curMonth === null) return;
+    
+    const nextMonth = (curMonth + 1) % 12;
+    const nextYear = curMonth === 11 ? curYear + 1 : curYear;
+
+    if (!confirm(`Deseja copiar os lançamentos de ${months[curMonth]} para ${months[nextMonth]} de ${nextYear}?`)) return;
+
+    setLoading(true);
+    try {
+        // 1. Pegamos o que já existe no próximo mês para comparar
+        const existingNextMonth = await FinanLitoService.getAll(undefined, nextYear, token);
+        const nextMonthItems = existingNextMonth.filter((t: any) => new Date(t.date).getMonth() === nextMonth);
+
+        // 2. Filtramos os itens do mês atual
+        const currentMonthItems = transactions.filter(t => new Date(t.date).getMonth() === curMonth);
+
+        // 3. Analisamos duplicados
+        for (const item of currentMonthItems) {
+            const isDuplicate = nextMonthItems.find((n: any) => 
+                n.title.toLowerCase().trim() === item.title.toLowerCase().trim() &&
+                n.amount === item.amount
+            );
+
+            if (isDuplicate) {
+                const action = window.confirm(
+                    `O lançamento "${item.title}" (R$ ${item.amount}) já existe em ${months[nextMonth]}.\n\nClique em [OK] para REPLICAR NOVAMENTE (manter os dois) ou [CANCELAR] para PULAR este item.`
+                );
+                if (!action) continue; // Pula este item se o usuário cancelar
+            }
+
+            // Replica o item individualmente (ajustando a data)
+            const newDate = new Date(item.date);
+            newDate.setMonth(newDate.getMonth() + 1);
+            
+            await FinanLitoService.create({
+                ...item,
+                status: 'pending' as 'pending' | 'paid' | 'overdue',
+                date: newDate.toISOString()
+            }, token);
+        }
+
+        alert('Processo de replicação concluído!');
         loadData();
-    } catch (error) { alert('Erro ao replicar transações.'); } finally { setLoading(false); }
+    } catch (error) {
+        alert('Erro ao replicar transações.');
+    } finally {
+        setLoading(false);
+    }
+  }
+
+  async function handleClearMonth() {
+    if (curMonth === null) return;
+    
+    const confirmClear = window.confirm(
+      `ATENÇÃO: Você tem certeza que deseja EXCLUIR TODOS os lançamentos de ${months[curMonth]} de ${curYear}?\n\nEsta ação não pode ser desfeita.`
+    );
+
+    if (!confirmClear) return;
+
+    // Segunda confirmação de segurança para evitar cliques acidentais
+    const secondConfirm = window.confirm("Confirma a exclusão definitiva de tudo neste mês?");
+    if (!secondConfirm) return;
+
+    setLoading(true);
+    try {
+      // Filtramos apenas os IDs do mês atual exibido
+      const idsToDelete = monthFiltered.map(t => t._id || t.id || '');
+      
+      if (idsToDelete.length === 0) {
+        alert("Não há lançamentos para excluir neste mês.");
+        return;
+      }
+
+      // Executa a exclusão em massa
+      await Promise.all(idsToDelete.map(id => FinanLitoService.delete(id, token)));
+      
+      alert(`Sucesso: ${idsToDelete.length} lançamentos removidos.`);
+      loadData();
+    } catch (err) {
+      alert('Erro ao limpar o mês. Algumas transações podem não ter sido excluídas.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   const handleChangeAmount = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -362,9 +548,24 @@ export default function FinanLitoPage() {
   }, [transactions, curMonth, curYear, searchTerm]);
 
   const statsMonth = useMemo(() => {
-    let inc = 0, exp = 0;
-    monthFiltered.forEach(t => t.type === 'income' ? inc += t.amount : exp += t.amount);
-    return { inc, exp, bal: inc - exp };
+    let inc = 0, exp = 0, paidExp = 0;
+    
+    monthFiltered.forEach(t => {
+      if (t.type === 'income') {
+        inc += t.amount; // Receita Total
+      } else {
+        exp += t.amount; // Despesa Total (Aparecerá no card de Despesas)
+        if (t.status === 'paid') {
+          paidExp += t.amount; // Apenas o que já saiu do bolso
+        }
+      }
+    });
+
+    return { 
+      inc, 
+      exp, 
+      bal: inc - paidExp // O Saldo abate apenas o que foi REALMENTE pago
+    };
   }, [monthFiltered]);
 
   if (!token) return null;
@@ -384,6 +585,32 @@ export default function FinanLitoPage() {
             margin-bottom: 0.8rem;
             height: 100px;
         }
+        /* Adicione esta regra para garantir visibilidade do botão no mobile */
+        .action-grid {
+              display: grid;
+              grid-template-columns: 1fr auto; /* Desktop: Busca ocupa tudo, botões o necessário */
+              gap: 0.8rem;
+              margin-bottom: 1rem;
+              align-items: center;
+              width: 100%;
+          }
+
+          .button-group {
+              display: flex;
+              gap: 0.5rem;
+          }
+
+          @media (max-width: 768px) {
+              .action-grid {
+                  grid-template-columns: 1fr; /* Mobile: Empilha busca e botões */
+              }
+              
+              .button-group {
+                  display: grid;
+                  grid-template-columns: 1fr 1fr; /* Mobile: Dois botões iguais lado a lado */
+                  width: 100%;
+              }
+          }
       `}</style>
 
       {/* HEADER DINÂMICO */}
@@ -433,9 +660,35 @@ export default function FinanLitoPage() {
 
         {curMonth !== null && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
               <button onClick={goHome} style={{ background: 'white', border: '1px solid #cbd5e1', padding: '0.5rem 1rem', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MdArrowBack /> Voltar</button>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{months[curMonth]} de {curYear}</h2>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, flex: 1 }}>{months[curMonth]} de {curYear}</h2>
+              
+              {/* Botão Limpar Mês (Novo) */}
+              {!isSelectionMode && monthFiltered.length > 0 && (
+                <button 
+                  onClick={handleClearMonth} 
+                  style={{ ...btnBase, background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}
+                >
+                  <MdDelete /> <span className="desktop-only">Limpar Mês</span>
+                </button>
+              )}
+
+              <button 
+                onClick={toggleSelectionMode} 
+                style={{ ...btnBase, background: isSelectionMode ? '#64748b' : 'white', color: isSelectionMode ? 'white' : '#64748b', border: '1px solid #cbd5e1' }}
+              >
+                {isSelectionMode ? <><MdClose /> Cancelar Seleção</> : <><MdChecklist /> Excluir Vários</>}
+              </button>
+
+              {isSelectionMode && selectedIds.length > 0 && (
+                  <button 
+                    onClick={handleDeleteBulk} 
+                    style={{ ...btnBase, background: colors.expense, color: 'white' }}
+                  >
+                    <MdDelete /> Excluir Selecionados ({selectedIds.length})
+                  </button>
+              )}
             </div>
             
             {/* StatCards com Labels Dinâmicos */}
@@ -445,25 +698,62 @@ export default function FinanLitoPage() {
               <StatCard label="Saldo (Mês)" value={statsMonth.bal} color={statsMonth.bal >= 0 ? colors.income : colors.expense} />
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <MdSearch style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-                <input type="text" placeholder="Buscar no mês atual..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.7rem 1rem 0.7rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '10px', outline: 'none' }} />
+            {/* Substitua o container da barra de busca por este: */}
+            <div className="action-grid">
+              {/* Input de Busca - Agora com overflow oculto para não vazar da tela */}
+              <div style={{ position: 'relative', width: '100%', overflow: 'hidden', borderRadius: '10px' }}>
+                <MdSearch style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#64748b', zIndex: 10 }} size={22} />
+                <input 
+                  type="text" 
+                  placeholder="Buscar no mês atual..." 
+                  value={searchTerm} 
+                  onChange={e => setSearchTerm(e.target.value)} 
+                  style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem', border: '1px solid #cbd5e1', borderRadius: '10px', outline: 'none', fontSize: '16px', boxSizing: 'border-box' }} 
+                />
               </div>
-              {/* Botão Replicar com cor Primary */}
-              <button onClick={handleReplicate} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MdContentCopy /> <span className="desktop-only">Replicar</span></button>
-              {/* Botão Novo com cor Primary */}
-              <button onClick={() => handleOpenModal()} style={{ background: colors.primary, color: 'white', border: 'none', padding: '0 1.5rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MdAdd /> Novo</button>
+              
+              {!isSelectionMode && (
+                <div className="button-group">
+                  {/* Botão Replicar */}
+                  <button 
+                    onClick={handleReplicate} 
+                    style={{ 
+                      background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '10px', 
+                      fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                      justifyContent: 'center', gap: '0.5rem', minHeight: '48px', padding: '0 1.2rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <MdContentCopy size={20} /> 
+                    <span className="desktop-only">Replicar</span>
+                  </button>
+                  
+                  {/* Botão Novo */}
+                  <button 
+                    onClick={() => handleOpenModal()} 
+                    style={{ 
+                      background: colors.primary, color: 'white', border: 'none', borderRadius: '10px', 
+                      fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                      justifyContent: 'center', gap: '0.5rem', minHeight: '48px', padding: '0 1.2rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <MdAdd size={24} /> 
+                    <span className="desktop-only">Novo</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div style={{ flex: 1, overflowX: 'auto', paddingBottom: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '1rem', height: '100%', minWidth: '900px' }}>
-                {/* Repassamos colors e terms para as colunas renderizarem os cards corretamente */}
+                {/* Repassamos as novas props de seleção para as colunas */}
                 <KanbanColumn 
                     title="Pendente" status="pending" 
                     items={monthFiltered.filter(t => t.status === 'pending')} 
-                    bg="#fef9c3" color="#854d0e" // Backgrounds pastel mantidos fixos para legibilidade
+                    bg="#fef9c3" color="#854d0e" 
                     onClickItem={handleOpenModal} 
+                    onCloneItem={handleCloneToNextMonth}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     onDrop={handleDrop}
@@ -472,12 +762,16 @@ export default function FinanLitoPage() {
                     dropPlaceholder={dropPlaceholder}
                     draggedItem={draggedItem}
                     colors={colors} terms={terms}
+                    isSelectionMode={isSelectionMode}
+                    selectedIds={selectedIds}
+                    onToggleSelect={handleToggleSelect}
                 />
                 <KanbanColumn 
                     title="Atrasado" status="overdue" 
                     items={monthFiltered.filter(t => t.status === 'overdue')} 
                     bg="#fee2e2" color="#991b1b" 
                     onClickItem={handleOpenModal}
+                    onCloneItem={handleCloneToNextMonth}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     onDrop={handleDrop}
@@ -486,12 +780,16 @@ export default function FinanLitoPage() {
                     dropPlaceholder={dropPlaceholder}
                     draggedItem={draggedItem}
                     colors={colors} terms={terms}
+                    isSelectionMode={isSelectionMode}
+                    selectedIds={selectedIds}
+                    onToggleSelect={handleToggleSelect}
                 />
                 <KanbanColumn 
                     title="Concluído" status="paid" 
                     items={monthFiltered.filter(t => t.status === 'paid')} 
                     bg="#dcfce7" color="#166534" 
                     onClickItem={handleOpenModal} 
+                    onCloneItem={handleCloneToNextMonth}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     onDrop={handleDrop}
@@ -500,6 +798,9 @@ export default function FinanLitoPage() {
                     dropPlaceholder={dropPlaceholder}
                     draggedItem={draggedItem}
                     colors={colors} terms={terms}
+                    isSelectionMode={isSelectionMode}
+                    selectedIds={selectedIds}
+                    onToggleSelect={handleToggleSelect}
                 />
               </div>
             </div>
@@ -507,7 +808,7 @@ export default function FinanLitoPage() {
         )}
       </div>
 
-      {/* MODAL */}
+      {/* MODAL ORIGINAL INTEGRALMENTE PRESERVADO */}
       {isModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}>
           <div style={{ background: 'white', width: '95%', maxWidth: '500px', padding: '2rem', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
@@ -520,7 +821,6 @@ export default function FinanLitoPage() {
                 <div>
                     <label style={lblStyle}>Tipo</label>
                     <select style={inpStyle} value={formType} onChange={e => setFormType(e.target.value as any)}>
-                        {/* Opções dinâmicas */}
                         <option value="expense">{terms.expense}</option>
                         <option value="income">{terms.income}</option>
                     </select>
@@ -561,13 +861,15 @@ const StatCard = ({ label, value, color }: any) => (
   </div>
 );
 
-// --- KANBAN COLUMN ATUALIZADA PARA USAR COLORS E TERMS ---
+// --- KANBAN COLUMN ATUALIZADA ---
 
 const KanbanColumn = ({ 
     title, items, onClickItem, 
     onDragStart, onDragEnd, onDrop, onDragOverColumn, onDragOverCard, 
     dropPlaceholder, draggedItem, status,
-    colors, terms // Props recebidos do Pai
+    colors, terms,
+    isSelectionMode, selectedIds, onToggleSelect,
+    onCloneItem // Novas props
 }: any) => {
 
     const isPlaceholderInThisColumn = dropPlaceholder?.status === status;
@@ -584,43 +886,74 @@ const KanbanColumn = ({
             
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: '100px' }}>
                 {items.map((t: ITransactionExtended, index: number) => {
+                    const id = t._id || t.id || '';
                     const isBeingDragged = draggedItem && (draggedItem._id === t._id || draggedItem.id === t.id);
                     const showPlaceholderBefore = isPlaceholderInThisColumn && dropPlaceholder.index === index;
+                    const isSelected = selectedIds.includes(id);
                     
                     return (
-                        <React.Fragment key={t._id || t.id}>
+                        <React.Fragment key={id}>
                             {showPlaceholderBefore && <div className="ghost-placeholder"></div>}
                             
                             <div 
-                                draggable={true} 
+                                draggable={!isSelectionMode} 
                                 onDragStart={(e) => onDragStart(e, t)}
                                 onDragEnd={onDragEnd}
                                 onDragOver={(e) => onDragOverCard(e, index, status)}
-                                onClick={(e) => { e.stopPropagation(); onClickItem(t); }} 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  if (isSelectionMode) onToggleSelect(id);
+                                  else onClickItem(t); 
+                                }} 
                                 style={{ 
                                     background: 'white', padding: '0.8rem', borderRadius: '8px', 
-                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)', cursor: 'grab', 
-                                    // Borda esquerda dinâmica
+                                    boxShadow: isSelected ? `0 0 0 2px ${colors.primary}` : '0 1px 2px rgba(0,0,0,0.1)', 
+                                    cursor: isSelectionMode ? 'pointer' : 'grab', 
                                     borderLeft: `4px solid ${t.type === 'income' ? colors.income : colors.expense}`,
                                     marginBottom: '0.8rem',
                                     opacity: isBeingDragged ? 0.3 : 1,
                                     transform: isBeingDragged ? 'scale(0.95)' : 'scale(1)',
-                                    transition: 'all 0.2s'
+                                    transition: 'all 0.2s',
+                                    position: 'relative'
                                 }}
                             >
+                                {/* CHECKBOX QUE APARECE NO MODO SELEÇÃO */}
+                                {isSelectionMode && (
+                                  <div style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 5 }}>
+                                    <input 
+                                      type="checkbox" 
+                                      checked={isSelected} 
+                                      readOnly 
+                                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                    />
+                                  </div>
+                                )}
+
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
-                                    <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>{t.title}</span>
-                                    {/* Cor do Valor Dinâmica */}
+                                    <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', paddingRight: isSelectionMode ? '25px' : '0' }}>{t.title}</span>
                                     <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense }}>
                                         {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
                                     </span>
                                 </div>
                                 <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                     <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
-                                    {/* Texto Dinâmico REC/DESP (Abreviado se quiser, ou usa o termo completo) */}
-                                    <span>{t.type === 'income' ? terms.income.substring(0,3).toUpperCase() : terms.expense.substring(0,4).toUpperCase()}</span>
+                                    {/* Botão de clonagem unitária inserido aqui */}
+                                    <button 
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); onCloneItem(t); }} 
+                                        style={{ 
+                                            background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px 6px', 
+                                            color: colors.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                                            gap: '4px', fontSize: '0.65rem', pointerEvents: 'auto' 
+                                        }}
+                                    >
+                                        <MdContentCopy size={24} /> Jogar p/ Próx. Mês
+                                    </button>
                                 </div>
+                                <span>{t.type === 'income' ? terms.income.substring(0,3).toUpperCase() : terms.expense.substring(0,4).toUpperCase()}</span>
+                            </div>
                             </div>
                         </React.Fragment>
                     );
