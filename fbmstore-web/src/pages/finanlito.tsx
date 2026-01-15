@@ -425,7 +425,7 @@ export default function FinanLitoPage() {
       type: t.type,
       status: 'pending' as 'pending' | 'paid' | 'overdue',
       date: date.toISOString(),
-      formIsCreditCard
+      isCreditCard: !!formIsCreditCard
     };
 
     setLoading(true);
