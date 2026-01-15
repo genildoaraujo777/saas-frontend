@@ -42,9 +42,6 @@ jobs:
           echo "🎨 Construindo FBMStore Web (1/2)..."
           sudo docker compose build fbmstore-web
           
-          echo "🎨 Construindo SPG Web (2/2)..."
-          sudo docker compose build spg-web
-
           # 4. Start
           echo "🚀 Subindo Frontends e Nginx..."
           sudo docker compose up -d
@@ -81,12 +78,4 @@ jobs:
               exit 1
           fi
           
-          if echo "$RUNNING_SERVICES" | grep -q "spg-web"; then
-              echo "✅ CHECK: SPG Web está on."
-          else
-              echo "❌ ERRO: SPG Web falhou."
-              sudo docker compose logs spg-web --tail=20
-              exit 1
-          fi
-
           echo "✅ SUCESSO: Frontend e Loja Online no ar!"
