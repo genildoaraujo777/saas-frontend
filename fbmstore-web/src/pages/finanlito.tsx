@@ -308,7 +308,7 @@ export default function FinanLitoPage() {
       setFormType(t.type);
       setFormStatus(t.status);
       setFormDate(parseISOToDateBR(t.date));
-      setFormIsCreditCard(!!t.isCreditCard);
+      setFormIsCreditCard(t.isCreditCard === true);
     } else {
       setFormId(null);
       setFormTitle('');
@@ -338,10 +338,11 @@ export default function FinanLitoPage() {
       .filter(t => t.type === 'expense' && t.status === 'paid' && !t.isCreditCard)
       .reduce((acc, t) => acc + t.amount, 0);
 
-    const availableBalance = totalIncome - totalPaidExpenses;
+    const availableBalance = Number((totalIncome - totalPaidExpenses).toFixed(2));
+    const expenseAmount = Number(amount.toFixed(2));
 
     // Se o saldo for menor que o valor da despesa atual (ou se já estiver negativo)
-    if (amount > availableBalance) {
+    if (expenseAmount > availableBalance) {
       const confirmNewIncome = window.confirm(
         `Atenção: Você não tem ${terms.income} suficiente declarada neste mês para cobrir este pagamento.\n\n` +
         `Saldo disponível: ${fmtCurrency(availableBalance)}\n` +
@@ -388,7 +389,7 @@ export default function FinanLitoPage() {
     const isoDate = parseDateBRToISO(formDate);
     
     const payload = {
-      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate, isCreditCard: formIsCreditCard
+      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate, isCreditCard: !!formIsCreditCard
     };
 
     if (formStatus === 'paid' && formType === 'expense') {
@@ -954,9 +955,10 @@ const KanbanColumn = ({
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
                                     <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', paddingRight: isSelectionMode ? '25px' : '0' }}>{t.title}</span>
-                                    <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense }}>
-                                        {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
-                                    </span>
+                                    <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      {t.isCreditCard && <i className="fas fa-credit-card" title="Cartão de Crédito" style={{ fontSize: '0.8rem', color: '#64748b' }}></i>}
+                                      {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
+                                  </span>
                                 </div>
                                 <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
