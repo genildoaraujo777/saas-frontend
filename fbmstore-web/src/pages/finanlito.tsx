@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { FinanLitoService, ITransaction } from '../services/FinanLitoService';
-import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy, MdChecklist, MdClose } from 'react-icons/md';
+import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy, MdChecklist, MdClose, MdCreditCard } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 // IMPORTANTE: Importando o contexto que criamos para pegar as cores e nomes
 import { useTenant } from '../contexts/TenantContext';
