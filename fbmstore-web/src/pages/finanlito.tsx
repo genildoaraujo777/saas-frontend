@@ -78,6 +78,7 @@ export default function FinanLitoPage() {
   const [formIsCreditCard, setFormIsCreditCard] = useState(false);
   
   const hiddenDateInputRef = useRef<HTMLInputElement>(null);
+  const nativeDateInputRef = useRef<HTMLInputElement>(null);
   const token = localStorage.getItem('token') || "";
   const navigate = useNavigate();
 
@@ -428,7 +429,7 @@ export default function FinanLitoPage() {
       type: t.type,
       status: 'pending' as 'pending' | 'paid' | 'overdue',
       date: date.toISOString(),
-      isCreditCard: !!formIsCreditCard
+      isCreditCard: !!t.isCreditCard
     };
 
     setLoading(true);
@@ -839,10 +840,19 @@ export default function FinanLitoPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
                     <input type="text" required style={inpStyle} value={formDate} onChange={e => setFormDate(e.target.value)} placeholder="DD/MM/AAAA HH:MM" />
                     <div style={{ position: 'relative', width: '45px', height: '42px' }}>
-                        <button type="button" style={{ background: '#e2e8f0', border: 'none', width: '100%', height: '100%', borderRadius: '6px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button 
+                          type="button" 
+                          onClick={() => nativeDateInputRef.current?.showPicker()} // Força a abertura do calendário nativo
+                          style={{ background: '#e2e8f0', border: 'none', width: '100%', height: '100%', borderRadius: '6px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        >
                             <MdCalendarToday size={20} />
                         </button>
-                        <input type="datetime-local" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }} onChange={handleNativeDateChange} />
+                        <input 
+                          ref={nativeDateInputRef}
+                          type="datetime-local" 
+                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none' }} 
+                          onChange={handleNativeDateChange} 
+                        />
                     </div>
                   </div>
                 </div>
@@ -956,9 +966,10 @@ const KanbanColumn = ({
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
                                     <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', paddingRight: isSelectionMode ? '25px' : '0' }}>{t.title}</span>
                                     <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      {t.isCreditCard && <i className="fas fa-credit-card" title="Cartão de Crédito" style={{ fontSize: '0.8rem', color: '#64748b' }}></i>}
-                                      {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
-                                  </span>
+                                        {/* Trocado para MdCreditCard para funcionar com sua biblioteca de ícones */}
+                                        {t.isCreditCard && <MdCreditCard size={18} title="Cartão de Crédito" style={{ color: '#64748b' }} />}
+                                        {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
+                                    </span>
                                 </div>
                                 <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
