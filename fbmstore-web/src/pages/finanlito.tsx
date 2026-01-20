@@ -76,8 +76,10 @@ export default function FinanLitoPage() {
   const [formStatus, setFormStatus] = useState<'pending' | 'paid' | 'overdue'>('pending');
   const [formDate, setFormDate] = useState('');
   const [formIsCreditCard, setFormIsCreditCard] = useState(false);
+  // NOVOS ESTADOS PARA PARCELAMENTO
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [totalInstallments, setTotalInstallments] = useState(2);
   
-  const hiddenDateInputRef = useRef<HTMLInputElement>(null);
   const nativeDateInputRef = useRef<HTMLInputElement>(null);
   const token = localStorage.getItem('token') || "";
   const navigate = useNavigate();
@@ -310,6 +312,9 @@ export default function FinanLitoPage() {
       setFormStatus(t.status);
       setFormDate(parseISOToDateBR(t.date));
       setFormIsCreditCard(t.isCreditCard === true);
+      // Na edição, desativamos a opção de parcelamento para simplificar
+      setIsInstallment(false);
+      setTotalInstallments(2);
     } else {
       setFormId(null);
       setFormTitle('');
@@ -322,6 +327,9 @@ export default function FinanLitoPage() {
       if (curMonth !== null) now.setMonth(curMonth);
       setFormDate(parseISOToDateBR(now.toISOString()));
       setFormIsCreditCard(false);
+      // Resetar parcelamento
+      setIsInstallment(false);
+      setTotalInstallments(2);
     }
     setIsModalOpen(true);
   }
@@ -362,6 +370,58 @@ export default function FinanLitoPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+
+    // --- LÓGICA DE PARCELAMENTO (APENAS PARA NOVOS) ---
+    if (!formId && isInstallment && totalInstallments > 1) {
+        setLoading(true);
+        try {
+            const val = parseCurrencyToFloat(formAmount);
+            const isoDateBase = parseDateBRToISO(formDate); // Data da 1ª parcela
+            const baseDate = new Date(isoDateBase);
+
+            const promises = [];
+
+            for (let i = 0; i < totalInstallments; i++) {
+                // Clona a data base para não alterar a referência
+                const currentDate = new Date(baseDate);
+                // Adiciona 'i' meses à data
+                currentDate.setMonth(baseDate.getMonth() + i);
+
+                // Define o título com (x/y)
+                const installmentTitle = `${formTitle} (${i + 1}/${totalInstallments})`;
+
+                // Lógica de Status: 
+                // Se a 1ª for paga, as seguintes nascem como "pendente" (padrão de segurança)
+                // Se a 1ª for pendente, todas são pendentes.
+                let currentStatus = formStatus;
+                if (i > 0) {
+                    currentStatus = 'pending'; 
+                }
+
+                const payload = {
+                    title: installmentTitle,
+                    description: formDesc,
+                    amount: val,
+                    type: formType,
+                    status: currentStatus,
+                    date: currentDate.toISOString(),
+                    isCreditCard: !!formIsCreditCard
+                };
+
+                promises.push(FinanLitoService.create(payload, token));
+            }
+
+            await Promise.all(promises);
+            setIsModalOpen(false);
+            loadData();
+            alert(`${totalInstallments} lançamentos gerados com sucesso!`);
+        } catch (err) {
+            alert('Erro ao gerar parcelas.');
+        } finally {
+            setLoading(false);
+        }
+        return; // Encerra a função aqui se for parcelado
+    }
     
     // --- VERIFICAÇÃO DE DUPLICIDADE ---
     if (!formId) {
@@ -873,6 +933,41 @@ export default function FinanLitoPage() {
                     Pago via Cartão de Crédito (Não abate do saldo)
                   </label>
                 </div>
+              )}
+
+              {/* --- NOVO: SEÇÃO DE PARCELAMENTO --- */}
+              {!formId && (
+                  <div style={{ marginTop: '0.8rem', padding: '0.8rem', background: '#f0f9ff', borderRadius: '8px', border: '1px dashed #bae6fd' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <input 
+                              type="checkbox" 
+                              id="isInstallment"
+                              checked={isInstallment} 
+                              onChange={e => setIsInstallment(e.target.checked)} 
+                              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                          />
+                          <label htmlFor="isInstallment" style={{ fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', color: '#0369a1' }}>
+                              É uma despesa/receita parcelada?
+                          </label>
+                      </div>
+
+                      {isInstallment && (
+                          <div style={{ marginTop: '0.8rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              <label style={{ fontSize: '0.85rem', color: '#0369a1' }}>Quantidade de parcelas:</label>
+                              <input 
+                                  type="number" 
+                                  min="2" 
+                                  max="360"
+                                  value={totalInstallments}
+                                  onChange={e => setTotalInstallments(Number(e.target.value))}
+                                  style={{ ...inpStyle, width: '80px', padding: '0.4rem' }}
+                              />
+                              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                  (Serão criados {totalInstallments} lançamentos mensais)
+                              </span>
+                          </div>
+                      )}
+                  </div>
               )}
 
               <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>

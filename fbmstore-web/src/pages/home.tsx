@@ -130,6 +130,9 @@ const HomePage: React.FC = () => {
       case 'Controle Financeiro':
         navigate('/finanlito');
         break;
+      case 'Gerador de OSs':
+        navigate('/os-editor');
+        break;
       default:
         handleProductsByCategory(option);
         break;
@@ -358,6 +361,7 @@ const HomePage: React.FC = () => {
         onTutorial={() => {}}
         onAssistenteVirtual={() => {}}
         onFinanLito={() => handleMenuOption('Controle Financeiro')}
+        osEditor={() => handleMenuOption('Gerador de OSs')}
       />
     </div>
   );

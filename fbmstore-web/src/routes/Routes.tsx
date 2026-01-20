@@ -24,6 +24,9 @@ import FinanLitoPage from "@/pages/finanlito";
 import SubscriptionPage from "@/pages/subscription/[productId]";
 import AccountActive from "@/pages/account-active";
 import ResetPasswordPage from "@/pages/reset-password";
+import OSlitoEditorPage from "@/pages/oslito/oslito-editor";
+import OSEditorFigma from "@/components/ui/oslito/OSEditorFigma";
+import OSEditor from "@/components/ui/oslito/OSEditor";
 
 export default function AppRoutes() {
   return (
@@ -54,6 +57,9 @@ export default function AppRoutes() {
         <Route path="/store/account/:adminClientId" element={<AccountScreen />} />
 
         <Route path="/checkout" element={<CheckoutScreen />} />
+
+        {/* Nova Rota do Editor Estilo Wix */}
+        <Route path="/os-editor" element={<OSlitoEditorPage />} />
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
