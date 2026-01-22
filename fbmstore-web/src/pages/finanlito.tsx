@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { FinanLitoService, ITransaction } from '../services/FinanLitoService';
-import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy, MdChecklist, MdClose, MdCreditCard } from 'react-icons/md';
+import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy, MdChecklist, MdClose, MdCreditCard, MdEdit } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 // IMPORTANTE: Importando o contexto que criamos para pegar as cores e nomes
 import { useTenant } from '../contexts/TenantContext';
@@ -92,6 +92,27 @@ export default function FinanLitoPage() {
   // NOVOS ESTADOS PARA PARCELAMENTO
   const [isInstallment, setIsInstallment] = useState(false);
   const [totalInstallments, setTotalInstallments] = useState(2);
+
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fechar ao clicar fora
+  useEffect(() => {
+      const handleClickOutside = (e: MouseEvent) => {
+        // Dropdown do Modal
+        if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+            setIsCatDropdownOpen(false);
+        }
+        // Dropdown do Filtro Principal
+        if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+            setIsFilterDropdownOpen(false);
+        }
+    };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const userCategories = useMemo(() => {
       // Pega todas as categorias únicas que já existem nas transações desse usuário
@@ -339,13 +360,15 @@ export default function FinanLitoPage() {
       setFormTitle(t.title);
       setFormDesc(t.description || '');
       const cat = t.category || 'Outros';
-        if (!DEFAULT_CATEGORIES.includes(cat)) {
-            setFormCategory('Outros');
-            setFormCustomCategory(cat);
-        } else {
-            setFormCategory(cat);
-            setFormCustomCategory('');
-        }
+        // Se a categoria existe na lista (seja padrão ou customizada), selecionamos ela no dropdown
+      if (userCategories.includes(cat)) {
+          setFormCategory(cat);
+          setFormCustomCategory(''); // Limpa o input de texto
+      } else {
+          // Fallback de segurança
+          setFormCategory('Outros');
+          setFormCustomCategory(cat);
+      }
       setFormAmount(t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
       setFormType(t.type);
       setFormStatus(t.status);
@@ -374,8 +397,13 @@ export default function FinanLitoPage() {
   }
 
   // Adicione esta função antes do handleSave
-  async function validateBalanceForPayment(amount: number, isCreditCard: boolean): Promise<boolean> {
-    if (isCreditCard) return true; 
+ async function validateBalanceForPayment(amount: number, isCreditCard: boolean): Promise<boolean> {
+  if (isCreditCard) return true; 
+
+  // NOVO: Se já existe um ID (Edição) e o status atual no banco já era 'paid', ignoramos a validação
+  // pois o dinheiro já saiu do saldo anteriormente.
+  const originalTx = transactions.find(t => t._id === formId || t.id === formId);
+  if (originalTx?.status === 'paid' && amount <= originalTx.amount) return true;
 
     // CALCULANDO EXATAMENTE IGUAL AOS CARDS DA TELA
     const totalIncome = monthFiltered
@@ -407,6 +435,47 @@ export default function FinanLitoPage() {
     return true; 
   }
 
+  const handleRenameUserCategory = async (oldName: string) => {
+        const newName = window.prompt(`Renomear categoria "${oldName}" para:`, oldName);
+        if (!newName || newName === oldName) return;
+
+        const affected = transactions.filter(t => t.category === oldName);
+        if (confirm(`Isso atualizará ${affected.length} lançamentos. Confirmar?`)) {
+            setLoading(true);
+            try {
+                await Promise.all(affected.map(t => 
+                    FinanLitoService.update(t._id || t.id || '', { category: newName }, token)
+                ));
+                // ATUALIZAÇÃO DE ESTADO LOCAL PÓS-RENOMEAÇÃO
+            if (formCategory === oldName) setFormCategory(newName); // Atualiza o select do card
+            if (formCustomCategory === oldName) setFormCustomCategory(''); // Se era customizada, agora ela é uma categoria "oficial"
+            if (selectedCategory === oldName) setSelectedCategory(newName); // Atualiza o filtro do topo da página
+                loadData();
+            } catch (e) { alert("Erro ao renomear"); }
+            finally { setLoading(false); }
+        }
+    };
+
+    const handleDeleteUserCategory = async (catName: string) => {
+        const affected = transactions.filter(t => t.category === catName);
+        if (confirm(`Excluir categoria "${catName}"? ${affected.length} lançamentos voltarão para "Outros".`)) {
+            setLoading(true);
+            try {
+                await Promise.all(affected.map(t => 
+                    FinanLitoService.update(t._id || t.id || '', { category: 'Outros' }, token)
+                ));
+
+                // RESET DE ESTADOS EM CASO DE EXCLUSÃO
+                if (formCategory === catName) setFormCategory('Outros'); // Reseta o select do card
+                if (formCustomCategory === catName) setFormCustomCategory(''); // Limpa o nome se for customizado
+                if (selectedCategory === catName) setSelectedCategory('Todas'); // Reseta o filtro principal da página
+
+                loadData();
+            } catch (e) { alert("Erro ao excluir"); }
+            finally { setLoading(false); }
+        }
+    };
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
 
@@ -417,6 +486,21 @@ export default function FinanLitoPage() {
             const val = parseCurrencyToFloat(formAmount);
             const isoDateBase = parseDateBRToISO(formDate); // Data da 1ª parcela
             const baseDate = new Date(isoDateBase);
+
+            const oldCategory = transactions.find(t => t._id === formId || t.id === formId)?.category;
+            const newCategory = formCategory === 'Outros' ? (formCustomCategory || 'Outros') : formCategory;
+
+            // Se houve mudança de nome em uma categoria que já existia e não é das padrões
+            if (formId && oldCategory && oldCategory !== newCategory && !DEFAULT_CATEGORIES.includes(oldCategory)) {
+                const confirmSync = window.confirm(`Deseja atualizar o nome da categoria "${oldCategory}" para "${newCategory}" em TODOS os outros lançamentos?`);
+                
+                if (confirmSync) {
+                    const othersToUpdate = transactions.filter(t => t.category === oldCategory && t._id !== formId);
+                    othersToUpdate.forEach(t => {
+                        FinanLitoService.update(t._id || t.id || '', { category: newCategory }, token).catch(e => console.error(e));
+                    });
+                }
+            }
 
             const promises = [];
 
@@ -885,26 +969,54 @@ export default function FinanLitoPage() {
 
             <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', alignItems: 'center', background: '#fff', padding: '0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b' }}>FILTRAR POR:</span>
-              <select 
-                  value={selectedCategory} 
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    setSearchTerm('');
-                  }}
+              <div style={{ position: 'relative', minWidth: '200px' }} ref={filterDropdownRef}>
+              <div 
+                  onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
                   style={{ 
-                    padding: '0.4rem 0.8rem', 
-                    borderRadius: '6px', 
-                    border: '1px solid #cbd5e1', 
-                    outline: 'none', 
-                    cursor: 'pointer', 
-                    background: '#f8fafc', 
-                    color: colors.primary, 
-                    fontWeight: 600 
+                      padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', 
+                      cursor: 'pointer', background: '#f8fafc', color: colors.primary, 
+                      fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' 
                   }}
-                >
-                <option value="Todas">Todas as Categorias</option>
-                {userCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
+              >
+                  <span>{selectedCategory === 'Todas' ? 'Todas as Categorias' : selectedCategory}</span>
+                  <MdChevronRight style={{ transform: isFilterDropdownOpen ? 'rotate(90deg)' : 'none', transition: '0.2s' }} />
+              </div>
+
+              {isFilterDropdownOpen && (
+                  <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', zIndex: 100, maxHeight: '250px', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+                      {/* Opção padrão "Todas" */}
+                      <div 
+                          style={{ padding: '0.7rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: '0.9rem', color: '#1e293b', fontWeight: selectedCategory === 'Todas' ? 800 : 400 }}
+                          onClick={() => { setSelectedCategory('Todas'); setIsFilterDropdownOpen(false); }}
+                      >
+                          Todas as Categorias
+                      </div>
+
+                      {userCategories.map(cat => {
+                          const isDefault = DEFAULT_CATEGORIES.includes(cat) && cat !== 'Outros';
+                          return (
+                              <div 
+                                  key={cat}
+                                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', background: selectedCategory === cat ? '#f1f5f9' : 'transparent' }}
+                                  onClick={() => { setSelectedCategory(cat); setIsFilterDropdownOpen(false); }}
+                              >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: CATEGORY_COLORS[cat] || '#6366f1' }} />
+                                      <span style={{ fontSize: '0.9rem', color: '#1e293b' }}>{cat}</span>
+                                  </div>
+                                  
+                                  {!isDefault && cat !== 'Outros' && (
+                                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                          <MdEdit size={16} color="#64748b" onClick={(e) => { e.stopPropagation(); handleRenameUserCategory(cat); }} />
+                                          <MdDelete size={16} color="#ef4444" onClick={(e) => { e.stopPropagation(); handleDeleteUserCategory(cat); }} />
+                                      </div>
+                                  )}
+                              </div>
+                          );
+                      })}
+                  </div>
+              )}
+          </div>
               
               {selectedCategory !== 'Todas' && (
                 <button onClick={() => setSelectedCategory('Todas')} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
@@ -984,17 +1096,46 @@ export default function FinanLitoPage() {
             <form onSubmit={handleSave} style={{ display: 'grid', gap: '1rem' }}>
               <div><label style={lblStyle}>Título</label><input required style={inpStyle} value={formTitle} onChange={e => setFormTitle(e.target.value)} /></div>
               <div>
-                <label style={lblStyle}>Categoria</label>
-                <select 
-                  style={inpStyle} 
-                  value={formCategory}
-                  onChange={(e) => {
-                      setFormCategory(e.target.value);
-                      if (e.target.value !== 'Outros') setFormCustomCategory('');
-                  }}
-                >
-                  {userCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
+                <div style={{ position: 'relative' }} ref={dropdownRef}>
+                  <div 
+                      onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
+                      style={{ ...inpStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}
+                  >
+                      <span>{formCategory === 'Outros' ? (formCustomCategory || 'Outros') : formCategory}</span>
+                      <MdChevronRight style={{ transform: isCatDropdownOpen ? 'rotate(90deg)' : 'none', transition: '0.2s' }} />
+                  </div>
+
+                  {isCatDropdownOpen && (
+                      <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', zIndex: 100, maxHeight: '250px', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+                          {userCategories.map(cat => {
+                              const isDefault = DEFAULT_CATEGORIES.includes(cat) && cat !== 'Outros';
+                              return (
+                                  <div 
+                                      key={cat}
+                                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                                      onClick={() => {
+                                          setFormCategory(cat);
+                                          if (cat !== 'Outros') setFormCustomCategory('');
+                                          setIsCatDropdownOpen(false);
+                                      }}
+                                  >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: CATEGORY_COLORS[cat] || '#6366f1' }} />
+                                          <span style={{ fontSize: '0.9rem', color: '#1e293b' }}>{cat}</span>
+                                      </div>
+                                      
+                                      {!isDefault && cat !== 'Outros' && (
+                                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                              <MdEdit size={16} color="#64748b" onClick={(e) => { e.stopPropagation(); handleRenameUserCategory(cat); }} />
+                                              <MdDelete size={16} color="#ef4444" onClick={(e) => { e.stopPropagation(); handleDeleteUserCategory(cat); }} />
+                                          </div>
+                                      )}
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  )}
+              </div>
                 
                 {/* Caixa para nome personalizado se 'Outros' for selecionado */}
                 {formCategory === 'Outros' && (

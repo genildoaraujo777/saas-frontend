@@ -209,60 +209,49 @@ const HomePage: React.FC = () => {
 
       return (
         <div 
-          className={product.quantityStock === 0 ? "outOfStockCard" : ""} 
+          className={`saas-card ${product.quantityStock === 0 ? "outOfStockCard" : ""}`} 
           style={{
             ...styles.card,
             ...(product.quantityStock === 0 ? { opacity: 0.6 } : null)
           }}
           id={`item-${itemIndex}`}
         >
-          
-          <div style={styles.cardBody}>
-            <div style={styles.itemImageArea}>
-              <img
-                src={`${BASE_URL}/files/image?fileName=${product.imagePaths[0]}`}
-                alt={product.description}
-                style={styles.itemImage} 
-                loading="lazy"
-              />
-            </div>
+          <div style={styles.itemImageArea}>
+            <img
+              src={`${BASE_URL}/files/image?fileName=${product.imagePaths[0]}`}
+              alt={product.description}
+              style={styles.itemImage} 
+              loading="lazy"
+            />
+          </div>
 
-            <div style={styles.itemInfoArea}>
-              <div>
-                  <h3 style={{ fontSize: 18, marginBottom: 8, fontWeight: 700, color: '#1e293b' }}>
-                    {product.description || "Produto SaaS"}
-                  </h3>
-                  <p style={{ fontSize: 14, color: '#64748b', marginBottom: 10, lineHeight: 1.4 }}>
-                    {truncateDescription(product.description)}
-                  </p>
-                  
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontSize: 14, color: '#94a3b8' }}>A partir de</span>
-                    <p style={styles.price}>{product.price}<span style={{fontSize: 14, fontWeight: 400}}>/mês</span></p>
-                  </div>
-              </div>
+          <div style={{ marginTop: 20, flex: 1 }}>
+            <h3 style={styles.cardTitle}>{product.description || "Produto SaaS"}</h3>
+            <p style={styles.cardDesc}>{truncateDescription(product.description)}</p>
+            
+            <div style={styles.priceContainer}>
+              <span style={styles.priceTag}>R$ {product.price}</span>
+              <span style={styles.priceFreq}>/mês</span>
             </div>
           </div>
-          
-          {/* BOTÃO DINÂMICO */}
-          <div style={{ ...styles.rowBetween, marginTop: 15 }}> 
-            <Link
-              to={buttonLink}
-              style={{
-                ...buttonStyle,
-                width: '100%',
-                textDecoration: "none", 
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                ...(product.quantityStock === 0 ? { opacity: 0.6, cursor: 'not-allowed', pointerEvents: 'none' } : null),
-              }}
-            >
-              <ButtonIcon size={18} />
-              {buttonText}
-            </Link>
-          </div>
+
+          <Link
+            to={buttonLink}
+            style={{
+              ...buttonStyle,
+              width: '100%',
+              textDecoration: "none", 
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              marginTop: 20,
+              ...(product.quantityStock === 0 ? { opacity: 0.6, cursor: 'not-allowed', pointerEvents: 'none' } : null),
+            }}
+          >
+            <ButtonIcon size={18} />
+            {buttonText}
+          </Link>
         </div>
       );
     }
@@ -281,6 +270,16 @@ const HomePage: React.FC = () => {
     [ordersClient] // <--- Adicionado na dependência para atualizar quando carregar os pedidos
   );
 
+  <style>{`
+  .saas-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  }
+  .search-focus:focus-within {
+    border-color: #4f46e5 !important;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1) !important;
+  }
+`}</style>
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -299,6 +298,15 @@ const HomePage: React.FC = () => {
             </header>
 
       <main style={styles.container} ref={listRef}>
+        <section style={styles.hero}>
+          <div style={styles.heroBadge}>PLATAFORMA INTEGRADA</div>
+          <h2 style={styles.heroTitle}>
+            Potencialize sua <span style={{ color: '#4f46e5' }}>Produtividade</span>
+          </h2>
+          <p style={styles.heroSubtitle}>
+            Acesse suas ferramentas, gerencie assinaturas e controle seu negócio em um só lugar.
+          </p>
+        </section>
         <div style={styles.searchBarWrap}>
           <input
             style={styles.searchInput}
@@ -372,160 +380,29 @@ const HomePage: React.FC = () => {
 export default HomePage;
 
 const styles: Record<string, React.CSSProperties> = {
-  page: { 
-    minHeight: "100vh", 
-    background: "#f8fafc", 
-    display: "flex",
-    flexDirection: "column" as const, 
-    width: "100%",
-    boxSizing: "border-box",
-    overflowX: "hidden", 
-  },
+  page: { minHeight: "100vh", background: "#f8fafc", display: "flex", flexDirection: "column", width: "100%" },
+  header: { background: "#0f172a", color: "#fff", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)" },
+  headerTitle: { fontSize: 18, fontWeight: 700, margin: 0 },
+  container: { width: "100%", maxWidth: 1200, margin: "0 auto", padding: "40px 20px" },
+  
+  hero: { textAlign: 'center' as const, marginBottom: 50 },
+  heroBadge: { background: '#e0e7ff', color: '#4338ca', padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, display: 'inline-block', marginBottom: 16 },
+  heroTitle: { fontSize: 42, fontWeight: 800, color: '#0f172a', marginBottom: 16, letterSpacing: '-0.025em' },
+  heroSubtitle: { fontSize: 18, color: '#64748b', maxWidth: 600, margin: '0 auto' },
 
-  header: {
-    background: "#0f172a", 
-    color: "#fff",
-    padding: "20px 24px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottom: "1px solid #1e293b",
-    width: "100%",
-    boxSizing: "border-box",
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-  },
-  headerTitle: { fontSize: 20, fontWeight: 700 as const, color: "#fff", margin: 0, letterSpacing: '0.5px' },
+  searchBarWrap: { display: "flex", alignItems: "center", border: "1px solid #e2e8f0", borderRadius: 14, background: "#fff", paddingRight: 12, width: "100%", maxWidth: 600, margin: "0 auto 40px auto", transition: 'all 0.2s' },
+  searchInput: { flex: 1, height: 54, padding: "0 20px", border: "none", outline: "none", fontSize: 16, background: 'transparent' },
 
-  container: { 
-    width: "100%", 
-    maxWidth: 1200,
-    margin: "0 auto",
-    padding: "20px",
-    flex: 1,
-    boxSizing: "border-box",
-  },
+  productsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 30 },
+  
+  card: { background: "#fff", borderRadius: 20, padding: 24, border: "1px solid #f1f5f9", display: 'flex', flexDirection: 'column', transition: 'all 0.3s ease' },
+  itemImageArea: { width: 64, height: 64, borderRadius: 14, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 },
+  itemImage: { width: "100%", height: "100%", objectFit: "contain" },
+  cardTitle: { fontSize: 20, fontWeight: 700, color: '#1e293b', marginBottom: 8 },
+  cardDesc: { fontSize: 15, color: '#64748b', lineHeight: 1.5, marginBottom: 16 },
+  priceContainer: { display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 'auto' },
+  priceTag: { fontSize: 22, color: '#0f172a', fontWeight: 800 },
+  priceFreq: { fontSize: 14, color: '#94a3b8' },
 
-  searchBarWrap: {
-    display: "flex",
-    alignItems: "center",
-    border: "1px solid #e2e8f0",
-    borderRadius: 12,
-    marginTop: 10,
-    marginBottom: 30,
-    background: "#fff",
-    paddingRight: 12,
-    width: "100%",
-    boxSizing: "border-box",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  },
-  searchInput: { 
-    flex: 1, 
-    height: 48, 
-    padding: "0 16px", 
-    border: "none", 
-    outline: "none" as const, 
-    fontSize: 16, 
-    background: 'transparent',
-    borderRadius: 12 
-  },
-  textBtn: { cursor: "pointer", padding: "0 8px", fontSize: 18, color: '#64748b' },
-
-  productsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
-    gap: 24,
-    padding: "10px 0",
-    width: "100%",
-    boxSizing: "border-box",
-    justifyContent: "center",
-  },
-  noProductsText: { textAlign: 'center', color: '#64748b', fontSize: 16, marginTop: 40 },
-
-  card: {
-    background: "#fff",
-    borderRadius: 16,
-    padding: 24,
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
-    border: "1px solid #e2e8f0",
-    boxSizing: "border-box",
-    width: "100%",
-    display: 'flex',
-    flexDirection: 'column' as const,
-    transition: 'transform 0.2s, box-shadow 0.2s',
-  },
-
-  cardBody: {
-    display: 'flex',
-    flexDirection: 'row' as const,
-    gap: 20,
-    alignItems: 'flex-start',
-  },
-
-  itemImageArea: {
-    flex: "0 0 80px",
-    height: 80,
-    borderRadius: 12,
-    overflow: "hidden",
-    boxSizing: "border-box",
-    background: '#f1f5f9',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  itemImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover" as const,
-    display: "block",
-  },
-
-  itemInfoArea: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    justifyContent: 'space-between',
-    flex: "1 1 auto",
-    minWidth: 0,
-  },
-
-  price: { 
-    fontSize: 24, 
-    color: "#4f46e5", 
-    fontWeight: 800 as const, 
-    margin: 0 
-  },
-
-  rowBetween: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: '100%',
-  },
-
-  btn: {
-    background: "#4f46e5",
-    color: "#fff",
-    padding: "14px 20px",
-    borderRadius: 10,
-    border: 0,
-    cursor: "pointer",
-    fontWeight: 600 as const,
-    fontSize: 16,
-    textAlign: "center" as const,
-    transition: 'background 0.2s',
-    boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)',
-  },
-
-  footerBtn: {
-    background: "transparent",
-    color: "#4f46e5",
-    padding: "12px 24px",
-    borderRadius: 8,
-    border: "2px solid #4f46e5",
-    cursor: "pointer",
-    fontWeight: 600 as const,
-    display: "block",
-    margin: "30px auto",
-    fontSize: 15,
-  },
+  btn: { background: "#4f46e5", color: "#fff", padding: "14px", borderRadius: 12, border: 0, cursor: "pointer", fontWeight: 600, fontSize: 15, transition: 'all 0.2s' },
 };
