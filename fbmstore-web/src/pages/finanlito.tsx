@@ -6,9 +6,13 @@ import { useNavigate } from 'react-router-dom';
 import { useTenant } from '../contexts/TenantContext';
 
 // --- UTILITÁRIOS ---
-const CATEGORIES = ["Alimentação", "Vestuário", "Moradia", "Transporte", "Lazer", "Saúde", "Educação", "Consumo", "Fitness", "Investimentos", "Móveis", "Outros"];
+const DEFAULT_CATEGORIES = ["Alimentação", "Vestuário", "Moradia", "Transporte", "Lazer", "Saúde", "Educação", "Consumo", "Fitness", "Investimentos", "Móveis", "Outros"];
+
+// Helper para cores com fallback para categorias customizadas
+const getCategoryColor = (cat: string) => CATEGORY_COLORS[cat] || '#6366f1'; // Indigo para customizadas
+
 const CATEGORY_COLORS: { [key: string]: string } = {
-  "Alimentação": "#f97316", "Moradia": "#0ea5e9", "Transporte": "#64748b",
+  "Alimentação": "#f97316", "Vestuário": "#1bf8e0","Moradia": "#0ea5e9", "Transporte": "#64748b",
   "Lazer": "#ec4899", "Saúde": "#ef4444", "Educação": "#8b5cf6",
   "Consumo": "#facc15", "Fitness": "#22c55e", "Investimentos": "#10b981", "Móveis": "#92400e", "Outros": "#94a3b8"
 };
@@ -79,6 +83,7 @@ export default function FinanLitoPage() {
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formCategory, setFormCategory] = useState('');
+  const [formCustomCategory, setFormCustomCategory] = useState('');
   const [formAmount, setFormAmount] = useState(''); 
   const [formType, setFormType] = useState<'income' | 'expense'>('expense');
   const [formStatus, setFormStatus] = useState<'pending' | 'paid' | 'overdue'>('pending');
@@ -87,6 +92,14 @@ export default function FinanLitoPage() {
   // NOVOS ESTADOS PARA PARCELAMENTO
   const [isInstallment, setIsInstallment] = useState(false);
   const [totalInstallments, setTotalInstallments] = useState(2);
+
+  const userCategories = useMemo(() => {
+      // Pega todas as categorias únicas que já existem nas transações desse usuário
+      const customOnes = transactions.map(t => t.category).filter(c => c && !DEFAULT_CATEGORIES.includes(c));
+      const uniqueCustom = Array.from(new Set(customOnes));
+      // Retorna as padrões (sem o 'Outros' no meio) + as customizadas + 'Outros' por último
+      return [...DEFAULT_CATEGORIES.filter(c => c !== 'Outros'), ...uniqueCustom, 'Outros'];
+  }, [transactions]);
   
   const nativeDateInputRef = useRef<HTMLInputElement>(null);
   const token = localStorage.getItem('token') || "";
@@ -325,7 +338,14 @@ export default function FinanLitoPage() {
       setFormId(t._id || t.id || '');
       setFormTitle(t.title);
       setFormDesc(t.description || '');
-      setFormCategory(t.category || 'Outros');
+      const cat = t.category || 'Outros';
+        if (!DEFAULT_CATEGORIES.includes(cat)) {
+            setFormCategory('Outros');
+            setFormCustomCategory(cat);
+        } else {
+            setFormCategory(cat);
+            setFormCustomCategory('');
+        }
       setFormAmount(t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
       setFormType(t.type);
       setFormStatus(t.status);
@@ -363,7 +383,7 @@ export default function FinanLitoPage() {
       .reduce((acc, t) => acc + t.amount, 0);
 
     const totalPaidExpenses = monthFiltered
-      .filter(t => t.type === 'expense' && t.status === 'paid' && !t.isCreditCard)
+      .filter(t => t.type === 'expense' && t.status === 'paid' && !t.isCreditCard && t._id !== formId && t.id !== formId)
       .reduce((acc, t) => acc + t.amount, 0);
 
     const availableBalance = Number((totalIncome - totalPaidExpenses).toFixed(2));
@@ -425,7 +445,7 @@ export default function FinanLitoPage() {
                     status: currentStatus,
                     date: currentDate.toISOString(),
                     isCreditCard: !!formIsCreditCard,
-                    category: formCategory || 'Outros'
+                    category: formCategory === 'Outros' ? (formCustomCategory || 'Outros') : formCategory
                 };
 
                 promises.push(FinanLitoService.create(payload, token));
@@ -469,7 +489,7 @@ export default function FinanLitoPage() {
     const isoDate = parseDateBRToISO(formDate);
     
     const payload = {
-      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate, isCreditCard: !!formIsCreditCard, category: formCategory || 'Outros'
+      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate, isCreditCard: !!formIsCreditCard, category: formCategory === 'Outros' ? (formCustomCategory || 'Outros') : formCategory
     };
 
     if (formStatus === 'paid' && formType === 'expense') {
@@ -883,7 +903,7 @@ export default function FinanLitoPage() {
                   }}
                 >
                 <option value="Todas">Todas as Categorias</option>
-                {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                {userCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
               
               {selectedCategory !== 'Todas' && (
@@ -968,11 +988,24 @@ export default function FinanLitoPage() {
                 <select 
                   style={inpStyle} 
                   value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value)}
+                  onChange={(e) => {
+                      setFormCategory(e.target.value);
+                      if (e.target.value !== 'Outros') setFormCustomCategory('');
+                  }}
                 >
-                  <option value="">Sem Categoria</option>
-                  {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  {userCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
+                
+                {/* Caixa para nome personalizado se 'Outros' for selecionado */}
+                {formCategory === 'Outros' && (
+                  <input 
+                    placeholder="Nome da nova categoria..." 
+                    style={{ ...inpStyle, marginTop: '0.5rem', border: `1px solid ${colors.primary}` }}
+                    value={formCustomCategory}
+                    onChange={e => setFormCustomCategory(e.target.value)}
+                    required
+                  />
+                )}
               </div>
               <div><label style={lblStyle}>Descrição</label><textarea style={inpStyle} rows={2} value={formDesc} onChange={e => setFormDesc(e.target.value)} /></div>
               
@@ -1155,7 +1188,7 @@ const KanbanColumn = ({
                                     {t.category && t.category !== 'Outros' && (
                                       <div style={{ 
                                         display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 800, 
-                                        color: '#fff', marginBottom: '0.5rem', background: CATEGORY_COLORS[t.category] || '#94a3b8'
+                                        color: '#fff', marginBottom: '0.5rem', background: getCategoryColor(t.category) || '#94a3b8'
                                       }}>
                                         {t.category.toUpperCase()}
                                       </div>
