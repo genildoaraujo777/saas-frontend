@@ -6,7 +6,12 @@ import { useNavigate } from 'react-router-dom';
 import { useTenant } from '../contexts/TenantContext';
 
 // --- UTILITÁRIOS ---
-
+const CATEGORIES = ["Alimentação", "Vestuário", "Moradia", "Transporte", "Lazer", "Saúde", "Educação", "Consumo", "Fitness", "Investimentos", "Móveis", "Outros"];
+const CATEGORY_COLORS: { [key: string]: string } = {
+  "Alimentação": "#f97316", "Moradia": "#0ea5e9", "Transporte": "#64748b",
+  "Lazer": "#ec4899", "Saúde": "#ef4444", "Educação": "#8b5cf6",
+  "Consumo": "#facc15", "Fitness": "#22c55e", "Investimentos": "#10b981", "Móveis": "#92400e", "Outros": "#94a3b8"
+};
 const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -53,6 +58,7 @@ export default function FinanLitoPage() {
   const [transactions, setTransactions] = useState<ITransactionExtended[]>([]);
   const [curYear, setCurYear] = useState(new Date().getFullYear());
   const [curMonth, setCurMonth] = useState<number | null>(null);
+  const [debouncedYear, setDebouncedYear] = useState(curYear);
   const [loading, setLoading] = useState(false);
 
   // --- NOVOS ESTADOS PARA SELEÇÃO EM MASSA ---
@@ -66,11 +72,13 @@ export default function FinanLitoPage() {
   // Estados Modal / Form
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
   
   // Form State
   const [formId, setFormId] = useState<string | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
+  const [formCategory, setFormCategory] = useState('');
   const [formAmount, setFormAmount] = useState(''); 
   const [formType, setFormType] = useState<'income' | 'expense'>('expense');
   const [formStatus, setFormStatus] = useState<'pending' | 'paid' | 'overdue'>('pending');
@@ -84,6 +92,15 @@ export default function FinanLitoPage() {
   const token = localStorage.getItem('token') || "";
   const navigate = useNavigate();
 
+  // Debounce para mudança de ano: Só atualiza debouncedYear 500ms após o último clique
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedYear(curYear);
+    }, 500); // Meio segundo é o tempo ideal para o usuário parar de clicar
+
+    return () => clearTimeout(handler);
+  }, [curYear]);
+
   // --- SEGURANÇA: CHECAGEM DE LOGIN ---
   useEffect(() => {
     if (!token) {
@@ -96,8 +113,9 @@ export default function FinanLitoPage() {
     if (token) loadData();
     // Reseta seleção ao mudar de contexto
     setIsSelectionMode(false);
+    setSelectedCategory('Todas');
     setSelectedIds([]);
-  }, [curYear, curMonth, token]);
+  }, [debouncedYear, curMonth, token]);
 
   async function checkAndMigrateOverdue(list: ITransactionExtended[]) {
     const now = new Date();
@@ -126,7 +144,7 @@ export default function FinanLitoPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const data = await FinanLitoService.getAll(undefined, curYear, token);
+      const data = await FinanLitoService.getAll(undefined, debouncedYear, token);
       
       let dataWithOrder = data.map((t: any, index: number) => ({
           ...t,
@@ -277,19 +295,19 @@ export default function FinanLitoPage() {
     return months.map((m, idx) => {
       const items = transactions.filter(t => {
         const d = new Date(t.date);
-        return d.getMonth() === idx && d.getFullYear() === curYear;
+        return d.getMonth() === idx && d.getFullYear() === debouncedYear;
       });
       const inc = items.filter(t => t.type === 'income').reduce((a, b) => a + Number(b.amount), 0);
       const exp = items.filter(t => t.type === 'expense').reduce((a, b) => a + Number(b.amount), 0);
       return { name: m, index: idx, count: items.length, inc, exp, bal: inc - exp };
     });
-  }, [transactions, curYear]);
+  }, [transactions, debouncedYear]);
 
   const globalBalance = useMemo(() => {
     return transactions
-      .filter(t => new Date(t.date).getFullYear() === curYear)
+      .filter(t => new Date(t.date).getFullYear() === debouncedYear)
       .reduce((acc, t) => t.type === 'income' ? acc + Number(t.amount) : acc - Number(t.amount), 0);
-  }, [transactions, curYear]);
+  }, [transactions, debouncedYear]);
 
   function openMonth(idx: number) { setCurMonth(idx); }
   function goHome() { setCurMonth(null); }
@@ -307,6 +325,7 @@ export default function FinanLitoPage() {
       setFormId(t._id || t.id || '');
       setFormTitle(t.title);
       setFormDesc(t.description || '');
+      setFormCategory(t.category || 'Outros');
       setFormAmount(t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
       setFormType(t.type);
       setFormStatus(t.status);
@@ -405,7 +424,8 @@ export default function FinanLitoPage() {
                     type: formType,
                     status: currentStatus,
                     date: currentDate.toISOString(),
-                    isCreditCard: !!formIsCreditCard
+                    isCreditCard: !!formIsCreditCard,
+                    category: formCategory || 'Outros'
                 };
 
                 promises.push(FinanLitoService.create(payload, token));
@@ -445,12 +465,11 @@ export default function FinanLitoPage() {
             if (!confirmDup) return; 
         }
     }
-    
     const val = parseCurrencyToFloat(formAmount);
     const isoDate = parseDateBRToISO(formDate);
     
     const payload = {
-      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate, isCreditCard: !!formIsCreditCard
+      title: formTitle, description: formDesc, amount: val, type: formType, status: formStatus, date: isoDate, isCreditCard: !!formIsCreditCard, category: formCategory || 'Outros'
     };
 
     if (formStatus === 'paid' && formType === 'expense') {
@@ -489,7 +508,8 @@ export default function FinanLitoPage() {
       type: t.type,
       status: 'pending' as 'pending' | 'paid' | 'overdue',
       date: date.toISOString(),
-      isCreditCard: !!t.isCreditCard
+      isCreditCard: !!t.isCreditCard,
+      category: formCategory || 'Outros'
     };
 
     setLoading(true);
@@ -609,29 +629,57 @@ export default function FinanLitoPage() {
 
   const monthFiltered = useMemo(() => {
     if (curMonth === null) return [];
+    
     return transactions.filter(t => {
       const d = new Date(t.date);
-      return d.getMonth() === curMonth && d.getFullYear() === curYear &&
-        (t.title.toLowerCase().includes(searchTerm.toLowerCase()) || (t.description?.toLowerCase().includes(searchTerm.toLowerCase())));
+      
+      // 1. Filtro de Data (Mês/Ano)
+      const matchesDate = d.getMonth() === curMonth && d.getFullYear() === curYear;
+      
+      // 2. Filtro de Termo de Busca (Input)
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = t.title.toLowerCase().includes(searchLower) || 
+                           (t.description?.toLowerCase().includes(searchLower));
+      
+      // 3. Filtro de Categoria (Dropdown) - Buscamos a tag exata na descrição
+      const categoryTag = `[${selectedCategory}]`;
+      const matchesCategory = selectedCategory === 'Todas' || t.category === selectedCategory;
+      
+      return matchesDate && matchesSearch && matchesCategory;
     });
-  }, [transactions, curMonth, curYear, searchTerm]);
+  }, [transactions, curMonth, curYear, searchTerm, selectedCategory]); // Adicionamos selectedCategory aqui
 
   const statsMonth = useMemo(() => {
-    let inc = 0, exp = 0, paidExp = 0;
+    let inc = 0, exp = 0, paidExp = 0, pendingExp = 0;
     
     monthFiltered.forEach(t => {
       if (t.type === 'income') {
         inc += t.amount;
       } else {
         exp += t.amount;
-        // AJUSTE: Só abate do saldo se for pago E NÃO for cartão de crédito
+        // Se for pago e não for cartão, abate do saldo atual
         if (t.status === 'paid' && !t.isCreditCard) {
           paidExp += t.amount;
+        }
+        // Se NÃO estiver pago (pendente ou atrasado), soma no saldo devedor
+        if (t.status !== 'paid') {
+          pendingExp += t.amount;
         }
       }
     });
 
-    return { inc, exp, bal: inc - paidExp };
+    return { inc, exp, bal: inc - paidExp, pending: pendingExp };
+  }, [monthFiltered]);
+
+  const categoryStats = useMemo(() => {
+    const stats: { [key: string]: number } = {};
+    monthFiltered.filter(t => t.type === 'expense').forEach(t => {
+      const cat = t.category || 'Outros';
+      stats[cat] = (stats[cat] || 0) + t.amount;
+    });
+    return Object.entries(stats)
+      .map(([label, value]) => ({ label, value, color: CATEGORY_COLORS[label] || '#94a3b8' }))
+      .sort((a, b) => b.value - a.value);
   }, [monthFiltered]);
 
   if (!token) return null;
@@ -757,11 +805,15 @@ export default function FinanLitoPage() {
               )}
             </div>
             
+            {/* Gráfico de Distribuição de Despesas */}
+            {categoryStats.length > 0 && <PieChart data={categoryStats} />}
+
             {/* StatCards com Labels Dinâmicos */}
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '5px' }}>
               <StatCard label={`${terms.income} (Mês)`} value={statsMonth.inc} color={colors.income} />
               <StatCard label={`${terms.expense} (Mês)`} value={statsMonth.exp} color={colors.expense} />
               <StatCard label="Saldo (Mês)" value={statsMonth.bal} color={statsMonth.bal >= 0 ? colors.income : colors.expense} />
+              <StatCard label="Saldo Devedor" value={statsMonth.pending} color={colors.expense} />
             </div>
 
             {/* Substitua o container da barra de busca por este: */}
@@ -808,6 +860,36 @@ export default function FinanLitoPage() {
                     <span className="desktop-only">Novo</span>
                   </button>
                 </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', alignItems: 'center', background: '#fff', padding: '0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b' }}>FILTRAR POR:</span>
+              <select 
+                  value={selectedCategory} 
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
+                    setSearchTerm('');
+                  }}
+                  style={{ 
+                    padding: '0.4rem 0.8rem', 
+                    borderRadius: '6px', 
+                    border: '1px solid #cbd5e1', 
+                    outline: 'none', 
+                    cursor: 'pointer', 
+                    background: '#f8fafc', 
+                    color: colors.primary, 
+                    fontWeight: 600 
+                  }}
+                >
+                <option value="Todas">Todas as Categorias</option>
+                {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+              
+              {selectedCategory !== 'Todas' && (
+                <button onClick={() => setSelectedCategory('Todas')} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
+                  Limpar Filtro
+                </button>
               )}
             </div>
 
@@ -881,6 +963,17 @@ export default function FinanLitoPage() {
             <h3 style={{ marginBottom: '1rem' }}>{formId ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
             <form onSubmit={handleSave} style={{ display: 'grid', gap: '1rem' }}>
               <div><label style={lblStyle}>Título</label><input required style={inpStyle} value={formTitle} onChange={e => setFormTitle(e.target.value)} /></div>
+              <div>
+                <label style={lblStyle}>Categoria</label>
+                <select 
+                  style={inpStyle} 
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value)}
+                >
+                  <option value="">Sem Categoria</option>
+                  {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </div>
               <div><label style={lblStyle}>Descrição</label><textarea style={inpStyle} rows={2} value={formDesc} onChange={e => setFormDesc(e.target.value)} /></div>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -984,7 +1077,7 @@ export default function FinanLitoPage() {
 }
 
 const StatCard = ({ label, value, color }: any) => (
-  <div style={{ background: 'white', padding: '0.8rem 1.2rem', borderRadius: '10px', flex: 1, minWidth: '180px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+  <div style={{ background: 'white', padding: '0.8rem 1.2rem', borderRadius: '10px', flex: 1, minWidth: '150px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
     <small style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '0.3rem' }}>{label}</small>
     <strong style={{ fontSize: '1.3rem', color }}>{fmtCurrency(value)}</strong>
   </div>
@@ -1059,6 +1152,14 @@ const KanbanColumn = ({
                                 )}
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
+                                    {t.category && t.category !== 'Outros' && (
+                                      <div style={{ 
+                                        display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 800, 
+                                        color: '#fff', marginBottom: '0.5rem', background: CATEGORY_COLORS[t.category] || '#94a3b8'
+                                      }}>
+                                        {t.category.toUpperCase()}
+                                      </div>
+                                    )}
                                     <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', paddingRight: isSelectionMode ? '25px' : '0' }}>{t.title}</span>
                                     <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         {/* Trocado para MdCreditCard para funcionar com sua biblioteca de ícones */}
@@ -1100,3 +1201,41 @@ const KanbanColumn = ({
 const inpStyle = { width: '100%', padding: '0.7rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', fontSize: '1rem' };
 const lblStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' };
 const btnBase: any = { padding: '0.7rem 1.2rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' };
+const PieChart = ({ data }: { data: { label: string, value: number, color: string }[] }) => {
+    const total = data.reduce((acc, d) => acc + d.value, 0);
+    let cumulativePercent = 0;
+
+    const getCoordinatesForPercent = (percent: number) => {
+        const x = Math.cos(2 * Math.PI * percent);
+        const y = Math.sin(2 * Math.PI * percent);
+        return [x, y];
+    };
+
+    if (total === 0) return null;
+
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', padding: '1rem', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', width: '120px', height: '120px' }}>
+                <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                    {data.map((d, i) => {
+                        const [startX, startY] = getCoordinatesForPercent(cumulativePercent);
+                        cumulativePercent += d.value / total;
+                        const [endX, endY] = getCoordinatesForPercent(cumulativePercent);
+                        const largeArcFlag = d.value / total > 0.5 ? 1 : 0;
+                        const pathData = [`M ${startX} ${startY}`, `A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY}`, `L 0 0`].join(' ');
+                        return <path key={i} d={pathData} fill={d.color} stroke="#fff" strokeWidth="0.01" />;
+                    })}
+                </svg>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.8rem', flex: 1 }}>
+                {data.map((d, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.color }} />
+                        <span style={{ fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>{d.label}:</span>
+                        <span style={{ color: '#64748b' }}>{((d.value / total) * 100).toFixed(1)}%</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};

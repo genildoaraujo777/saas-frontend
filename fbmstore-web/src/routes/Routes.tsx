@@ -1,5 +1,5 @@
 // src/routes/Routes.tsx
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import Login from "@/pages/login";
 import SignUp from "@/pages/register";
@@ -27,10 +27,23 @@ import ResetPasswordPage from "@/pages/reset-password";
 import OSlitoEditorPage from "@/pages/oslito/oslito-editor";
 import OSEditorFigma from "@/components/ui/oslito/OSEditorFigma";
 import OSEditor from "@/components/ui/oslito/OSEditor";
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+
+const WhatsAppWrapper = () => {
+  const { pathname } = useLocation();
+  // Lista de rotas onde o botão NÃO deve aparecer (SaaS)
+  const saasPaths = ['/finanlito', '/os-editor', '/subscribe'];
+  
+  const isSaaSPage = saasPaths.some(path => pathname.startsWith(path));
+
+  if (isSaaSPage) return null;
+  return <WhatsAppButton />;
+};
 
 export default function AppRoutes() {
   return (
     <BrowserRouter>
+     <WhatsAppWrapper />
       <Routes>
         {/* ambas funcionam */}
         <Route path="/" element={<HomePage />} />

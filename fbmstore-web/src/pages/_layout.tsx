@@ -10,7 +10,6 @@ import { ModalProvider } from '@/contexts/ModalContext';
 import { CategoryProvider } from '@/contexts/CategoryContext';
 import { SupplierProvider } from '@/contexts/SupplierContext';
 import { ClientProvider } from '@/contexts/ClientContext';
-import { WhatsAppButton } from '@/components/ui/WhatsAppButton';
 import { TenantProvider } from '@/contexts/TenantContext';
 
 type Props = { children?: React.ReactNode };
@@ -28,7 +27,6 @@ export default function RootLayout({ children }: Props) {
                     <TenantProvider>
                       {children /* No web, o roteamento (React Router) entra aqui como children */}
                     </TenantProvider>
-                  <WhatsAppButton />
                   </ClientProvider>
                 </CartProvider>
               </StockProvider>

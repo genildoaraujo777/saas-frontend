@@ -11,6 +11,7 @@ export interface ITransaction {
   date: string;
   order?: number; // Novo campo para persistir a posição
   isCreditCard: boolean;
+  category: string;
 }
 
 export const FinanLitoService = {

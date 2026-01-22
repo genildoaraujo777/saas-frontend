@@ -325,14 +325,16 @@ const HomePage: React.FC = () => {
 
         {isLoading ? (
           <p style={{ textAlign: "center", padding: 20 }}>Carregando…</p>
-        ) : (
+        ) : 
             filteredProducts.length === 0 ? (
               <div style={styles.noProductsText}>Nenhuma solução encontrada.</div>
-          ) : (
-          <button onClick={loadMoreProducts} style={styles.footerBtn} disabled={noFetchMore || isLoading || notIsLoading}>
-            Ver mais soluções
-          </button>
-          )
+            ) : (
+            filteredProducts.length > 10 ? 
+              (<button onClick={loadMoreProducts} style={styles.footerBtn} disabled={noFetchMore || isLoading || notIsLoading}>
+                Ver mais soluções
+              </button>) : (
+              <></>
+            )
         )}
       </main>
 
