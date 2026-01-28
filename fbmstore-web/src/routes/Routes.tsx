@@ -28,11 +28,12 @@ import OSlitoEditorPage from "@/pages/oslito/oslito-editor";
 import OSEditorFigma from "@/components/ui/oslito/OSEditorFigma";
 import OSEditor from "@/components/ui/oslito/OSEditor";
 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import OSlitoList from "@/pages/oslito/oslito-list";
 
 const WhatsAppWrapper = () => {
   const { pathname } = useLocation();
   // Lista de rotas onde o botão NÃO deve aparecer (SaaS)
-  const saasPaths = ['/finanlito', '/os-editor', '/subscribe'];
+  const saasPaths = ['/finanlito', '/oslito', '/subscribe'];
   
   const isSaaSPage = saasPaths.some(path => pathname.startsWith(path));
 
@@ -72,7 +73,9 @@ export default function AppRoutes() {
         <Route path="/checkout" element={<CheckoutScreen />} />
 
         {/* Nova Rota do Editor Estilo Wix */}
-        <Route path="/os-editor" element={<OSlitoEditorPage />} />
+        {/* Rotas do MicroSaaS OSlito */}
+        <Route path="/oslito" element={<OSlitoList />} />
+        <Route path="/oslito/editor/:osId?" element={<OSlitoEditorPage />} />
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />

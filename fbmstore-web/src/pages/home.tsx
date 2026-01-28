@@ -131,7 +131,7 @@ const HomePage: React.FC = () => {
         navigate('/finanlito');
         break;
       case 'Gerador de OSs':
-        navigate('/os-editor');
+        navigate('/oslito');
         break;
       default:
         handleProductsByCategory(option);
