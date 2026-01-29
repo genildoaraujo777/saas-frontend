@@ -247,28 +247,47 @@ const RegisterPage: React.FC = () => {
                 <h2 style={styles.sectionTitle}>Dados Pessoais</h2>
                 <p style={styles.subTitle}>Conte-nos um pouco sobre você.</p>
 
-                <FloatingLabelInput label="Nome Completo" value={name} onChangeText={setName} />
-                
-                {/* HOOK DO DOCUMENTO AQUI */}
+                {/* CAMPO CPF / CNPJ */}
                 <div style={{ position: "relative" }}>
-                    <FloatingLabelInput 
-                        label="CPF ou CNPJ" 
-                        value={doc.value} 
-                        onChangeText={doc.onChangeText} 
-                        onBlur={doc.onBlur} 
-                        error={!!doc.error} 
-                        maxLength={18}
-                        keyboardType="numeric"
-                    />
-                    {doc.error && <span style={{ color: '#d32f2f', fontSize: 12, marginLeft: 4, marginTop: -4, display:'block' }}>{doc.error}</span>}
+                  <FloatingLabelInput 
+                    label="CPF ou CNPJ" 
+                    value={doc.value} 
+                    onChangeText={doc.onChangeText} 
+                    onBlur={doc.onBlur} 
+                    error={!!doc.error} 
+                    maxLength={18}
+                    keyboardType="numeric"
+                  />
+                  {doc.error && (
+                    <span style={{ color: '#d32f2f', fontSize: 12, marginLeft: 4, marginTop: -4, display:'block' }}>
+                      {doc.error}
+                    </span>
+                  )}
                 </div>
-                
-                <FloatingLabelInput label="Telefone / WhatsApp" value={telephone} onChangeText={handlePhone} keyboardType="phone-pad" maxLength={15} />
 
-                {/* BOTÕES DE NAVEGAÇÃO (Voltar / Avançar) */}
+                {/* RENDERIZAÇÃO CONDICIONAL: Aparece apenas se houver valor e não houver erro */}
+                {doc.value.replace(/\D/g, '').length >= 11 && !doc.error && (
+                  <div className="animate-fade-in"> {/* Sugestão: adicione uma classe de animação simples */}
+                    <FloatingLabelInput 
+                      label={doc.value.replace(/\D/g, '').length > 11 ? "Nome da Empresa" : "Nome Completo"} 
+                      value={name} 
+                      onChangeText={setName} 
+                    />
+                  </div>
+                )}
+                
+                <FloatingLabelInput 
+                  label="Telefone / WhatsApp" 
+                  value={telephone} 
+                  onChangeText={handlePhone} 
+                  keyboardType="phone-pad" 
+                  maxLength={15} 
+                />
+
+                {/* BOTÕES DE NAVEGAÇÃO */}
                 <div style={styles.buttonGroup}>
-                    <button onClick={handlePrevStep} style={styles.secondaryBtn}>&larr; Voltar</button>
-                    <button onClick={handleNextStep} style={styles.submitBtn}>Continuar &rarr;</button>
+                  <button onClick={handlePrevStep} style={styles.secondaryBtn}>&larr; Voltar</button>
+                  <button onClick={handleNextStep} style={styles.submitBtn}>Continuar &rarr;</button>
                 </div>
               </div>
             )}

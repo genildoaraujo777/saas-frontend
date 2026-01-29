@@ -97,6 +97,10 @@ export default function FinanLitoPage() {
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const statsScrollRef = useRef<HTMLDivElement>(null);
+  const kanbanScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   // Fechar ao clicar fora
   useEffect(() => {
@@ -209,20 +213,54 @@ export default function FinanLitoPage() {
 
   async function handleDeleteBulk() {
     if (selectedIds.length === 0) return;
-    if (!confirm(`Deseja excluir as ${selectedIds.length} transações selecionadas?`)) return;
-    
+    if (!confirm(`Deseja excluir os ${selectedIds.length} itens selecionados?`)) return;
+
     setLoading(true);
     try {
-      const promises = selectedIds.map(id => FinanLitoService.delete(id, token));
-      await Promise.all(promises);
+      const selectedItems = transactions.filter(t => selectedIds.includes(t._id || t.id || ''));
+      const installmentsSelected = selectedItems.filter(t => t.title.match(/\(\d+\/\d+\)$/));
+
+      // 1. Deleta os selecionados
+      await Promise.all(selectedIds.map(id => FinanLitoService.delete(id, token)));
+
+      // 2. Re-indexa se houver parcelas envolvidas
+      if (installmentsSelected.length > 0) {
+        const allTransactions = await FinanLitoService.getAll(undefined, undefined, token);
+        
+        for (const item of installmentsSelected) {
+          const match = item.title.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+          if (!match) continue;
+
+          const siblingsLeft = allTransactions.filter(t => {
+            const sMatch = t.title.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+            return sMatch && sMatch[1] === match[1] && sMatch[3] === match[3] && !selectedIds.includes(t._id || t.id || '');
+          }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+          if (siblingsLeft.length === 0) continue;
+
+          const anchorDate = new Date(siblingsLeft[0].date);
+          const originalDay = anchorDate.getDate();
+
+          const updates = siblingsLeft.map((s, idx) => {
+            const newDate = new Date(anchorDate);
+            newDate.setMonth(anchorDate.getMonth() + idx);
+            if (newDate.getDate() !== originalDay) newDate.setDate(0);
+
+            return FinanLitoService.update(s._id || s.id || '', { 
+              ...s,
+              title: `${match[1]} (${idx + 1}/${siblingsLeft.length})`,
+              date: newDate.toISOString()
+            }, token);
+          });
+          await Promise.all(updates);
+        }
+      }
+
       setIsSelectionMode(false);
       setSelectedIds([]);
       loadData();
-    } catch (err) {
-      alert('Erro ao excluir algumas transações.');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { alert('Erro na exclusão em massa.'); }
+    finally { setLoading(false); }
   }
 
   // --- DRAG AND DROP ---
@@ -317,7 +355,14 @@ export default function FinanLitoPage() {
         const orderPayload = reorderedItems.map(t => ({ id: t._id || t.id || '', order: t.order || 0 }));
         FinanLitoService.updateOrder(orderPayload, token).catch(e => console.warn(e));
         if (item.status !== transactions[draggedItemIndex].status) {
-            await FinanLitoService.update(draggedId, { status: item.status }, token);
+            // Enviamos o status, mas o 'item' já possui isReplicated e dateReplicated
+            // pois foi clonado via spread no início desta função.
+            await FinanLitoService.update(draggedId, { 
+              status: item.status,
+              category: item.category,
+              isReplicated: item.isReplicated,
+              dateReplicated: item.dateReplicated 
+            }, token);
         }
     } catch (error) {
         console.error("Erro ao sincronizar", error);
@@ -331,16 +376,63 @@ export default function FinanLitoPage() {
         const d = new Date(t.date);
         return d.getMonth() === idx && d.getFullYear() === debouncedYear;
       });
-      const inc = items.filter(t => t.type === 'income').reduce((a, b) => a + Number(b.amount), 0);
-      const exp = items.filter(t => t.type === 'expense').reduce((a, b) => a + Number(b.amount), 0);
-      return { name: m, index: idx, count: items.length, inc, exp, bal: inc - exp };
+
+      let inc = 0, exp = 0, paidExp = 0, pendingExp = 0, overdueTotal = 0;
+
+      items.forEach(t => {
+        const isInstallment = t.title.match(/\(\d+\/\d+\)$/);
+        const isFutureProj = t.isReplicated || isInstallment;
+
+        if (t.type === 'income') {
+          if (t.status === 'paid' || (!isFutureProj && t.status !== 'overdue')) {
+            inc += Number(t.amount);
+          }
+        } else {
+          exp += Number(t.amount);
+          
+          if (t.status === 'paid' && !t.isCreditCard) {
+            paidExp += Number(t.amount);
+          }
+          
+          if (t.status !== 'paid') {
+            pendingExp += Number(t.amount);
+          }
+          
+          // CORREÇÃO AQUI: Soma apenas se o status for exatamente 'overdue'
+          if (t.status === 'overdue') {
+            overdueTotal += Number(t.amount);
+          }
+        }
+      });
+
+      return { 
+        name: m, 
+        index: idx, 
+        count: items.length, 
+        inc, 
+        exp, 
+        bal: inc - paidExp, 
+        pending: pendingExp,
+        overdue: overdueTotal
+      };
     });
   }, [transactions, debouncedYear]);
 
   const globalBalance = useMemo(() => {
     return transactions
       .filter(t => new Date(t.date).getFullYear() === debouncedYear)
-      .reduce((acc, t) => t.type === 'income' ? acc + Number(t.amount) : acc - Number(t.amount), 0);
+      .reduce((acc, t) => {
+        const isInstallment = t.title.match(/\(\d+\/\d+\)$/);
+        const isFutureProjection = t.isReplicated || isInstallment;
+
+        // REGRA CEO: Ignora Atrasados ou Projeções (Parcelas/Replicados) que não foram pagos
+        if (t.status === 'overdue' || (isFutureProjection && t.status !== 'paid')) return acc;
+
+        // REGRA CEO: Despesas de Cartão de Crédito não abatem do saldo geral (conforme checkbox do card)
+        if (t.type === 'expense' && t.isCreditCard && t.status === 'paid') return acc;
+
+        return t.type === 'income' ? acc + Number(t.amount) : acc - Number(t.amount);
+      }, 0);
   }, [transactions, debouncedYear]);
 
   function openMonth(idx: number) { setCurMonth(idx); }
@@ -507,8 +599,11 @@ export default function FinanLitoPage() {
             for (let i = 0; i < totalInstallments; i++) {
                 // Clona a data base para não alterar a referência
                 const currentDate = new Date(baseDate);
-                // Adiciona 'i' meses à data
+                // Adiciona 'i' meses à data e ajusta se o dia transbordar (ex: 31/01 -> 28/02)
                 currentDate.setMonth(baseDate.getMonth() + i);
+                if (currentDate.getDate() !== baseDate.getDate()) {
+                    currentDate.setDate(0); 
+                }
 
                 // Define o título com (x/y)
                 const installmentTitle = `${formTitle} (${i + 1}/${totalInstallments})`;
@@ -521,6 +616,9 @@ export default function FinanLitoPage() {
                     currentStatus = 'pending'; 
                 }
 
+                // Recupera dados originais para preservar campos de replicação
+                const originalItem = transactions.find(t => t._id === formId || t.id === formId);
+
                 const payload = {
                     title: installmentTitle,
                     description: formDesc,
@@ -529,7 +627,9 @@ export default function FinanLitoPage() {
                     status: currentStatus,
                     date: currentDate.toISOString(),
                     isCreditCard: !!formIsCreditCard,
-                    category: formCategory === 'Outros' ? (formCustomCategory || 'Outros') : formCategory
+                    category: formCategory === 'Outros' ? (formCustomCategory || 'Outros') : formCategory,
+                    isReplicated: originalItem?.isReplicated,
+                    dateReplicated: originalItem?.dateReplicated ?? undefined
                 };
 
                 promises.push(FinanLitoService.create(payload, token));
@@ -548,13 +648,40 @@ export default function FinanLitoPage() {
     }
     
     // --- VERIFICAÇÃO DE DUPLICIDADE ---
-    if (!formId) {
-        const isoDateTemp = parseDateBRToISO(formDate);
-        const dateObj = new Date(isoDateTemp);
-        const targetMonth = dateObj.getMonth();
-        const targetYear = dateObj.getFullYear();
-        const cleanNewTitle = formTitle.trim().toLowerCase();
+    const isoDateTemp = parseDateBRToISO(formDate);
+    const dateObj = new Date(isoDateTemp);
+    const targetMonth = dateObj.getMonth();
+    const targetYear = dateObj.getFullYear();
+    const cleanNewTitle = formTitle.trim().toLowerCase();
 
+    // 1. TRAVA DE SEGURANÇA PARA PARCELAS (Impede 2 parcelas do mesmo grupo no mesmo mês)
+    const currentMatch = formTitle.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+    if (currentMatch) {
+        const baseTitle = currentMatch[1].trim().toLowerCase();
+        const denominator = currentMatch[3];
+
+        const hasSiblingInMonth = transactions.some(t => {
+            // Ignora o próprio card se estivermos editando
+            if (formId && (t._id === formId || t.id === formId)) return false;
+            
+            const tDate = new Date(t.date);
+            const tMatch = t.title.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+            
+            return tMatch && 
+                   tMatch[1].trim().toLowerCase() === baseTitle && 
+                   tMatch[3] === denominator && 
+                   tDate.getMonth() === targetMonth && 
+                   tDate.getFullYear() === targetYear;
+        });
+
+        if (hasSiblingInMonth) {
+            alert(`Operação cancelada: Já existe uma parcela do grupo "${currentMatch[1]}" em ${months[targetMonth]} de ${targetYear}.`);
+            return; 
+        }
+    }
+
+    // 2. VERIFICAÇÃO GENÉRICA (Apenas para novos lançamentos simples)
+    if (!formId && !currentMatch) {
         const possibleDuplicate = transactions.find(t => {
             const tDate = new Date(t.date);
             if (tDate.getMonth() !== targetMonth || tDate.getFullYear() !== targetYear) return false;
@@ -582,27 +709,138 @@ export default function FinanLitoPage() {
     }
 
     try {
-      if (formId) await FinanLitoService.update(formId, payload, token);
-      else await FinanLitoService.create(payload, token);
+      if (formId) {
+        // REGRA CEO: Detecção de alteração de valor em grupo de parcelas
+        const originalItem = transactions.find(t => t._id === formId || t.id === formId);
+        const match = originalItem?.title.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+
+        if (match && val !== originalItem?.amount) {
+          const baseTitle = match[1];
+          const confirmValueSync = window.confirm(
+            `Você alterou o valor desta parcela. Deseja atualizar o valor de TODAS as outras parcelas do grupo "${baseTitle}" para ${formAmount}?`
+          );
+
+          if (confirmValueSync) {
+            // Busca global para encontrar todas as parcelas do grupo
+            const allTransactions = await FinanLitoService.getAll(undefined, undefined, token);
+            
+            const siblings = allTransactions.filter(t => {
+              const sMatch = t.title.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+              if (!sMatch) return false;
+
+              // REGRA CEO: Identifica como irmão se o título base for igual 
+              // E se o total de parcelas (o denominador) for o mesmo.
+              const sBaseTitle = sMatch[1];
+              const sTotalParts = sMatch[3];
+              
+              return sBaseTitle === baseTitle && 
+                     sTotalParts === match[3] && 
+                     (t._id || t.id) !== formId;
+            });
+
+            // Atualiza todas as outras parcelas da corrente para o novo valor
+            await Promise.all(siblings.map(s => 
+              // REGRA CEO: Sincroniza Valor E Categoria para manter o grupo íntegro
+              FinanLitoService.update(s._id || s.id || '', { 
+                amount: val, 
+                category: formCategory === 'Outros' ? (formCustomCategory || 'Outros') : formCategory 
+              }, token)
+            ));
+          }
+        }
+
+        await FinanLitoService.update(formId, payload, token);
+      } else {
+        await FinanLitoService.create(payload, token);
+      }
+      
       setIsModalOpen(false);
       loadData();
     } catch (err) { alert('Erro ao salvar'); }
   }
 
   async function handleDelete() {
-    if (!formId || !confirm('Excluir transação?')) return;
+    if (!formId) return;
+
+    const currentItem = transactions.find(t => (t._id === formId || t.id === formId));
+    if (!currentItem) return;
+
+    const match = currentItem.title.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+    
+    // Se não for parcelado, exclusão simples
+    if (!match) {
+      if (!confirm('Deseja realmente excluir este lançamento?')) return;
+      setLoading(true);
+      try {
+        await FinanLitoService.delete(formId, token);
+        setIsModalOpen(false);
+        loadData();
+      } catch (err) { alert('Erro ao excluir'); }
+      finally { setLoading(false); }
+      return;
+    }
+
+    const baseTitle = match[1];
+    const originalDenominator = match[3];
+
+    if (!confirm(`Deseja excluir "${currentItem.title}"? O sistema irá reajustar as parcelas restantes para manter a sequência mensal correta.`)) return;
+
+    setLoading(true);
     try {
+      const allTransactions = await FinanLitoService.getAll(undefined, undefined, token);
+      
+      const siblings = allTransactions.filter(t => {
+        const sMatch = t.title.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+        return sMatch && sMatch[1] === baseTitle && sMatch[3] === originalDenominator;
+      });
+
+      const survivors = siblings
+        .filter(t => (t._id || t.id) !== formId)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      const newTotal = survivors.length;
+
+      // REGRA CEO: Re-alinhamento baseado no primeiro sobrevivente
+      const updatePromises = survivors.map((item, idx) => {
+        const anchorDate = new Date(survivors[0].date);
+        const newDate = new Date(anchorDate);
+        const originalDay = anchorDate.getDate();
+        
+        newDate.setMonth(anchorDate.getMonth() + idx);
+        if (newDate.getDate() !== originalDay) newDate.setDate(0); 
+
+        // REGRA CEO: Enviamos o objeto completo para não perder Categoria ou Metadados
+        return FinanLitoService.update(item._id || item.id || '', { 
+          ...item,
+          title: `${baseTitle} (${idx + 1}/${newTotal})`,
+          date: newDate.toISOString() 
+        }, token);
+      });
+
       await FinanLitoService.delete(formId, token);
+      await Promise.all(updatePromises);
+      
       setIsModalOpen(false);
       loadData();
-    } catch (err) { alert('Erro ao excluir'); }
+      alert(`Parcela removida. ${newTotal} itens foram re-indexados no calendário.`);
+    } catch (err) {
+      alert('Erro ao processar re-indexação.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleCloneToNextMonth(t: ITransactionExtended) {
     if (!confirm(`Deseja clonar "${t.title}" para o próximo mês?`)) return;
 
     const date = new Date(t.date);
+    const originalDay = date.getDate();
     date.setMonth(date.getMonth() + 1);
+    
+    // Verificação de transbordo (dia 29/30/31 em meses curtos)
+    if (date.getDate() !== originalDay) {
+      date.setDate(0);
+    }
 
     // Payload corrigido com type casting para evitar o erro TS(2345)
     const payload = {
@@ -610,7 +848,7 @@ export default function FinanLitoPage() {
       description: t.description,
       amount: t.amount,
       type: t.type,
-      status: 'pending' as 'pending' | 'paid' | 'overdue',
+      status: t.status === 'paid' ? 'pending' : t.status as 'pending' | 'paid' | 'overdue',
       date: date.toISOString(),
       isCreditCard: !!t.isCreditCard,
       category: formCategory || 'Outros'
@@ -618,8 +856,22 @@ export default function FinanLitoPage() {
 
     setLoading(true);
     try {
-      await FinanLitoService.create(payload, token);
-      alert('Lançamento clonado com sucesso!');
+      // REGRA CEO: Preserva a data original se ela já existir, senão usa a data atual do card
+      const originalDateToPreserve = t.dateReplicated || t.date;
+
+      await FinanLitoService.create({ 
+        ...payload, 
+        isReplicated: true, 
+        dateReplicated: originalDateToPreserve 
+      }, token);
+      
+      // REGRA CEO: Somente exclui o original se estiver ATRASADO. 
+      // Itens Pendentes/Concluídos permanecem no mês de origem como histórico.
+      if (t.status === 'overdue') {
+          await FinanLitoService.delete(t._id || t.id || '', token);
+      }
+      
+      alert('Lançamento movido para o próximo mês!');
       loadData();
     } catch (err) {
       alert('Erro ao clonar lançamento.');
@@ -647,6 +899,9 @@ export default function FinanLitoPage() {
 
         // 3. Analisamos duplicados
         for (const item of currentMonthItems) {
+            // REGRA: Se for parcelado, não replica (padrão de título: "Nome (1/10)")
+            if (item.title.match(/\(\d+\/\d+\)$/)) continue;
+
             const isDuplicate = nextMonthItems.find((n: any) => 
                 n.title.toLowerCase().trim() === item.title.toLowerCase().trim() &&
                 n.amount === item.amount
@@ -654,20 +909,39 @@ export default function FinanLitoPage() {
 
             if (isDuplicate) {
                 const action = window.confirm(
-                    `O lançamento "${item.title}" (R$ ${item.amount}) já existe em ${months[nextMonth]}.\n\nClique em [OK] para REPLICAR NOVAMENTE (manter os dois) ou [CANCELAR] para PULAR este item.`
+                    `O lançamento "${item.title}" (R$ ${item.amount}) já existe em ${months[nextMonth]}.\n\nClique em [OK] para REPLICAR NOVAMENTE ou [CANCELAR] para PULAR.`
                 );
-                if (!action) continue; // Pula este item se o usuário cancelar
+                if (!action) continue;
             }
 
-            // Replica o item individualmente (ajustando a data)
+            // Replica o item individualmente (ajustando a data e evitando transbordo)
             const newDate = new Date(item.date);
+            const originalDay = newDate.getDate();
             newDate.setMonth(newDate.getMonth() + 1);
             
+            if (newDate.getDate() !== originalDay) {
+                newDate.setDate(0); // Ajusta para o último dia do mês correto (ex: 28/02)
+            }
+            
+            // REGRA: Se for 'paid', volta pra 'pending'. Se for 'overdue' ou 'pending', mantém o status.
+            const nextStatus = item.status === 'paid' ? 'pending' : item.status;
+
+            // REGRA CEO: Mantém a data de origem para o rastro de atraso
+            const originalDateToPreserve = item.dateReplicated || item.date;
+
             await FinanLitoService.create({
                 ...item,
-                status: 'pending' as 'pending' | 'paid' | 'overdue',
-                date: newDate.toISOString()
+                status: nextStatus as 'pending' | 'paid' | 'overdue',
+                date: newDate.toISOString(),
+                isReplicated: true,
+                dateReplicated: originalDateToPreserve
             }, token);
+
+            // REGRA CEO: Somente move (exclui o original) se o item estiver ATRASADO.
+            // Se for Pendente ou Concluido, o sistema apenas cria uma cópia no mês seguinte.
+            if (item.status === 'overdue') {
+                await FinanLitoService.delete(item._id || item.id || '', token);
+            }
         }
 
         alert('Processo de replicação concluído!');
@@ -682,33 +956,59 @@ export default function FinanLitoPage() {
   async function handleClearMonth() {
     if (curMonth === null) return;
     
-    const confirmClear = window.confirm(
-      `ATENÇÃO: Você tem certeza que deseja EXCLUIR TODOS os lançamentos de ${months[curMonth]} de ${curYear}?\n\nEsta ação não pode ser desfeita.`
-    );
-
-    if (!confirmClear) return;
-
-    // Segunda confirmação de segurança para evitar cliques acidentais
-    const secondConfirm = window.confirm("Confirma a exclusão definitiva de tudo neste mês?");
-    if (!secondConfirm) return;
+    const confirmClear = window.confirm(`ATENÇÃO: Deseja EXCLUIR os lançamentos de ${months[curMonth]}? Parcelamentos serão removidos apenas deste mês e re-indexados nos demais.`);
+    if (!confirmClear || !window.confirm("Confirma a exclusão definitiva?")) return;
 
     setLoading(true);
     try {
-      // Filtramos apenas os IDs do mês atual exibido
       const idsToDelete = monthFiltered.map(t => t._id || t.id || '');
-      
-      if (idsToDelete.length === 0) {
-        alert("Não há lançamentos para excluir neste mês.");
-        return;
+      const installmentsInMonth = monthFiltered.filter(t => t.title.match(/\(\d+\/\d+\)$/));
+
+      // 1. Deleta tudo o que está na tela do mês atual
+      await Promise.all(idsToDelete.map(id => FinanLitoService.delete(id, token)));
+
+      // 2. Se havia parcelas, precisamos re-indexar os grupos afetados
+      if (installmentsInMonth.length > 0) {
+        const allTransactions = await FinanLitoService.getAll(undefined, undefined, token);
+        
+        for (const item of installmentsInMonth) {
+          const match = item.title.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+          if (!match) continue;
+
+          const baseTitle = match[1];
+          const originalDenominator = match[3];
+
+          const siblingsLeft = allTransactions.filter(t => {
+            const sMatch = t.title.match(/^(.*)\s\((\d+)\/(\d+)\)$/);
+            return sMatch && sMatch[1] === baseTitle && sMatch[3] === originalDenominator && !idsToDelete.includes(t._id || t.id || '');
+          }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+          if (siblingsLeft.length === 0) continue;
+
+          const newTotal = siblingsLeft.length;
+          const anchorDate = new Date(siblingsLeft[0].date);
+          const originalDay = anchorDate.getDate();
+
+          const updates = siblingsLeft.map((s, idx) => {
+            const newDate = new Date(anchorDate);
+            newDate.setMonth(anchorDate.getMonth() + idx);
+            if (newDate.getDate() !== originalDay) newDate.setDate(0);
+
+            // REGRA CEO: Usa os dados do próprio item 's' para manter categoria e valores
+            return FinanLitoService.update(s._id || s.id || '', { 
+              ...s,
+              title: `${baseTitle} (${idx + 1}/${newTotal})`,
+              date: newDate.toISOString()
+            }, token);
+          });
+          await Promise.all(updates);
+        }
       }
 
-      // Executa a exclusão em massa
-      await Promise.all(idsToDelete.map(id => FinanLitoService.delete(id, token)));
-      
-      alert(`Sucesso: ${idsToDelete.length} lançamentos removidos.`);
+      alert("Mês limpo e parcelamentos remanescentes atualizados.");
       loadData();
     } catch (err) {
-      alert('Erro ao limpar o mês. Algumas transações podem não ter sido excluídas.');
+      alert('Erro ao limpar o mês.');
     } finally {
       setLoading(false);
     }
@@ -753,6 +1053,13 @@ export default function FinanLitoPage() {
     });
   }, [transactions, curMonth, curYear, searchTerm, selectedCategory]); // Adicionamos selectedCategory aqui
 
+  // REGRA CEO: Checa se as setas devem aparecer ao carregar dados ou redimensionar janela
+  useEffect(() => {
+    const timer = setTimeout(checkScroll, 300); // Delay para esperar o render do DOM
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, [monthFiltered, curMonth]);
+
   const statsMonth = useMemo(() => {
     let inc = 0, exp = 0, paidExp = 0, pendingExp = 0;
     
@@ -774,6 +1081,29 @@ export default function FinanLitoPage() {
 
     return { inc, exp, bal: inc - paidExp, pending: pendingExp };
   }, [monthFiltered]);
+
+  const scrollStats = (direction: 'left' | 'right') => {
+  if (statsScrollRef.current) {
+    const scrollAmount = 200;
+    statsScrollRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+  }
+};
+
+const checkScroll = () => {
+    if (kanbanScrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = kanbanScrollRef.current;
+        setCanScrollLeft(scrollLeft > 20);
+        // Margem de 5px para evitar bugs de arredondamento em telas high-dpi
+        setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 20);
+    }
+};
+
+const scrollKanban = (direction: 'left' | 'right') => {
+    if (kanbanScrollRef.current) {
+        const scrollAmount = kanbanScrollRef.current.clientWidth * 0.8;
+        kanbanScrollRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+};
 
   const categoryStats = useMemo(() => {
     const stats: { [key: string]: number } = {};
@@ -864,12 +1194,29 @@ export default function FinanLitoPage() {
                     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' 
                   }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}><span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{m.name}</span><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#64748b' }}>{m.count}</span></div>
-                  <div style={{ fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    {/* Textos dinâmicos: Receitas/Despesas */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: colors.income, fontWeight: 600 }}>{terms.income}</span><span>{fmtCurrency(m.inc)}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: colors.expense, fontWeight: 600 }}>{terms.expense}</span><span>{fmtCurrency(m.exp)}</span></div>
+                  <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: colors.income, fontWeight: 600 }}>{terms.income}</span>
+                      <span>{fmtCurrency(m.inc)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: colors.expense, fontWeight: 600 }}>{terms.expense}</span>
+                      <span>{fmtCurrency(m.exp)}</span>
+                    </div>
+                    {/* NOVOS CAMPOS ABAIXO */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.2rem', borderBottom: '1px solid #f1f5f9' }}>
+                      <span style={{ color: colors.expense, fontWeight: 700 }}>Atrasados</span>
+                      <span style={{ fontWeight: 800, color: colors.expense }}>{fmtCurrency(m.overdue)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: colors.expense, fontWeight: 800 }}>Saldo Devedor</span>
+                      <span style={{ fontWeight: 800, color: colors.expense }}>{fmtCurrency(m.pending)}</span>
+                    </div>
                   </div>
-                  <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px dashed #e2e8f0', fontWeight: 800, fontSize: '1.1rem', textAlign: 'right', color: m.bal >= 0 ? colors.income : colors.expense }}>{fmtCurrency(m.bal)}</div>
+                  <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px dashed #e2e8f0', fontWeight: 800, fontSize: '1.1rem', textAlign: 'right', color: m.bal >= 0 ? colors.income : colors.expense }}>
+                    <span style={{ color: '#64748b', fontWeight: 600 }}>Saldo Mês</span><br />
+                    {fmtCurrency(m.bal)}
+                  </div>
                 </div>
               ))}
             </div>
@@ -913,11 +1260,30 @@ export default function FinanLitoPage() {
             {categoryStats.length > 0 && <PieChart data={categoryStats} />}
 
             {/* StatCards com Labels Dinâmicos */}
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '5px' }}>
-              <StatCard label={`${terms.income} (Mês)`} value={statsMonth.inc} color={colors.income} />
-              <StatCard label={`${terms.expense} (Mês)`} value={statsMonth.exp} color={colors.expense} />
-              <StatCard label="Saldo (Mês)" value={statsMonth.bal} color={statsMonth.bal >= 0 ? colors.income : colors.expense} />
-              <StatCard label="Saldo Devedor" value={statsMonth.pending} color={colors.expense} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', position: 'relative' }}>
+              <button 
+                onClick={() => scrollStats('left')} 
+                style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', zIndex: 2 }}
+              >
+                <MdChevronLeft size={24} color="#64748b" />
+              </button>
+
+              <div 
+                ref={statsScrollRef}
+                style={{ display: 'flex', gap: '1rem', overflowX: 'auto', padding: '5px 0', flex: 1, scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                <StatCard label={`${terms.income} (Mês)`} value={statsMonth.inc} color={colors.income} />
+                <StatCard label={`${terms.expense} (Mês)`} value={statsMonth.exp} color={colors.expense} />
+                <StatCard label="Saldo (Mês)" value={statsMonth.bal} color={statsMonth.bal >= 0 ? colors.income : colors.expense} />
+                <StatCard label="Saldo Devedor" value={statsMonth.pending} color={colors.expense} />
+              </div>
+
+              <button 
+                onClick={() => scrollStats('right')} 
+                style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', zIndex: 2 }}
+              >
+                <MdChevronRight size={24} color="#64748b" />
+              </button>
             </div>
 
             {/* Substitua o container da barra de busca por este: */}
@@ -1026,62 +1392,126 @@ export default function FinanLitoPage() {
             </div>
 
             <div style={{ flex: 1, overflowX: 'auto', paddingBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', height: '100%', minWidth: '900px' }}>
-                {/* Repassamos as novas props de seleção para as colunas */}
-                <KanbanColumn 
-                    title="Pendente" status="pending" 
-                    items={monthFiltered.filter(t => t.status === 'pending')} 
-                    bg="#fef9c3" color="#854d0e" 
-                    onClickItem={handleOpenModal} 
-                    onCloneItem={handleCloneToNextMonth}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                    onDrop={handleDrop}
-                    onDragOverColumn={onDragOverColumn}
-                    onDragOverCard={onDragOverCard}
-                    dropPlaceholder={dropPlaceholder}
-                    draggedItem={draggedItem}
-                    colors={colors} terms={terms}
-                    isSelectionMode={isSelectionMode}
-                    selectedIds={selectedIds}
-                    onToggleSelect={handleToggleSelect}
-                />
-                <KanbanColumn 
-                    title="Atrasado" status="overdue" 
-                    items={monthFiltered.filter(t => t.status === 'overdue')} 
-                    bg="#fee2e2" color="#991b1b" 
-                    onClickItem={handleOpenModal}
-                    onCloneItem={handleCloneToNextMonth}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                    onDrop={handleDrop}
-                    onDragOverColumn={onDragOverColumn}
-                    onDragOverCard={onDragOverCard}
-                    dropPlaceholder={dropPlaceholder}
-                    draggedItem={draggedItem}
-                    colors={colors} terms={terms}
-                    isSelectionMode={isSelectionMode}
-                    selectedIds={selectedIds}
-                    onToggleSelect={handleToggleSelect}
-                />
-                <KanbanColumn 
-                    title="Concluído" status="paid" 
-                    items={monthFiltered.filter(t => t.status === 'paid')} 
-                    bg="#dcfce7" color="#166534" 
-                    onClickItem={handleOpenModal} 
-                    onCloneItem={handleCloneToNextMonth}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                    onDrop={handleDrop}
-                    onDragOverColumn={onDragOverColumn}
-                    onDragOverCard={onDragOverCard}
-                    dropPlaceholder={dropPlaceholder}
-                    draggedItem={draggedItem}
-                    colors={colors} terms={terms}
-                    isSelectionMode={isSelectionMode}
-                    selectedIds={selectedIds}
-                    onToggleSelect={handleToggleSelect}
-                />
+              {/* Container Pai com Posição Relativa */}
+              <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                
+                {/* Seta Esquerda Flutuante */}
+                {canScrollLeft && (
+                  <button 
+                    onClick={() => scrollKanban('left')} 
+                    style={{ ...arrowOverlayStyle, left: '5px' }}
+                  >
+                    <MdChevronLeft size={32} color="#64748b" />
+                  </button>
+                )}
+
+                {/* Seta Direita Flutuante */}
+                {canScrollRight && (
+                  <button 
+                    onClick={() => scrollKanban('right')} 
+                    style={{ ...arrowOverlayStyle, right: '5px' }}
+                  >
+                    <MdChevronRight size={32} color="#64748b" />
+                  </button>
+                )}
+
+                <div 
+                  ref={kanbanScrollRef}
+                  onScroll={checkScroll} // Gatilho para esconder/mostrar as setas
+                  style={{ 
+                      flex: 1, 
+                      overflowX: 'auto', 
+                      paddingBottom: '0.5rem', 
+                      scrollbarWidth: 'none', 
+                      msOverflowStyle: 'none',
+                      scrollSnapType: 'x mandatory',
+                      WebkitOverflowScrolling: 'touch'
+                  }}
+                >
+                  <div style={{ 
+                      display: 'flex', 
+                      gap: '1rem', 
+                      height: '100%', 
+                      minWidth: '100%', 
+                      width: 'max-content', 
+                      padding: '0 10px', 
+                      justifyContent: 'center', // REGRA CEO: Centraliza colunas em telas grandes
+                      flexWrap: 'nowrap' 
+                  }}>
+                    <KanbanColumn 
+                        title="Pendente" status="pending" 
+                        items={monthFiltered.filter(t => t.status === 'pending')} 
+                        bg="#fef9c3" color="#854d0e" 
+                        onClickItem={handleOpenModal} 
+                        onCloneItem={handleCloneToNextMonth}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDrop={handleDrop}
+                        onDragOverColumn={onDragOverColumn}
+                        onDragOverCard={onDragOverCard}
+                        dropPlaceholder={dropPlaceholder}
+                        draggedItem={draggedItem}
+                        colors={colors} terms={terms}
+                        isSelectionMode={isSelectionMode}
+                        selectedIds={selectedIds}
+                        onToggleSelect={handleToggleSelect}
+                        style={{ 
+                            scrollSnapAlign: 'start', 
+                            flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
+                            maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
+                            minWidth: 'min(320px, 85vw)' 
+                        }}
+                    />
+                    <KanbanColumn 
+                        title="Atrasado" status="overdue" 
+                        items={monthFiltered.filter(t => t.status === 'overdue')} 
+                        bg="#fee2e2" color="#991b1b" 
+                        onClickItem={handleOpenModal}
+                        onCloneItem={handleCloneToNextMonth}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDrop={handleDrop}
+                        onDragOverColumn={onDragOverColumn}
+                        onDragOverCard={onDragOverCard}
+                        dropPlaceholder={dropPlaceholder}
+                        draggedItem={draggedItem}
+                        colors={colors} terms={terms}
+                        isSelectionMode={isSelectionMode}
+                        selectedIds={selectedIds}
+                        onToggleSelect={handleToggleSelect}
+                        style={{ 
+                            scrollSnapAlign: 'start', 
+                            flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
+                            maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
+                            minWidth: 'min(320px, 85vw)' 
+                        }}
+                    />
+                    <KanbanColumn 
+                        title="Concluído" status="paid" 
+                        items={monthFiltered.filter(t => t.status === 'paid')} 
+                        bg="#dcfce7" color="#166534" 
+                        onClickItem={handleOpenModal} 
+                        onCloneItem={handleCloneToNextMonth}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onDrop={handleDrop}
+                        onDragOverColumn={onDragOverColumn}
+                        onDragOverCard={onDragOverCard}
+                        dropPlaceholder={dropPlaceholder}
+                        draggedItem={draggedItem}
+                        colors={colors} terms={terms}
+                        isSelectionMode={isSelectionMode}
+                        selectedIds={selectedIds}
+                        onToggleSelect={handleToggleSelect}
+                        style={{ 
+                            scrollSnapAlign: 'start', 
+                            flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
+                            maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
+                            minWidth: 'min(320px, 85vw)' 
+                        }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1265,16 +1695,27 @@ const KanbanColumn = ({
     dropPlaceholder, draggedItem, status,
     colors, terms,
     isSelectionMode, selectedIds, onToggleSelect,
-    onCloneItem // Novas props
+    onCloneItem,
+    style // <--- Inclua apenas esta palavra aqui
 }: any) => {
 
     const isPlaceholderInThisColumn = dropPlaceholder?.status === status;
 
     return (
         <div 
-            onDragOver={(e) => onDragOverColumn(e, status, items.length)}
-            onDrop={(e) => onDrop(e, status)} 
-            style={{ flex: 1, background: '#e2e8f0', borderRadius: '10px', display: 'flex', flexDirection: 'column', padding: '0.8rem', minWidth: '280px', transition: 'background 0.2s' }}
+    onDragOver={(e) => onDragOverColumn(e, status, items.length)}
+    onDrop={(e) => onDrop(e, status)} 
+    style={{ 
+        flex: 1, 
+        background: '#e2e8f0', 
+        borderRadius: '10px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        padding: '0.8rem', 
+        minWidth: '280px', 
+        transition: 'background 0.2s',
+        ...style // <--- Isso aqui mescla os estilos padrão com os novos que enviamos
+    }}
         >
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontWeight: 700, color: '#64748b', fontSize: '0.8rem', textTransform: 'uppercase' }}>
                 <span>{title}</span><span>{items.length}</span>
@@ -1326,14 +1767,6 @@ const KanbanColumn = ({
                                 )}
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
-                                    {t.category && t.category !== 'Outros' && (
-                                      <div style={{ 
-                                        display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 800, 
-                                        color: '#fff', marginBottom: '0.5rem', background: getCategoryColor(t.category) || '#94a3b8'
-                                      }}>
-                                        {t.category.toUpperCase()}
-                                      </div>
-                                    )}
                                     <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', paddingRight: isSelectionMode ? '25px' : '0' }}>{t.title}</span>
                                     <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         {/* Trocado para MdCreditCard para funcionar com sua biblioteca de ícones */}
@@ -1344,19 +1777,52 @@ const KanbanColumn = ({
                                 <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontWeight: 600 }}>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
+                                        {/* REGRA CEO: Label de atraso com data de criação */}
+                                        {t.status === 'overdue' && (
+                                            <span style={{ 
+                                                fontSize: '0.65rem', 
+                                                color: '#ef4444', 
+                                                fontWeight: 800,
+                                                textTransform: 'uppercase',
+                                                background: '#fee2e2',
+                                                padding: '2px 4px',
+                                                borderRadius: '4px',
+                                                width: 'fit-content',
+                                                marginTop: '4px'
+                                            }}>
+                                                {/* REGRA CEO: Se movido, usa a data original preservada */}
+                                                Atrasada desde: {new Date(t.dateReplicated || t.date).toLocaleDateString('pt-BR')}
+                                            </span>
+                                        )}
+                                    </div>
                                     {/* Botão de clonagem unitária inserido aqui */}
-                                    <button 
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); onCloneItem(t); }} 
-                                        style={{ 
-                                            background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '2px 6px', 
-                                            color: colors.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', 
-                                            gap: '4px', fontSize: '0.65rem', pointerEvents: 'auto' 
-                                        }}
-                                    >
-                                        <MdContentCopy size={24} /> Jogar p/ Próx. Mês
-                                    </button>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    {/* REGRA CEO: Esconde o botão se for um card de parcelas */}
+                                    {!t.title.match(/\(\d+\/\d+\)$/) && (
+                                      <button 
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); onCloneItem(t); }} 
+                                          style={{ 
+                                              background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '4px 8px', 
+                                              color: colors.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                                              gap: '4px', fontSize: '0.65rem', pointerEvents: 'auto' 
+                                          }}
+                                      >
+                                          <MdContentCopy size={16} /> Jogar p/ Próx. Mês
+                                      </button>
+                                    )}
+
+                                    {t.category && t.category !== 'Outros' && (
+                                      <div style={{ 
+                                          display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 800, 
+                                          color: '#fff', background: getCategoryColor(t.category) || '#94a3b8', whiteSpace: 'nowrap'
+                                      }}>
+                                          {t.category.toUpperCase()}
+                                      </div>
+                                    )}
+                                </div>
                                 </div>
                                 <span>{t.type === 'income' ? terms.income.substring(0,3).toUpperCase() : terms.expense.substring(0,4).toUpperCase()}</span>
                             </div>
@@ -1375,6 +1841,24 @@ const KanbanColumn = ({
 const inpStyle = { width: '100%', padding: '0.7rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', fontSize: '1rem' };
 const lblStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' };
 const btnBase: any = { padding: '0.7rem 1.2rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' };
+const arrowOverlayStyle: any = {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'rgba(255, 255, 255, 0.4)', // Mais transparente
+    backdropFilter: 'blur(8px)', // Blur mais forte (efeito vidro)
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: '50%',
+    width: '48px',
+    height: '48px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+    zIndex: 100,
+    transition: 'all 0.3s ease'
+};
 const PieChart = ({ data }: { data: { label: string, value: number, color: string }[] }) => {
     const total = data.reduce((acc, d) => acc + d.value, 0);
     let cumulativePercent = 0;
@@ -1388,7 +1872,7 @@ const PieChart = ({ data }: { data: { label: string, value: number, color: strin
     if (total === 0) return null;
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', padding: '1rem', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             <div style={{ position: 'relative', width: '120px', height: '120px' }}>
                 <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
                     {data.map((d, i) => {
@@ -1401,12 +1885,27 @@ const PieChart = ({ data }: { data: { label: string, value: number, color: strin
                     })}
                 </svg>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.8rem', flex: 1 }}>
+            <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                  gap: '0.4rem 0.8rem', 
+                  flex: 1,
+                  width: '100%' 
+              }}>
                 {data.map((d, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
+                    <div key={i} style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.4rem', 
+                          fontSize: '0.7rem', 
+                          padding: '2px 0',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                      }}>
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.color }} />
-                        <span style={{ fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>{d.label}:</span>
-                        <span style={{ color: '#64748b' }}>{((d.value / total) * 100).toFixed(1)}%</span>
+                        <span style={{ fontWeight: 700, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.label}:</span>
+                        <span style={{ color: '#64748b', fontSize: '0.65rem' }}>{((d.value / total) * 100).toFixed(0)}%</span>
                     </div>
                 ))}
             </div>

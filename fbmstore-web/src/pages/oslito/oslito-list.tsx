@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { OSService } from "@/services/OSService";
+import { useClient } from "@/contexts/ClientContext";
 
 const OSlitoList: React.FC = () => {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ const OSlitoList: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const { clients, fetchClients, loggedClient, isAdmin, logoutClient } = useClient();
 
   useEffect(() => {
     fetchOrders();
@@ -60,7 +62,7 @@ const OSlitoList: React.FC = () => {
             </button>
             
             <div>
-              <h1 className="text-2xl font-black text-slate-800 tracking-tighter">OSLITO | <span className="text-indigo-600">GESTÃO</span></h1>
+              <h1 className="text-2xl font-black text-slate-800 tracking-tighter">{loggedClient?.client?.name || 'FBMSTORE OS'} | <span className="text-indigo-600">GESTÃO</span></h1>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Controle de Ordens de Serviço</p>
             </div>
           </div>

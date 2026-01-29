@@ -204,7 +204,7 @@ const Menu: React.FC<MenuProps> = ({
         {/* Seção 2 */}
         <Item icon={<MdContacts size={22} color="#343a40" />} label="Contatos" onPress={onContatos} />
         <Item icon={<MdInfoOutline size={22} color="#343a40" />} label="Sobre" onPress={onSobre} />
-        {(userAdmin || hasFinancialAccess) ? (
+        {userAdmin ? (
           <>
           <Item 
                   icon={<MdAccountBalanceWallet size={22} color="#343a40" />} 

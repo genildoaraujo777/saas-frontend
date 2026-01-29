@@ -180,7 +180,7 @@ export default function SubscriptionPage() {
         // 3. LÓGICA PARA DEFINIR SE TEM TRIAL
         // Você pode verificar pelo ID do produto, pelo Código ou pelo Nome
         // Exemplo: Se o nome contiver "Financeiro", dá 7 dias.
-        const hasTrial = product?.description?.toLowerCase().includes("financeiro");
+        const hasTrial = product?.description?.toLowerCase().includes("financeiro") || product?.description?.toLowerCase().includes('ordens de serviço');
 
         const checkoutPayload = {
             provider: 'stripe',
@@ -353,7 +353,7 @@ export default function SubscriptionPage() {
                     }}
                 >
                     {processing ? 'Criando assinatura...' : (
-                        product?.description?.toLowerCase().includes("financeiro") ? 
+                        (product?.description?.toLowerCase().includes('financeiro') || product?.description?.toLowerCase().includes('ordens de serviço')) ? 
                         <><MdRocketLaunch size={22} /> Testar 7 Dias Grátis</> : 
                         <><MdRocketLaunch size={22} /> Assinar Agora</>
                     )}

@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Menu from "@/components/ui/Menu";
-import { useCart } from "@/contexts/CartContext";
-import { useCategory } from "@/contexts/CategoryContext";
 import { useStock } from "@/contexts/StockContext";
-import { useSupplier } from "@/contexts/SupplierContext";
 import { CartItem } from "@/types";
 import { MdMenu, MdRocketLaunch, MdLogin } from "react-icons/md"; // Adicionei MdLogin para o ícone de acesso
 import { useClient } from "@/contexts/ClientContext";
@@ -19,9 +16,6 @@ const HomePage: React.FC = () => {
   // 1. IMPORTANTE: Pegamos 'ordersClient' aqui para checar as assinaturas
   const { searchOrders, ordersClient } = useOrder(); 
 
-  const { cartItems } = useCart();
-  const { categoriesItems } = useCategory();
-  const { suppliersItems } = useSupplier();
   const { stockItems, fetchMoreProducts, fetchStockItemsByQuery, notIsLoading, isLoading } = useStock();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -200,9 +194,13 @@ const HomePage: React.FC = () => {
           
           // Roteamento específico por Produto
           const isFinance = product.description?.toLowerCase().includes('financeiro');
+          const isOsLito = product.description?.toLowerCase().includes('ordens de serviço');
           
           if (isFinance) {
               buttonLink = '/finanlito';
+          } 
+          if (isOsLito) {
+              buttonLink = '/oslito';
           } 
           // Adicione outros 'else if' aqui para outros produtos futuros
       }
@@ -261,7 +259,7 @@ const HomePage: React.FC = () => {
   const renderProduct = useCallback(
     (item: CartItem, index: number) => (
       <ItemComponent
-        key={item._id!!}
+        key={item._id || `item-${index}`}
         product={item}
         itemIndex={index}
         ordersClient={ordersClient} // <--- Passando a prop aqui
@@ -327,8 +325,10 @@ const HomePage: React.FC = () => {
         </div>
 
         <div style={styles.productsGrid}>
-          {filteredProducts.map((item, idx) => 
-            item.disable ? <></> : renderProduct(item, idx))}
+          {filteredProducts
+            .filter(item => !item.disable) // Filtra apenas os ativos antes de processar
+            .map((item, idx) => renderProduct(item, idx))
+          }
         </div>
 
         {isLoading ? (
