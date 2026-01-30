@@ -6,6 +6,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { OSService } from "@/services/OSService";
 import { useClient } from "@/contexts/ClientContext";
+import { numberToBRL } from "@/utils/currency";
 
 const OSlitoList: React.FC = () => {
   const navigate = useNavigate();
@@ -122,7 +123,7 @@ const OSlitoList: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-6 text-right">
-                      <span className="text-sm font-black text-indigo-600 font-mono">R$ {Number(os.total || 0).toFixed(2)}</span>
+                      <span className="text-sm font-black text-indigo-600 font-mono">{numberToBRL(Number(os.total || 0))}</span>
                     </td>
                     <td className="p-6">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

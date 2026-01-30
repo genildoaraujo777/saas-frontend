@@ -1,3 +1,23 @@
+// Máscara dinâmica para CPF ou CNPJ
+export const maskCpfCnpj = (value: string) => {
+  const clean = value.replace(/\D/g, "");
+  
+  if (clean.length <= 11) {
+    return clean
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})/, "$1-$2")
+      .replace(/(-\d{2})\d+?$/, "$1");
+  }
+
+  return clean
+    .replace(/(\d{2})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1/$2")
+    .replace(/(\d{4})(\d{1,2})/, "$1-$2")
+    .replace(/(-\d{2})\d+?$/, "$1");
+};
+
 // Remove caracteres não numéricos
 const cleanString = (value: string) => value.replace(/\D/g, "");
 

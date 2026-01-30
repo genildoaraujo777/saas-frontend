@@ -37,6 +37,13 @@ export const OSService = {
     return data;
   },
 
+  updateOS: async (id: string, payload: any, token: string) => {
+    const { data } = await api.put(`/fbm/oslito/os-data/${id}`, payload, { 
+      headers: { Authorization: `Bearer ${token}` } 
+    });
+    return data;
+  },
+
   deleteOS: async (id: string, token: string) => {
     const { data } = await api.delete(`/fbm/oslito/os-data/${id}`, { 
       headers: { Authorization: `Bearer ${token}` } 

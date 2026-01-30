@@ -3,22 +3,83 @@ import {
   User, Phone, MapPin, Palette, Calendar, 
   CreditCard, Truck, ShoppingCart, Plus, Trash2, 
   FileText, Save, Download, Printer, Settings2, ArrowLeft,
-  ChevronLeft, ChevronRight 
+  ChevronLeft, ChevronRight , Edit3
 } from "lucide-react";
 // Importamos o html2pdf apenas se necessário no lado do cliente
 import html2pdf from "html2pdf.js";
 import { useNavigate, useParams } from "react-router-dom";
 import { IOSProduct, OSService } from "@/services/OSService";
+import { brlToNumber, numberToBRL } from "@/utils/currency";
+import { fetchAddressByCep, formatCep } from "@/utils/addressUtils";
+import { maskDate, nativeToMaskedDate } from "@/utils/dateUtils";
+import { maskCpfCnpj, validateCpfCnpj } from "@/utils/validators";
+import { useClient } from "@/contexts/ClientContext";
+
+interface CustomFieldProp {
+  id: string;
+  label: string;
+  value: string;
+}
+
+interface CustomFieldsBlockProps {
+  section: "empresa" | "cliente" | "equipamento" | "servico" | "financeiro" | "encerramento";
+  fields: CustomFieldProp[];
+  onAdd: (section: any) => void;
+  onUpdate: (section: any, id: string, value: string) => void;
+  onRename: (section: string, id: string) => void;
+  onRemove: (section: any, id: string) => void;
+}
+
+const CustomFieldsBlock: React.FC<CustomFieldsBlockProps> = ({ 
+  section, fields, onAdd, onUpdate, onRename, onRemove 
+}) => (
+  <div className="mt-6 border-t border-dashed pt-4">
+    <div className="flex justify-between items-center mb-4">
+      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Campos Extras</h4>
+      <button onClick={() => onAdd(section)} className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase hover:bg-indigo-100 transition-all flex items-center gap-1">
+        <Plus size={12} /> Add Campo
+      </button>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {fields.map(field => (
+        <div key={field.id} className="flex gap-2 items-end">
+          <div className="flex-1 space-y-1">
+            <label className="block text-[10px] font-black text-slate-400 uppercase">{field.label}</label>
+            <input 
+              type="text" 
+              value={field.value} 
+              onChange={(e) => onUpdate(section, field.id, e.target.value)} 
+              className="w-full px-4 py-2 bg-white border border-slate-100 rounded-xl text-xs font-bold" 
+            />
+          </div>
+          <button onClick={() => onRename(section, field.id)} className="p-2 text-indigo-400 hover:text-indigo-600 transition-colors" title="Editar nome do campo">
+            <Settings2 size={18} />
+          </button>
+          <button onClick={() => onRemove(section, field.id)} className="p-2 text-slate-300 hover:text-red-500 mb-1">
+            <Trash2 size={16}/>
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 const OSlito: React.FC = () => {
   const navigate = useNavigate();
   const { osId } = useParams(); // Importe useParams de react-router-dom
   const pdfRef = useRef<HTMLDivElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null); // Ref para o container de abas
+  const inputEntradaRef = useRef<HTMLInputElement>(null);
+  const inputPrevisaoRef = useRef<HTMLInputElement>(null);
+  const inputRetiradaRef = useRef<HTMLInputElement>(null);
+  const lastSearchedCep = useRef("");
+  const { loggedClient } = useClient();
   // 1. ESTADOS DO FORMULÁRIO (Mapeados do index.html)
   const [activeTab, setActiveTab] = useState("dados");
   const [osData, setOsData] = useState({
-    numero: Math.floor(Math.random() * 9000) + 1000,
+    _id: undefined,
+    numero: 0,
     dataEmissao: new Date().toLocaleString(),
     status: "AGUARDANDO APROVAÇÃO",
     prioridade: "NORMAL",
@@ -26,7 +87,15 @@ const OSlito: React.FC = () => {
     documento: "",
     contato: "",
     email: "",
-    endereco: "",
+    endereco: {
+      cep: "",
+      street: "",
+      number: 0,
+      neighborhood: "",
+      city: "",
+      uf: "",
+      complement: ""
+    },
     equipamento: "",
     marcaModelo: "",
     serialIMEI: "",
@@ -36,7 +105,9 @@ const OSlito: React.FC = () => {
     diagnosticoTecnico: "",
     servicosExecutar: "",
     tecnicoResponsavel: "",
-    dataEntrega: "",
+    dataDeixouEqp: "",
+    dataRetirouEqp: "",
+    dataPrevistaParaRetirada: "",
     pagamento: "PIX",
     frete: 0,
     desconto: 0,
@@ -89,32 +160,40 @@ const OSlito: React.FC = () => {
   // Simulação: Carregar logo ao iniciar (Remova isso quando tiver o backend real)
  // Simulação: Carregar logo e Converter para Base64 (Correção para o PDF)
   useEffect(() => {
-    // URL original do seu logo
-    const originalUrl = "https://fbmstore.com.br/assets/LOGO-D9MrJGg8.png";
+  const carregarImagem = async () => {
+    // 1. TENTA RECUPERAR DO LOCALSTORAGE PRIMEIRO
+    const logoSalvo = localStorage.getItem('fbmstore_logo');
     
-    // TRUQUE: Usamos um proxy para evitar erro de CORS no localhost
-    // Em produção (no seu domínio final), você pode usar a URL direta se estiver no mesmo domínio
+    if (logoSalvo) {
+      setCompanyLogo(logoSalvo);
+      return; // Se achou, não precisa fazer o fetch abaixo
+    }
+
+    // 2. SE NÃO HOUVER NO STORAGE, BUSCA A PADRÃO
+    const originalUrl = "https://fbmstore.com.br/assets/LOGO-D9MrJGg8.png";
     const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(originalUrl);
 
-    const carregarImagem = async () => {
-      try {
-        const response = await fetch(proxyUrl);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        
-        reader.onloadend = () => {
-          setCompanyLogo(reader.result as string);
-        };
-        
-        reader.readAsDataURL(blob);
-      } catch (error) {
-        console.error("Erro no proxy, tentando URL direta:", error);
-        setCompanyLogo(originalUrl);
-      }
-    };
+    try {
+      const response = await fetch(proxyUrl);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setCompanyLogo(base64);
+        // Opcional: Salva a padrão também para futuros reloads rápidos
+        localStorage.setItem('fbmstore_logo', base64);
+      };
+      
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error("Erro ao carregar logo padrão:", error);
+      setCompanyLogo(originalUrl);
+    }
+  };
 
-    carregarImagem();
-  }, []);
+  carregarImagem();
+}, []);
 
   useEffect(() => {
     const fetchProdutos = async () => {
@@ -160,7 +239,11 @@ const OSlito: React.FC = () => {
   }, []);
 
   const salvarProduto = async () => {
-    if (!novoProduto.nome || !novoProduto.preco) return;
+    if (!novoProduto.nome.trim() || novoProduto.preco <= 0) {
+      alert("Por favor, preencha o nome e o preço do produto.");
+      return;
+    }
+    console.log("Salvando produto:", novoProduto.preco);
     
     try {
       const token = localStorage.getItem('token') || "";
@@ -212,7 +295,7 @@ const OSlito: React.FC = () => {
 
   // 3. CÁLCULOS TOTAIS (Memoizado para performance como no home.tsx)
   const totais = useMemo(() => {
-    const subtotalItens = itens.reduce((acc, item) => acc + (item.qtd * item.preco), 0);
+    const subtotalItens = itens.filter(item => item.produto && item.produto.trim() !== "").reduce((acc, item) => acc + (item.qtd * item.preco), 0);
     const maoDeObra = Number(osData.valorMaoDeObra) || 0;
     const valorFrete = Number(osData.frete) || 0;
     const percDesconto = Number(osData.desconto) || 0;
@@ -226,12 +309,6 @@ const OSlito: React.FC = () => {
       total: base - valorDesconto
     };
   }, [itens, osData.frete, osData.desconto, osData.valorMaoDeObra]);
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "";
-    const [year, month, day] = dateString.split("-");
-    return `${day}-${month}-${year}`;
-  };
 
   const maskPhone = (value: string) => {
     return value
@@ -250,6 +327,102 @@ const OSlito: React.FC = () => {
       });
     }
   };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    // Validação de tamanho (Sênior): Evita carregar arquivos pesados que quebram o banco
+    if (file.size > 1024 * 1024) { // 1MB
+      alert("A imagem é muito grande. Escolha uma de até 1MB. Com dimensões recomendadas até: 800px x 800px.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setCompanyLogo(base64String);
+      // Persistência local imediata para não perder ao dar F5
+      localStorage.setItem('fbmstore_logo', base64String);
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+  const handleEnderecoChange = (field: string, value: any) => {
+  setOsData(prev => ({
+    ...prev,
+    endereco: { ...prev.endereco, [field]: value }
+  }));
+};
+
+const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCep(e.target.value);
+    handleEnderecoChange("cep", formatted);
+
+    const cleanCep = formatted.replace(/\D/g, "");
+
+    // Só dispara a busca se tiver 8 dígitos E for diferente do último CEP buscado
+    if (cleanCep.length === 8 && cleanCep !== lastSearchedCep.current) {
+      lastSearchedCep.current = cleanCep; // Grava o CEP atual para evitar buscas repetidas
+      
+      try {
+        const data = await fetchAddressByCep(formatted);
+        if (data) {
+          setOsData(prev => ({
+            ...prev,
+            endereco: {
+              ...prev.endereco,
+              street: data.logradouro,
+              neighborhood: data.bairro,
+              city: data.localidade,
+              uf: data.uf,
+            }
+          }));
+        } else {
+          alert("CEP não encontrado.");
+        }
+      } catch (error) {
+        console.error("Erro na busca de CEP:", error);
+      }
+    } 
+    
+    // Reseta a trava se o usuário apagar o CEP, permitindo buscar novamente se ele digitar de novo
+    if (cleanCep.length < 8) {
+      lastSearchedCep.current = "";
+    }
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const maskedValue = maskDate(value);
+    setOsData(prev => ({ ...prev, [name]: maskedValue }));
+  };
+
+  const [documentoValido, setDocumentoValido] = useState(true);
+
+      // 1. O handleInputChange original ou o específico de documento apenas formata
+    const handleDocumentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { value } = e.target;
+      const maskedValue = maskCpfCnpj(value);
+      
+      setOsData(prev => ({ ...prev, documento: maskedValue }));
+      
+      // Opcional: Limpa o estado de erro enquanto o usuário digita para não atrapalhar
+      if (!documentoValido) setDocumentoValido(true);
+    };
+
+    // 2. Nova função para validar apenas ao sair do campo (Blur)
+    const handleDocumentoBlur = () => {
+      const cleanValue = osData.documento.replace(/\D/g, "");
+      
+      // Valida apenas se houver algo digitado para não disparar erro em campos vazios
+      if (cleanValue.length > 0) {
+        const isValid = validateCpfCnpj(cleanValue);
+        setDocumentoValido(isValid);
+      } else {
+        setDocumentoValido(true);
+      }
+    };
 
   // 4. FUNÇÕES DE MANIPULAÇÃO
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -342,36 +515,6 @@ const OSlito: React.FC = () => {
     }
   };
 
-  const CustomFieldsBlock = ({ section }: { section: keyof typeof osData.customFields }) => (
-    <div className="mt-6 border-t border-dashed pt-4">
-      <div className="flex justify-between items-center mb-4">
-        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Campos Extras</h4>
-        <button onClick={() => addCustomField(section)} className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase hover:bg-indigo-100 transition-all flex items-center gap-1">
-          <Plus size={12} /> Add Campo
-        </button>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {osData.customFields[section].map(field => (
-          <div key={field.id} className="flex gap-2 items-end">
-            <div className="flex-1 space-y-1">
-              <label className="block text-[10px] font-black text-slate-400 uppercase">{field.label}</label>
-              <input type="text" value={field.value} onChange={(e) => updateCustomField(section, field.id, e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-100 rounded-xl text-xs font-bold" />
-            </div>
-            <button 
-                onClick={() => renameCustomField(section, field.id)}
-                className="p-2 text-indigo-400 hover:text-indigo-600 transition-colors"
-                title="Editar nome do campo"
-              >
-                <Settings2 size={18} /> {/* Aqui você pode usar o ícone Edit ou Settings2 */}
-              </button>
-            <button onClick={() => removeCustomField(section, field.id)} className="p-2 text-slate-300 hover:text-red-500 mb-1"><Trash2 size={16}/></button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  // 5. GERAÇÃO DE PDF (Migrado do index.html)
   // 5. GERAÇÃO DE PDF (Migrado do index.html)
    const gerarPDF = async () => {
     if (!pdfRef.current) return;
@@ -403,50 +546,70 @@ const OSlito: React.FC = () => {
       <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
         
         {/* HEADER ESTILO FBMSTORE */}
-        <header className="bg-indigo-600 p-8 text-white flex justify-between items-center">
-          <div className="flex flex-col justify-center items-start">
-            
-            {/* LINHA SUPERIOR: BOTÃO + LOGO */}
-            <div className="flex items-center gap-4 mb-2">
+        <header className="bg-indigo-600 p-6 md:p-8 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex flex-col w-full md:w-auto">
+            {/* LINHA SUPERIOR AJUSTADA PARA WRAP NO MOBILE */}
+            <div className="flex flex-wrap items-center gap-4 mb-3">
               
-              {/* 1. Botão Voltar (Agora na esquerda) */}
-              <button 
-                type="button" 
-                onClick={() => navigate("/oslito")}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
-              >
-                 <ArrowLeft size={16} /> Voltar
-              </button>
+              {/* LINHA SUPERIOR: BOTÃO + LOGO */}
+              <div className="flex items-center gap-4 mb-2">
+                
+                {/* 1. Botão Voltar (Agora na esquerda) */}
+                <button 
+                  type="button" 
+                  onClick={() => navigate("/oslito")}
+                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
+                >
+                   <ArrowLeft size={16} /> Voltar
+                </button>
 
-              {/* 2. Logo ou Título */}
-              {companyLogo ? (
-                <img 
-                  src={companyLogo} 
-                  alt="Logo da Empresa" 
-                  className="h-12 max-w-[250px] object-contain" 
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'; 
-                    setCompanyLogo(null); 
-                  }}
-                />
-              ) : (
-                <h1 className="text-2xl font-black italic tracking-tighter cursor-pointer" onClick={() => {
-                    const url = prompt("Cole a URL do logo para testar:");
-                    if(url) setCompanyLogo(url);
-                }}>
-                  FBMSTORE | <span className="text-indigo-200">OSLITO</span>
-                </h1>
-              )}
+                {/* 2. Logo ou Título com Upload */}
+                  <div className="flex flex-col">
+                    {companyLogo ? (
+                      <div className="relative group cursor-pointer" onClick={() => logoInputRef.current?.click()}>
+                        <img 
+                          src={companyLogo} 
+                          alt="Logo da Empresa" 
+                          className="h-12 max-w-[250px] object-contain transition-opacity group-hover:opacity-50" 
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'; 
+                            setCompanyLogo(null); 
+                          }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-[8px] font-black uppercase bg-black/50 px-2 py-1 rounded">Trocar Logo</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <h1 
+                        className="text-2xl font-black italic tracking-tighter cursor-pointer hover:text-indigo-200 transition-colors" 
+                        onClick={() => logoInputRef.current?.click()}
+                        title="Clique para enviar seu logo"
+                      >
+                        {loggedClient?.client.name || "FBMSTORE"} | <span className="text-indigo-200">OSLITO</span>
+                      </h1>
+                    )}
+
+                    {/* Input de Arquivo Oculto */}
+                    <input 
+                      type="file" 
+                      ref={logoInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={handleLogoChange} 
+                    />
+                  </div>
+              </div>
+
+              {/* LINHA INFERIOR: Subtítulo (Embaixo dos dois) */}
+              <p className="text-xs font-bold opacity-80 uppercase tracking-widest">Gerenciador de Ordens de Serviço</p>
             </div>
-
-            {/* LINHA INFERIOR: Subtítulo (Embaixo dos dois) */}
-            <p className="text-xs font-bold opacity-80 uppercase tracking-widest">Gerenciador de Ordens de Serviço</p>
           </div>
 
           {/* LADO DIREITO: Número do Pedido */}
-          <div className="text-right">
+          <div className="w-full md:w-auto text-left md:text-right">
             <span className="bg-white/20 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest">
-              Nº {osData.numero}
+              {osData._id ? `Nº ${osData.numero}` : "Nova OS"}
             </span>
           </div>
         </header>
@@ -527,7 +690,16 @@ const OSlito: React.FC = () => {
                   <option>URGENTE</option>
                 </select>
               </div>
-              <div className="md:col-span-2"><CustomFieldsBlock section="empresa" /></div>
+              <div className="md:col-span-2">
+                <CustomFieldsBlock 
+                  section="empresa" 
+                  fields={osData.customFields.empresa}
+                  onAdd={addCustomField}
+                  onUpdate={updateCustomField}
+                  onRename={renameCustomField}
+                  onRemove={removeCustomField}
+                />
+              </div>
             </div>
           )}
 
@@ -539,18 +711,78 @@ const OSlito: React.FC = () => {
                 <input name="cliente" value={osData.cliente} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
               </div>
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">CPF / CNPJ</label>
-                <input name="documento" value={osData.documento} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  CPF / CNPJ 
+                  {!documentoValido && <span className="text-red-500 ml-2 animate-pulse">INVÁLIDO</span>}
+                </label>
+                <input 
+                  name="documento" 
+                  value={osData.documento} 
+                  onChange={handleDocumentoChange} 
+                  onBlur={handleDocumentoBlur} // <--- ADICIONE ESTA LINHA
+                  placeholder="000.000.000-00"
+                  className={`w-full px-4 py-3 bg-slate-50 border ${
+                    !documentoValido ? 'border-red-500 ring-1 ring-red-100' : 'border-slate-100'
+                  } rounded-xl text-sm font-bold transition-all outline-none focus:border-indigo-500`} 
+                />
               </div>
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">WhatsApp</label>
                 <input name="contato" value={osData.contato} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
               </div>
-              <div className="md:col-span-4 space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Endereço Completo</label>
-                <input name="endereco" value={osData.endereco} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
+
+              {/* SEÇÃO DE ENDEREÇO */}
+              <div className="md:col-span-1 space-y-2">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">CEP</label>
+                <input 
+                  name="cep" 
+                  value={osData.endereco.cep} 
+                  onChange={handleCepChange} 
+                  placeholder="00000-000"
+                  className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                />
               </div>
-              <div className="md:col-span-4"><CustomFieldsBlock section="cliente" /></div>
+
+              {/* CAMPOS DINÂMICOS: Aparecem se for Edição OU se o CEP estiver preenchido */}
+              {(osData._id || osData.endereco.cep.length === 9) && (
+                <>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Logradouro (Rua/Av)</label>
+                    <input value={osData.endereco.street} onChange={(e) => handleEnderecoChange("street", e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Número</label>
+                    <input type="number" value={osData.endereco.number} onChange={(e) => handleEnderecoChange("number", e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Bairro</label>
+                    <input value={osData.endereco.neighborhood} onChange={(e) => handleEnderecoChange("neighborhood", e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Cidade</label>
+                    <input value={osData.endereco.city} onChange={(e) => handleEnderecoChange("city", e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">UF</label>
+                    <input value={osData.endereco.uf} onChange={(e) => handleEnderecoChange("uf", e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold uppercase" maxLength={2} />
+                  </div>
+                  <div className="md:col-span-1 space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Complemento</label>
+                    <input value={osData.endereco.complement} onChange={(e) => handleEnderecoChange("complement", e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" placeholder="Apto, Bloco, etc" />
+                  </div>
+                </>
+              )}
+
+              <div className="md:col-span-4">
+                <CustomFieldsBlock 
+                  section="cliente" 
+                  fields={osData.customFields.cliente}
+                  onAdd={addCustomField}
+                  onUpdate={updateCustomField}
+                  onRename={renameCustomField}
+                  onRemove={removeCustomField}
+                />
+              </div>
             </div>
           )}
 
@@ -570,10 +802,23 @@ const OSlito: React.FC = () => {
                 <input name="serialIMEI" value={osData.serialIMEI} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
               </div>
               <div className="md:col-span-4 space-y-2">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Acessórios (Bandeja, Tampas, Capinha, etc...)</label>
+                <textarea name="acessorios" value={osData.acessorios} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl text-sm h-24 outline-none focus:border-indigo-500" />
+              </div>
+              <div className="md:col-span-4 space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Checklist Visual (Riscos, Trincos, Detalhes)</label>
                 <textarea name="checklist" value={osData.checklist} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl text-sm h-24 outline-none focus:border-indigo-500" />
               </div>
-              <div className="md:col-span-4"><CustomFieldsBlock section="equipamento" /></div>
+              <div className="md:col-span-4">
+                <CustomFieldsBlock 
+                  section="equipamento" 
+                  fields={osData.customFields.equipamento}
+                  onAdd={addCustomField}
+                  onUpdate={updateCustomField}
+                  onRename={renameCustomField}
+                  onRemove={removeCustomField}
+                />
+              </div>
             </div>
           )}
 
@@ -594,7 +839,14 @@ const OSlito: React.FC = () => {
                   <input name="tecnicoResponsavel" value={osData.tecnicoResponsavel} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
                 </div>
               </div>
-              <CustomFieldsBlock section="servico" />
+              <CustomFieldsBlock 
+                  section="servico" 
+                  fields={osData.customFields.servico}
+                  onAdd={addCustomField}
+                  onUpdate={updateCustomField}
+                  onRename={renameCustomField}
+                  onRemove={removeCustomField}
+                />
             </div>
           )}
 
@@ -607,8 +859,9 @@ const OSlito: React.FC = () => {
                 <table className="w-full mb-4">
                   <thead>
                     <tr className="text-[10px] font-black text-slate-400 uppercase text-left border-b border-slate-100">
-                      <th className="pb-2">Produto</th>
-                      <th className="pb-2 w-24">Valor</th>
+                      <th className="pb-2">Produto / Peça / Item</th>
+                      <th className="pb-2 w-20 px-2">Qtd</th>
+                      <th className="pb-2 w-24">Valor Unit.</th>
                       <th className="pb-2 w-12"></th>
                     </tr>
                   </thead>
@@ -616,38 +869,107 @@ const OSlito: React.FC = () => {
                     {itens.map((item) => (
                       <tr key={item.id}>
                         <td className="py-2">
-                          <select className="w-full p-2 bg-white border rounded-lg text-xs" value={item.produto} onChange={(e) => {
-                                const prodNome = e.target.value;
-                                const prodEncontrado = produtos.find((p: any) => p.nome === prodNome);
-                                updateItem(item.id, 'produto', prodNome);
-                                updateItem(item.id, 'preco', prodEncontrado ? prodEncontrado.preco : 0);
-                            }}>
+                          <select 
+                            className="w-full p-2 bg-white border rounded-lg text-xs" 
+                            value={item.produto} 
+                            onChange={(e) => {
+                              const prodNome = e.target.value;
+
+                              // BLOQUEIO DE DUPLICIDADE: Verifica se o produto já existe em OUTRA linha
+                              const jaAdicionado = itens.some(i => i.produto === prodNome && i.id !== item.id);
+                              
+                              if (jaAdicionado && prodNome !== "") {
+                                alert("Este item já foi adicionado à lista. Por favor, altere a quantidade na linha correspondente.");
+                                return; // Interrompe a atualização
+                              }
+
+                              const prodEncontrado = produtos.find((p: any) => p.nome === prodNome);
+                              updateItem(item.id, 'produto', prodNome);
+                              updateItem(item.id, 'preco', prodEncontrado ? prodEncontrado.preco : 0);
+                            }}
+                          >
                             <option value="">Selecione o item...</option>
-                            {produtos.map((p: any, index: number) => (
-                              <option key={p._id || p.id || index} value={p.nome}>
-                                {p.nome}
-                              </option>
-                            ))}
+                            {produtos.map((p: any, index: number) => {
+                              // DESABILITA OPÇÕES JÁ SELECIONADAS: Para uma UX superior
+                              const isSelectedElsewhere = itens.some(i => i.produto === p.nome && i.id !== item.id);
+                              
+                              return (
+                                <option 
+                                  key={p._id || p.id || index} 
+                                  value={p.nome}
+                                  disabled={isSelectedElsewhere}
+                                >
+                                  {p.nome} {isSelectedElsewhere ? '(Já adicionado)' : ''}
+                                </option>
+                              );
+                            })}
                           </select>
                         </td>
-                        <td className="py-2"><input type="number" value={item.preco} onChange={(e) => updateItem(item.id, 'preco', Number(e.target.value))} className="w-full p-2 bg-white border rounded-lg text-xs font-bold" /></td>
-                        <td className="py-2 text-right"><button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button></td>
+                        {/* CAMPO DE QUANTIDADE ADICIONADO */}
+                        <td className="py-2 px-2">
+                          <input 
+                            type="number" 
+                            min="1"
+                            value={item.qtd} 
+                            onChange={(e) => updateItem(item.id, 'qtd', Math.max(1, Number(e.target.value)))} 
+                            className="w-full p-2 bg-white border rounded-lg text-xs font-bold text-center" 
+                          />
+                        </td>
+                        <td className="py-2">
+                          <span className="text-xs font-bold text-slate-700">
+                            {numberToBRL(item.preco || 0)}
+                          </span>
+                        </td>
+                        <td className="py-2 text-right">
+                          <button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-red-500">
+                            <Trash2 size={16}/>
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <button onClick={addItem} className="text-indigo-600 text-[10px] font-black uppercase flex items-center gap-1"><Plus size={14}/> Add Peça</button>
+                <button onClick={addItem} className="text-indigo-600 text-[10px] font-black uppercase flex items-center gap-1">
+                  <Plus size={14}/> Add Item
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Valor Mão de Obra */}
                 <div className="space-y-2">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Mão de Obra</label>
-                  <input type="number" name="valorMaoDeObra" value={osData.valorMaoDeObra} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
+                  <input 
+                    type="text" 
+                    name="valorMaoDeObra"
+                    inputMode="decimal" 
+                    value={numberToBRL(osData.valorMaoDeObra || 0)}
+                    onChange={(e) => {
+                      const onlyDigits = e.target.value.replace(/\D/g, "");
+                      const numericValue = Number(onlyDigits) / 100;
+                      setOsData(prev => ({ ...prev, valorMaoDeObra: numericValue }));
+                    }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:border-indigo-500"
+                  />
                 </div>
+
+                {/* NOVO CAMPO: Outros / Frete */}
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Previsão Entrega</label>
-                  <input type="date" name="dataEntrega" value={osData.dataEntrega} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Outros / Frete</label>
+                  <input 
+                    type="text" 
+                    name="frete"
+                    inputMode="decimal" 
+                    value={numberToBRL(osData.frete || 0)}
+                    onChange={(e) => {
+                      const onlyDigits = e.target.value.replace(/\D/g, "");
+                      const numericValue = Number(onlyDigits) / 100;
+                      setOsData(prev => ({ ...prev, frete: numericValue }));
+                    }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:border-indigo-500"
+                  />
                 </div>
+
+                {/* Forma Pagto */}
                 <div className="space-y-2">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Forma Pagto</label>
                   <select name="pagamento" value={osData.pagamento} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold">
@@ -656,8 +978,105 @@ const OSlito: React.FC = () => {
                     <option>DINHEIRO</option>
                   </select>
                 </div>
+
+                {/* Desconto */}
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Desconto (%)</label>
+                  <input type="number" name="desconto" value={osData.desconto} onChange={handleInputChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold" />
+                </div>
               </div>
-              <CustomFieldsBlock section="financeiro" />
+
+              {/* NOVA SEÇÃO DE DATAS DE EQUIPAMENTO COM ÍCONES */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                  {/* Data Entrada */}
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-indigo-500">Data Entrada Equipamento</label>
+                    <div className="relative group">
+                      <input 
+                        type="text" 
+                        name="dataDeixouEqp" 
+                        placeholder="dd/mm/aaaa"
+                        value={osData.dataDeixouEqp} 
+                        onChange={handleDateChange} 
+                        className="w-full px-4 py-3 bg-white border border-indigo-100 rounded-xl text-sm font-bold shadow-sm pr-12 outline-none" 
+                      />
+                      
+                      {/* Input nativo invisível que abre o calendário */}
+                      <input 
+                        type="date"
+                        ref={inputEntradaRef}
+                        className="absolute opacity-0 pointer-events-none right-4 w-8 h-8"
+                        onChange={(e) => setOsData(prev => ({ ...prev, dataDeixouEqp: nativeToMaskedDate(e.target.value) }))}
+                      />
+                      
+                      <Calendar 
+                        size={18} 
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-300 group-hover:text-indigo-500 cursor-pointer transition-colors"
+                        onClick={() => inputEntradaRef.current?.showPicker()} // showPicker() abre o calendário nativo
+                      />
+                    </div>
+                  </div>
+
+                  {/* Previsão Retirada */}
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">Previsão Retirada</label>
+                    <div className="relative group">
+                      <input 
+                        type="text" 
+                        name="dataPrevistaParaRetirada" 
+                        placeholder="dd/mm/aaaa"
+                        value={osData.dataPrevistaParaRetirada} 
+                        onChange={handleDateChange} 
+                        className="w-full px-4 py-3 bg-white border border-amber-100 rounded-xl text-sm font-bold shadow-sm pr-12 outline-none" 
+                      />
+                      <input 
+                        type="date"
+                        ref={inputPrevisaoRef}
+                        className="absolute opacity-0 pointer-events-none right-4 w-8 h-8"
+                        onChange={(e) => setOsData(prev => ({ ...prev, dataPrevistaParaRetirada: nativeToMaskedDate(e.target.value) }))}
+                      />
+                      <Calendar 
+                        size={18} 
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-300 group-hover:text-amber-500 cursor-pointer transition-colors"
+                        onClick={() => inputPrevisaoRef.current?.showPicker()}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Data Retirada Real */}
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-emerald-500">Data Retirada Equipamento</label>
+                    <div className="relative group">
+                      <input 
+                        type="text" 
+                        name="dataRetirouEqp" 
+                        placeholder="dd/mm/aaaa"
+                        value={osData.dataRetirouEqp} 
+                        onChange={handleDateChange} 
+                        className="w-full px-4 py-3 bg-white border border-emerald-100 rounded-xl text-sm font-bold shadow-sm pr-12 outline-none" 
+                      />
+                      <input 
+                        type="date"
+                        ref={inputRetiradaRef}
+                        className="absolute opacity-0 pointer-events-none right-4 w-8 h-8"
+                        onChange={(e) => setOsData(prev => ({ ...prev, dataRetirouEqp: nativeToMaskedDate(e.target.value) }))}
+                      />
+                      <Calendar 
+                        size={18} 
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-300 group-hover:text-emerald-500 cursor-pointer transition-colors"
+                        onClick={() => inputRetiradaRef.current?.showPicker()}
+                      />
+                    </div>
+                  </div>
+                </div>
+              <CustomFieldsBlock 
+                  section="financeiro" 
+                  fields={osData.customFields.financeiro}
+                  onAdd={addCustomField}
+                  onUpdate={updateCustomField}
+                  onRename={renameCustomField}
+                  onRemove={removeCustomField}
+                />
             </div>
           )}
 
@@ -672,7 +1091,14 @@ const OSlito: React.FC = () => {
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Notas Internas (Privado)</label>
                 <textarea name="obs" value={osData.obs} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl text-sm h-20 outline-none" placeholder="Ex: Cliente difícil, equipamento já veio de outra assistência..." />
               </div>
-              <CustomFieldsBlock section="encerramento" />
+              <CustomFieldsBlock 
+                  section="encerramento" 
+                  fields={osData.customFields.encerramento}
+                  onAdd={addCustomField}
+                  onUpdate={updateCustomField}
+                  onRename={renameCustomField}
+                  onRemove={removeCustomField}
+                />
             </div>
           )}
 
@@ -706,9 +1132,20 @@ const OSlito: React.FC = () => {
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase">Preço Base (R$)</label>
                     <input 
-                      type="number" 
-                      value={novoProduto.preco}
-                      onChange={(e) => setNovoProduto({...novoProduto, preco: parseFloat(e.target.value) || 0})}
+                      type="text" 
+                      // O inputMode="decimal" força o teclado numérico com ponto/vírgula no mobile
+                      inputMode="decimal" 
+                      value={numberToBRL(novoProduto.preco || 0)}
+                      onChange={(e) => {
+                        // Pegamos apenas os dígitos para manter o estado como Number puro
+                        const onlyDigits = e.target.value.replace(/\D/g, "");
+                        const numericValue = Number(onlyDigits) / 100;
+                        
+                        setNovoProduto({
+                          ...novoProduto, 
+                          preco: numericValue
+                        });
+                      }}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -741,7 +1178,7 @@ const OSlito: React.FC = () => {
                       <tr key={prod.id || prod._id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="p-4 text-xs font-bold text-slate-700">{prod.nome}</td>
                         <td className="p-4 text-xs font-bold text-slate-700">{prod.description}</td>
-                        <td className="p-4 text-xs font-black text-emerald-500 text-right font-mono">R$ {Number(prod.preco).toFixed(2)}</td>
+                        <td className="p-4 text-xs font-black text-emerald-500 text-right font-mono">{numberToBRL(prod.preco)}</td>
                         <td className="p-4 text-right">
                           <div className="flex justify-end gap-2">
                             <button 
@@ -777,43 +1214,86 @@ const OSlito: React.FC = () => {
           )}
 
           {/* RODAPÉ DE AÇÕES */}
-          <footer className="mt-12 pt-8 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex flex-col">
+          <footer className="mt-12 pt-8 border-t border-slate-100 flex flex-col lg:flex-row justify-between items-center gap-8">
+            <div className="flex flex-col items-center lg:items-start w-full lg:w-auto">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Total</span>
-              <span className="text-3xl font-black text-indigo-600 tracking-tighter">R$ {totais.total.toFixed(2)}</span>
+              <span className="text-3xl font-black text-indigo-600 tracking-tighter">{numberToBRL(totais.total)}</span>
             </div>
-            <div className="flex gap-3">
+
+            {/* CONTAINER DE BOTÕES COM WRAP E LARGURA COMPLETA NO MOBILE */}
+            {/* CONTAINER DE BOTÕES: Empilhado no Mobile (col), Lado a Lado no Desktop (md:row) */}
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
               <button 
                 onClick={saveLayoutAsTemplate} 
-                className="flex items-center gap-2 bg-amber-500 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-amber-600 transition-all"
+                className="w-full justify-center md:w-auto flex items-center gap-2 bg-amber-500 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-amber-600 transition-all"
                 title="Salva esta estrutura de campos para as próximas OS"
               >
                 <Palette size={18}/> Salvar Modelo Padrão
               </button>
-              <button onClick={gerarPDF} className="flex items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all">
+              <button 
+                onClick={gerarPDF} 
+                disabled={!osData?._id}
+                className={`w-full justify-center md:w-auto flex items-center gap-2 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all ${
+                  !osData?._id 
+                    ? "bg-slate-300 cursor-not-allowed opacity-60 text-slate-500" 
+                    : "bg-slate-900 text-white hover:scale-105"
+                }`}
+              >
                 <Download size={18}/> Gerar PDF
               </button>
               <button 
-                onClick={async () => {
-                  try {
-                    const payload = {
-                      ...osData,
-                      itens: itens, // Seus produtos adicionados na OS
-                      subtotal: totais.subtotalPeças,
-                      total: totais.total,
-                      // O backend deve receber customFields como um objeto ou array no Schema
-                    };
-                    const token = localStorage.getItem('token') || "";
-                    await OSService.saveOS(payload, token);
-                    alert("Ordem de Serviço salva com sucesso!");
-                    navigate("/oslito");
-                  } catch (err) {
-                    alert("Erro ao salvar no banco de dados.");
-                  }
-                }}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all"
-              >
-                <Save size={18}/> Salvar OS
+                    onClick={async () => {
+                        const cleanDoc = osData.documento.replace(/\D/g, "");
+                        if (cleanDoc.length > 0 && !validateCpfCnpj(cleanDoc)) {
+                          alert("O CPF ou CNPJ informado é inválido. Por favor, corrija antes de salvar.");
+                          return;
+                        }
+
+                        try {
+                          const validItens = itens.filter(item => item.produto && item.produto.trim() !== "");
+
+                          const payload: any = {
+                            ...osData,
+                            itens: validItens,
+                            subtotal: totais.subtotalPeças,
+                            total: totais.total,
+                          };
+
+                          if (!payload._id) delete payload._id;
+
+                          const token = localStorage.getItem('token') || "";
+                          const isEditing = !!osData?._id;
+
+                          if (isEditing && osData._id) {
+                            // UPDATE
+                            const response = await OSService.updateOS(osData._id as string, payload, token);
+                            setOsData(response); // Atualiza o estado com os dados vindo do servidor
+                            alert("Ordem de Serviço atualizada com sucesso!");
+                          } else {
+                            // CREATE
+                            const response = await OSService.saveOS(payload, token);
+                            setOsData(response); // Aqui o _id e o numero real entram no estado
+                            alert(`Ordem de Serviço salva com sucesso! Nº ${response.numero}`);
+                          }
+
+                          // REMOVIDO: navigate("/oslito");
+                          
+                        } catch (err) {
+                          alert("Erro ao processar a requisição no banco de dados.");
+                          console.error(err);
+                        }
+                      }}
+                    className="w-full justify-center md:w-auto flex items-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all"
+                  >
+                    {osData?._id ? (
+                      <>
+                        <Edit3 size={18}/> Atualizar OS
+                      </>
+                    ) : (
+                      <>
+                        <Save size={18}/> Salvar OS
+                      </>
+                    )}
               </button>
             </div>
           </footer>
@@ -847,7 +1327,9 @@ const OSlito: React.FC = () => {
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ background: '#f1f5f9', padding: '5px 15px', borderRadius: '6px' }}>
-                <p style={{ fontSize: '14px', fontWeight: '800', margin: 0 }}>OS Nº {osData.numero}</p>
+                <p style={{ fontSize: '14px', fontWeight: '800', margin: 0 }}>
+                  {osData._id ? `OS Nº ${osData.numero}` : "Rascunho de OS"}
+                </p>
                 <p style={{ fontSize: '9px', fontWeight: '700', color: '#4f46e5', margin: 0, textTransform: 'uppercase' }}>{osData.status}</p>
               </div>
             </div>
@@ -860,7 +1342,14 @@ const OSlito: React.FC = () => {
               <p style={{ fontSize: '11px', margin: '3px 0' }}><strong>Nome:</strong> {osData.cliente}</p>
               <p style={{ fontSize: '11px', margin: '3px 0' }}><strong>CPF/CNPJ:</strong> {osData.documento}</p>
               <p style={{ fontSize: '11px', margin: '3px 0' }}><strong>Contato:</strong> {osData.contato}</p>
-              <p style={{ fontSize: '11px', margin: '3px 0' }}><strong>Endereço:</strong> {osData.endereco}</p>
+              <p style={{ fontSize: '11px', margin: '3px 0', lineHeight: '1.4' }}>
+                <strong>Endereço:</strong> {`
+                  ${osData.endereco.street}, ${osData.endereco.number} 
+                  ${osData.endereco.complement ? ` - ${osData.endereco.complement}` : ''} 
+                  - ${osData.endereco.neighborhood}, ${osData.endereco.city}/${osData.endereco.uf} 
+                  - CEP: ${osData.endereco.cep}
+                `}
+              </p>
               {/* Renderização de Campos Extras do Cliente */}
               {osData.customFields.cliente.map(f => (
                 <p key={f.id} style={{ fontSize: '11px', margin: '3px 0' }}><strong>{f.label}:</strong> {f.value}</p>
@@ -912,11 +1401,11 @@ const OSlito: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {itens.map((item, i) => (
+              {itens.filter(item => item.produto && item.produto.trim() !== "").map((item, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '8px', fontSize: '11px' }}>{item.produto || "Item não selecionado"}</td>
                   <td style={{ padding: '8px', fontSize: '11px', textAlign: 'center' }}>{item.qtd}</td>
-                  <td style={{ padding: '8px', fontSize: '11px', textAlign: 'right' }}>R$ {(item.qtd * item.preco).toFixed(2)}</td>
+                  <td style={{ padding: '8px', fontSize: '11px', textAlign: 'right' }}>{numberToBRL(item.qtd * Number(item.preco || 0))}</td>
                 </tr>
               ))}
             </tbody>
@@ -931,19 +1420,21 @@ const OSlito: React.FC = () => {
               </div>
               <div style={{ fontSize: '10px' }}>
                 <p><strong>Forma de Pagamento:</strong> {osData.pagamento}</p>
-                <p><strong>Previsão de Entrega:</strong> {formatDate(osData.dataEntrega)}</p>
+                <p><strong>Entrada do Equipamento:</strong> {osData.dataDeixouEqp}</p>
+                <p><strong>Previsão Retirada do Equipamento:</strong> {osData.dataPrevistaParaRetirada}</p>
+                <p><strong>Retirada Realizada do Equipamento:</strong> {osData.dataRetirouEqp}</p>
                 <p><strong>Técnico Responsável:</strong> {osData.tecnicoResponsavel}</p>
               </div>
             </div>
 
             <div style={{ width: '35%', textAlign: 'right' }}>
-              <p style={{ fontSize: '11px', margin: '4px 0' }}>Total Peças: R$ {totais.subtotalPeças.toFixed(2)}</p>
-              <p style={{ fontSize: '11px', margin: '4px 0' }}>Mão de Obra: R$ {Number(osData.valorMaoDeObra).toFixed(2)}</p>
-              <p style={{ fontSize: '11px', margin: '4px 0' }}>Outros/Frete: R$ {Number(osData.frete).toFixed(2)}</p>
-              <p style={{ fontSize: '11px', margin: '4px 0', color: '#ef4444' }}>Desconto ({osData.desconto}%): - R$ {(totais.subtotalGeral * (osData.desconto/100)).toFixed(2)}</p>
+              <p style={{ fontSize: '11px', margin: '4px 0' }}>Total Peças: {numberToBRL(totais.subtotalPeças)}</p>
+              <p style={{ fontSize: '11px', margin: '4px 0' }}>Mão de Obra: {numberToBRL(osData.valorMaoDeObra)}</p>
+              <p style={{ fontSize: '11px', margin: '4px 0' }}>Outros/Frete:  {numberToBRL(osData.frete)}</p>
+              <p style={{ fontSize: '11px', margin: '4px 0', color: '#ef4444' }}>Desconto ({osData.desconto}%): - {numberToBRL(totais.subtotalGeral * (Number(osData.desconto)/100))}</p>
               <div style={{ borderTop: '2px solid #4f46e5', marginTop: '10px', paddingTop: '10px' }}>
                 <p style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Valor Total da OS</p>
-                <p style={{ fontSize: '22px', fontWeight: '900', color: '#4f46e5', margin: 0 }}>R$ {totais.total.toFixed(2)}</p>
+                <p style={{ fontSize: '22px', fontWeight: '900', color: '#4f46e5', margin: 0 }}>{numberToBRL(totais.total)}</p>
               </div>
             </div>
           </div>
