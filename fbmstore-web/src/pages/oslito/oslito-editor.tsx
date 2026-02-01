@@ -853,83 +853,97 @@ const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
           {/* 5. FINANCEIRO E PEÇAS */}
           {activeTab === 'financeiro' && (
             <div className="space-y-6 animate-in fade-in duration-300">
-              {/* Lógica de Peças (Usando seus Itens do Pedido originais) */}
-              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Peças / Insumos Utilizados</h4>
-                <table className="w-full mb-4">
-                  <thead>
-                    <tr className="text-[10px] font-black text-slate-400 uppercase text-left border-b border-slate-100">
-                      <th className="pb-2">Produto / Peça / Item</th>
-                      <th className="pb-2 w-20 px-2">Qtd</th>
-                      <th className="pb-2 w-24">Valor Unit.</th>
-                      <th className="pb-2 w-12"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {itens.map((item) => (
-                      <tr key={item.id}>
-                        <td className="py-2">
-                          <select 
-                            className="w-full p-2 bg-white border rounded-lg text-xs" 
-                            value={item.produto} 
-                            onChange={(e) => {
-                              const prodNome = e.target.value;
+              {/* Lógica de Peças / Insumos - Versão Responsiva Monolítica */}
+              <div className="bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-100">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
+                  Peças / Insumos Utilizados
+                </h4>
 
-                              // BLOQUEIO DE DUPLICIDADE: Verifica se o produto já existe em OUTRA linha
-                              const jaAdicionado = itens.some(i => i.produto === prodNome && i.id !== item.id);
-                              
-                              if (jaAdicionado && prodNome !== "") {
-                                alert("Este item já foi adicionado à lista. Por favor, altere a quantidade na linha correspondente.");
-                                return; // Interrompe a atualização
-                              }
+                {/* Cabeçalho - Visível apenas em Desktop (md+) */}
+                <div className="hidden md:grid grid-cols-12 gap-4 text-[10px] font-black text-slate-400 uppercase pb-2 border-b border-slate-100 mb-4">
+                  <div className="col-span-6">Produto / Peça / Item</div>
+                  <div className="col-span-2 text-center">Qtd</div>
+                  <div className="col-span-3">Valor Unit.</div>
+                  <div className="col-span-1"></div>
+                </div>
 
-                              const prodEncontrado = produtos.find((p: any) => p.nome === prodNome);
-                              updateItem(item.id, 'produto', prodNome);
-                              updateItem(item.id, 'preco', prodEncontrado ? prodEncontrado.preco : 0);
-                            }}
-                          >
-                            <option value="">Selecione o item...</option>
-                            {produtos.map((p: any, index: number) => {
-                              // DESABILITA OPÇÕES JÁ SELECIONADAS: Para uma UX superior
-                              const isSelectedElsewhere = itens.some(i => i.produto === p.nome && i.id !== item.id);
-                              
-                              return (
-                                <option 
-                                  key={p._id || p.id || index} 
-                                  value={p.nome}
-                                  disabled={isSelectedElsewhere}
-                                >
-                                  {p.nome} {isSelectedElsewhere ? '(Já adicionado)' : ''}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </td>
-                        {/* CAMPO DE QUANTIDADE ADICIONADO */}
-                        <td className="py-2 px-2">
+                <div className="space-y-4 md:space-y-2 mb-4">
+                  {itens.map((item) => (
+                    <div 
+                      key={item.id} 
+                      className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 items-center p-3 md:p-0 bg-white md:bg-transparent rounded-xl border md:border-none border-slate-200 shadow-sm md:shadow-none"
+                    >
+                      {/* Coluna: Seleção de Produto */}
+                      <div className="col-span-1 md:col-span-6">
+                        <label className="block md:hidden text-[9px] font-bold text-slate-400 uppercase mb-1">Produto</label>
+                        <select 
+                          className="w-full p-2.5 md:p-2 bg-white border rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none" 
+                          value={item.produto} 
+                          onChange={(e) => {
+                            const prodNome = e.target.value;
+                            const jaAdicionado = itens.some(i => i.produto === prodNome && i.id !== item.id);
+                            
+                            if (jaAdicionado && prodNome !== "") {
+                              alert("Este item já foi adicionado.");
+                              return;
+                            }
+
+                            const prodEncontrado = produtos.find((p: any) => p.nome === prodNome);
+                            updateItem(item.id, 'produto', prodNome);
+                            updateItem(item.id, 'preco', prodEncontrado ? prodEncontrado.preco : 0);
+                          }}
+                        >
+                          <option value="">Selecione o item...</option>
+                          {produtos.map((p: any, index: number) => {
+                            const isSelectedElsewhere = itens.some(i => i.produto === p.nome && i.id !== item.id);
+                            return (
+                              <option key={p._id || index} value={p.nome} disabled={isSelectedElsewhere}>
+                                {p.nome} {isSelectedElsewhere ? '(Já adicionado)' : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Coluna: Quantidade e Valor (Lado a lado no mobile) */}
+                      <div className="col-span-1 md:col-span-5 grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+                        <div className="md:col-span-2">
+                          <label className="block md:hidden text-[9px] font-bold text-slate-400 uppercase mb-1">Qtd</label>
                           <input 
                             type="number" 
                             min="1"
                             value={item.qtd} 
                             onChange={(e) => updateItem(item.id, 'qtd', Math.max(1, Number(e.target.value)))} 
-                            className="w-full p-2 bg-white border rounded-lg text-xs font-bold text-center" 
+                            className="w-full p-2.5 md:p-2 bg-white border rounded-lg text-xs font-bold text-center focus:ring-2 focus:ring-indigo-500 outline-none" 
                           />
-                        </td>
-                        <td className="py-2">
+                        </div>
+                        
+                        <div className="md:col-span-3 flex items-center justify-between md:justify-start h-10 md:h-auto">
+                          <label className="block md:hidden text-[9px] font-bold text-slate-400 uppercase">Preço:</label>
                           <span className="text-xs font-bold text-slate-700">
                             {numberToBRL(item.preco || 0)}
                           </span>
-                        </td>
-                        <td className="py-2 text-right">
-                          <button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-red-500">
-                            <Trash2 size={16}/>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <button onClick={addItem} className="text-indigo-600 text-[10px] font-black uppercase flex items-center gap-1">
+                        </div>
+                      </div>
+
+                      {/* Coluna: Botão Remover */}
+                      <div className="col-span-1 md:col-span-1 flex justify-end md:justify-center border-t md:border-none pt-2 md:pt-0">
+                        <button 
+                          onClick={() => removeItem(item.id)} 
+                          className="flex items-center gap-2 md:block text-red-400 hover:text-red-600 p-1"
+                        >
+                          <span className="md:hidden text-[10px] font-bold uppercase">Remover Item</span>
+                          <Trash2 size={16}/>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button 
+                  onClick={addItem} 
+                  className="w-full md:w-auto mt-2 px-4 py-2 border-2 border-dashed border-indigo-200 rounded-xl text-indigo-600 text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-indigo-50 transition-colors"
+                >
                   <Plus size={14}/> Add Item
                 </button>
               </div>
