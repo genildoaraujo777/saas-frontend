@@ -228,7 +228,7 @@ const HomePage: React.FC = () => {
             <p style={styles.cardDesc}>{truncateDescription(product.description)}</p>
             
             <div style={styles.priceContainer}>
-              <span style={styles.priceTag}>R$ {product.price}</span>
+              <span style={styles.priceTag}>{product.price}</span>
               <span style={styles.priceFreq}>/mês</span>
             </div>
           </div>
