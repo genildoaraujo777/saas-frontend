@@ -31,5 +31,5 @@ COPY ./frontend.nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html/fbmstore/ 
 
 # 4. EXPOSE
-EXPOSE 80
+EXPOSE 80 443
 # O comando para iniciar o Nginx já é o CMD padrão da imagem nginx:alpine.
