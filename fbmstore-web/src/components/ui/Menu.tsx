@@ -17,6 +17,7 @@ import {
   MdPeopleAlt,
   MdListAlt
 } from 'react-icons/md';
+import { useClient } from '@/contexts/ClientContext';
 
 export type MenuProps = {
   // controle de visibilidade
@@ -104,6 +105,7 @@ const Menu: React.FC<MenuProps> = ({
   onFinanLito,
   osEditor
 }) => {
+  const { loggedClient } = useClient();
   const [tx, setTx] = useState<number>(-DRAWER_WIDTH);
   const mounted = useRef(false);
   
@@ -243,7 +245,14 @@ const Menu: React.FC<MenuProps> = ({
               )}
 
         {/* Sair */}
-        <Item icon={<MdLogout size={22} color="#b00020" />} label="Sair do app" onPress={onSair} danger />
+        {loggedClient ? (
+          <Item 
+            icon={<MdLogout size={22} color="#b00020" />} 
+            label="Sair do app" 
+            onPress={onSair} 
+            danger 
+          />
+        ) : null}
       </div>
     </div>
   );

@@ -1520,7 +1520,7 @@ const scrollKanban = (direction: 'left' | 'right') => {
 
       {/* MODAL ORIGINAL INTEGRALMENTE PRESERVADO */}
       {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}>
           <div style={{ background: 'white', width: '95%', maxWidth: '500px', padding: '2rem', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
             <h3 style={{ marginBottom: '1rem' }}>{formId ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
             <form onSubmit={handleSave} style={{ display: 'grid', gap: '1rem' }}>
@@ -1536,7 +1536,7 @@ const scrollKanban = (direction: 'left' | 'right') => {
                   </div>
 
                   {isCatDropdownOpen && (
-                      <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', zIndex: 100, maxHeight: '250px', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+                      <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: '#fff', maxHeight: '90vh', border: '1px solid #cbd5e1', borderRadius: '8px', zIndex: 100, flexDirection: 'column', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
                           {userCategories.map(cat => {
                               const isDefault = DEFAULT_CATEGORIES.includes(cat) && cat !== 'Outros';
                               return (
