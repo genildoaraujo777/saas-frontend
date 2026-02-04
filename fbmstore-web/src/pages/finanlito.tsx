@@ -1520,10 +1520,27 @@ const scrollKanban = (direction: 'left' | 'right') => {
 
       {/* MODAL ORIGINAL INTEGRALMENTE PRESERVADO */}
       {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}>
-          <div style={{ background: 'white', width: '95%', maxWidth: '500px', padding: '2rem', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', backdropFilter: 'blur(2px)', overflowY: 'auto', padding: '20px 0' }}>
+          <div style={{ 
+                background: 'white', 
+                width: '95%', 
+                maxWidth: '500px', 
+                padding: '1.5rem', // Reduzi um pouco o padding para ganhar espaço
+                borderRadius: '12px', 
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                maxHeight: 'min-content', // Ajusta ao conteúdo
+                position: 'relative',
+                margin: 'auto' // Garante centralização com o flex-start do pai
+              }}>
             <h3 style={{ marginBottom: '1rem' }}>{formId ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
-            <form onSubmit={handleSave} style={{ display: 'grid', gap: '1rem' }}>
+            <form onSubmit={handleSave} style={{ 
+                  display: 'grid', 
+                  gap: '1rem', 
+                  maxHeight: '70vh', // Limita a altura do formulário em telas pequenas
+                  overflowY: 'auto', // Ativa o scroll interno no formulário
+                  paddingRight: '5px', // Espaço para a barra de rolagem não cobrir o input
+                  WebkitOverflowScrolling: 'touch' // Suaviza o scroll no iOS
+                }}>
               <div><label style={lblStyle}>Título</label><input required style={inpStyle} value={formTitle} onChange={e => setFormTitle(e.target.value)} /></div>
               <div>
                 <div style={{ position: 'relative' }} ref={dropdownRef}>

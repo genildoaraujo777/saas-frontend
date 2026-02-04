@@ -1121,7 +1121,7 @@ const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             <div className="space-y-8 animate-in fade-in duration-300">
               {/* Card de Cadastro */}
               <div className="max-w-xl mx-auto bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest text-center mb-6">Cadastrar Peça ou Serviço Padrão</h3>
+                <h3 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest text-center mb-6">Cadastrar Peça / Item / Produto ou Serviço Padrão</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase">Nome</label>

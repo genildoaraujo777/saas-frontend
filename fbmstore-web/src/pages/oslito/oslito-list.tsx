@@ -88,16 +88,18 @@ const OSlitoList: React.FC = () => {
         </div>
 
         {/* LISTAGEM */}
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100">
           {loading ? (
             <div className="p-20 text-center text-slate-400 font-bold animate-pulse">Carregando base de dados...</div>
           ) : (
-            <table className="w-full text-left border-collapse">
+            /* ESTA DIV ABAIXO É A CHAVE: overflow-x-auto e w-full */
+            <div style={{ width: '100%', overflowX: 'auto', display: 'block' }}>
+              <table style={{ minWidth: '1000px', width: '100%', borderCollapse: 'collapse' }} className="text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
                   <th className="p-6">OS Nº</th>
                   <th className="p-6">Cliente</th>
-                  <th className="p-6">Equipamento</th>
+                  <th className="p-6" style={{ minWidth: '200px', whiteSpace: 'nowrap' }}>Equipamento</th>
                   <th className="p-6">Status</th>
                   <th className="p-6 text-right">Total</th>
                   <th className="p-6 text-right">Ações</th>
@@ -110,13 +112,13 @@ const OSlitoList: React.FC = () => {
                       <span className="font-mono font-black text-slate-800">#{os.numero}</span>
                       <p className="text-[9px] text-slate-400 font-bold">{new Date(os.createdAt).toLocaleDateString()}</p>
                     </td>
-                    <td className="p-6">
+                    <td className="p-6" style={{ whiteSpace: 'nowrap' }}>
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-700">{os.cliente}</span>
+                        <span className="text-sm font-bold text-slate-700 whitespace-nowrap">{os.cliente}</span>
                         <span className="text-[10px] text-slate-400 font-medium">{os.contato}</span>
                       </div>
                     </td>
-                    <td className="p-6 text-xs font-bold text-slate-500">{os.equipamento}</td>
+                    <td className="p-6 text-xs font-bold text-slate-500 whitespace-nowrap">{os.equipamento}</td>
                     <td className="p-6">
                       <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${getStatusStyle(os.status)}`}>
                         {os.status}
@@ -126,7 +128,7 @@ const OSlitoList: React.FC = () => {
                       <span className="text-sm font-black text-indigo-600 font-mono">{numberToBRL(Number(os.total || 0))}</span>
                     </td>
                     <td className="p-6">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end gap-2 transition-opacity">
                         <button 
                           onClick={() => navigate(`/oslito/editor/${os._id}`)}
                           className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100"
@@ -152,6 +154,7 @@ const OSlitoList: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
           {!loading && filteredOrders.length === 0 && (
             <div className="p-20 text-center space-y-4">

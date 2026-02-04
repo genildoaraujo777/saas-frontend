@@ -11,6 +11,8 @@ import { CategoryProvider } from '@/contexts/CategoryContext';
 import { SupplierProvider } from '@/contexts/SupplierContext';
 import { ClientProvider } from '@/contexts/ClientContext';
 import { TenantProvider } from '@/contexts/TenantContext';
+import { FooterProvider } from '@/contexts/FooterContext';
+import { Footer } from '@/components/ui/Footer';
 
 type Props = { children?: React.ReactNode };
 
@@ -25,7 +27,10 @@ export default function RootLayout({ children }: Props) {
                 <CartProvider>
                   <ClientProvider>
                     <TenantProvider>
-                      {children /* No web, o roteamento (React Router) entra aqui como children */}
+                      <FooterProvider>
+                        {children /* No web, o roteamento (React Router) entra aqui como children */}
+                        <Footer />
+                      </FooterProvider>
                     </TenantProvider>
                   </ClientProvider>
                 </CartProvider>
