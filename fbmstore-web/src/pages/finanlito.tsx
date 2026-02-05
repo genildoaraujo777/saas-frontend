@@ -1205,7 +1205,15 @@ const scrollKanban = (direction: 'left' | 'right') => {
                     </div>
                     {/* NOVOS CAMPOS ABAIXO */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.2rem', borderBottom: '1px solid #f1f5f9' }}>
-                      <span style={{ color: colors.expense, fontWeight: 700 }}>Atrasados</span>
+                      <div className="flex items-center gap-1">
+                        <span className={m.overdue > 0 ? "font-bold text-red-600" : ""}>Atrasados</span>
+                        {m.overdue > 0 && (
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                          </span>
+                        )}
+                      </div>
                       <span style={{ fontWeight: 800, color: colors.expense }}>{fmtCurrency(m.overdue)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
