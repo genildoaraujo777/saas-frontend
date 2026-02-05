@@ -1206,11 +1206,11 @@ const scrollKanban = (direction: 'left' | 'right') => {
                     {/* NOVOS CAMPOS ABAIXO */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.2rem', borderBottom: '1px solid #f1f5f9' }}>
                       <div className="flex items-center gap-1">
-                        <span className={m.overdue > 0 ? "font-bold text-red-600" : ""}>Atrasados</span>
+                        <span className={m.overdue > 0 ? "font-bold text-orange-300" : ""}>Atrasados</span>
                         {m.overdue > 0 && (
                           <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-200"></span>
                           </span>
                         )}
                       </div>
@@ -1624,7 +1624,7 @@ const scrollKanban = (direction: 'left' | 'right') => {
                     <div style={{ position: 'relative', width: '45px', height: '42px' }}>
                         <button 
                           type="button" 
-                          onClick={() => nativeDateInputRef.current?.showPicker()} // Força a abertura do calendário nativo
+                          // Removido onClick para não conflitar no iOS
                           style={{ background: '#e2e8f0', border: 'none', width: '100%', height: '100%', borderRadius: '6px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         >
                             <MdCalendarToday size={20} />
@@ -1632,7 +1632,16 @@ const scrollKanban = (direction: 'left' | 'right') => {
                         <input 
                           ref={nativeDateInputRef}
                           type="datetime-local" 
-                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none' }} 
+                          style={{ 
+                            position: 'absolute', 
+                            top: 0, 
+                            left: 0, 
+                            width: '100%', 
+                            height: '100%', 
+                            opacity: 0, 
+                            cursor: 'pointer',
+                            zIndex: 10 // Garante que o input esteja acima do botão para receber o toque
+                          }} 
                           onChange={handleNativeDateChange} 
                         />
                     </div>
