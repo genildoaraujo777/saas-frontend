@@ -56,5 +56,11 @@ export const FinanLitoService = {
 
   delete: async (id: string, token: string) => {
     await api.delete(`/fbm/transactions/${id}`, { headers: { Authorization: `Bearer ${token}` } } );
-  }
+  },
+
+  // 6. MÉTODO PARA SCAN DE NOTA FISCAL (OCR)
+  scanNfcE: async (formData: FormData, token: string) => {
+    const { data } = await api.post('/fbm/ocr', formData, { headers: { Authorization: `Bearer ${token}` } } );
+    return data;
+  },
 };

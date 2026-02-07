@@ -4,6 +4,7 @@ import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, 
 import { useNavigate } from 'react-router-dom';
 // IMPORTANTE: Importando o contexto que criamos para pegar as cores e nomes
 import { useTenant } from '../contexts/TenantContext';
+import jsQR from "jsqr";
 
 // --- UTILITÁRIOS ---
 const DEFAULT_CATEGORIES = ["Alimentação", "Vestuário", "Moradia", "Transporte", "Lazer", "Saúde", "Educação", "Consumo", "Fitness", "Investimentos", "Móveis", "Outros"];
@@ -568,6 +569,111 @@ export default function FinanLitoPage() {
         }
     };
 
+    // 13. HANDLE FILE: LÊ CHAVE -> COPIA -> ABRE SEFAZ
+async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  const file = e.target?.files?.[0];
+  if (!file) return;
+
+  setLoading(true);
+  const form = new FormData();
+  form.append("file", file);
+
+  try {
+    const data = await FinanLitoService.scanNfcE(form, token);
+
+    if (data.accessKey) {
+      // Copia para o clipboard
+      await navigator.clipboard.writeText(data.accessKey);
+      
+      alert("Chave de Acesso detetada e COPIADA!\n\nIremos abrir o site da Fazenda. Basta colar a chave e resolver o CAPTCHA.");
+      
+      // Abre a consulta em popup ou aba
+      window.open("https://www.nfce.fazenda.sp.gov.br/consulta", "_blank", "noopener,noreferrer");
+      
+      // Abre o modal para o utilizador estar pronto para colar
+      handleOpenModal();
+    } else {
+      alert("Não foi possível ler a Chave de Acesso. Tente uma foto mais nítida.");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao conectar com o servidor de OCR.");
+  } finally {
+    setLoading(false);
+  }
+}
+
+// 12. PARSER SAAS DE ELITE V4: CAPTURA VALOR TOTAL, UNITÁRIOS E TOTAIS DOS ITENS
+const processSefazPaste = async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text || text.length < 50) return;
+
+    // Criamos uma versão em linha única para facilitar buscas globais
+    const fullText = text.replace(/\s+/g, ' ');
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    // 1. TÍTULO E CATEGORIA (Conforme solicitado)
+    setFormTitle("SUPERMERCADO FBM");
+    setFormCategory('Alimentação'); // Categoria padrão inteligente
+    setFormCustomCategory('');
+    setFormType('expense');
+
+    // 2. EXTRAÇÃO DO VALOR TOTAL (Busca Global por "Valor a pagar")
+    // O Valor a pagar na sua nota é 1.012,41
+    const totalMatch = fullText.match(/(?:Valor a pagar R\$|VALOR A PAGAR)\s*:?\s*([\d.]{1,},[\d]{2})/i);
+    if (totalMatch) {
+      setFormAmount(currencyMask(totalMatch[1].replace(/\D/g, '')));
+    }
+
+    // 3. EXTRAÇÃO DA DATA E HORA
+    const dateMatch = fullText.match(/Emissão:\s*(\d{2}\/\d{2}\/\d{4})\s*(\d{2}:\d{2})/i);
+    if (dateMatch) {
+      setFormDate(`${dateMatch[1]} ${dateMatch[2]}`);
+    }
+
+    // 4. PARSER DE ITENS (Captura Nome, Qtd, Unitário e Subtotal)
+    const allItems: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].toUpperCase().includes("QTDE")) {
+        // NOME: Linha anterior. Removemos o (Código: ...) e preços residuais
+        let rawName = lines[i - 1] || "Item";
+        const cleanName = rawName.replace(/^[\d,.]*/, '').split('(')[0].trim();
+
+        // VALOR UNITÁRIO: Extraído da linha atual (ex: 20,25)
+        const unitMatch = lines[i].match(/Vl\. Unit\.:\s*([\d,.]+)/i);
+        const unitPrice = unitMatch ? unitMatch[1].trim() : "0,00";
+
+        // VALOR TOTAL DO ITEM: Está no início da linha seguinte
+        // Resolvemos o problema do "42,90VEJA" pegando apenas os números do início
+        const nextLine = lines[i + 1] || "";
+        const itemTotalMatch = nextLine.match(/^([\d,.]+)/);
+        const itemTotal = itemTotalMatch ? itemTotalMatch[1] : unitPrice;
+
+        // QUANTIDADE: Número após "Qtde:"
+        const qtyMatch = lines[i].match(/Qtde\.:?([\d,.]+)/i);
+        const qty = qtyMatch ? qtyMatch[1] : "1";
+
+        if (cleanName && cleanName.length > 2 && !cleanName.includes("VALOR TOTAL")) {
+          allItems.push(`${qty}x ${cleanName} UN(R$ ${unitPrice}) TOTAL(R$ ${itemTotal})`);
+        }
+      }
+    }
+
+    // 5. PREENCHIMENTO DA DESCRIÇÃO
+    if (allItems.length > 0) {
+      setFormDesc(`Resumo SEFAZ (${allItems.length} itens): ${allItems.join(' | ')}`);
+      alert("Sucesso! Valor de " + (totalMatch ? totalMatch[1] : "não detectado") + " e itens importados.");
+    } else {
+      setFormDesc("Nota lida, mas verifique se os itens foram selecionados corretamente no site.");
+    }
+
+  } catch (err) {
+    alert("Erro ao ler clipboard. Verifique se copiou os dados corretamente da SEFAZ.");
+  }
+};
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
 
@@ -1061,17 +1167,24 @@ export default function FinanLitoPage() {
   }, [monthFiltered, curMonth]);
 
   const statsMonth = useMemo(() => {
-    let inc = 0, exp = 0, paidExp = 0, pendingExp = 0;
+    let inc = 0, exp = 0, paidExp = 0, pendingExp = 0, creditExp = 0;
     
     monthFiltered.forEach(t => {
       if (t.type === 'income') {
         inc += t.amount;
       } else {
         exp += t.amount;
-        // Se for pago e não for cartão, abate do saldo atual
+        
+        // Soma despesas pagas no cartão (independente de status, pois já é uma dívida assumida)
+        if (t.isCreditCard) {
+          creditExp += t.amount;
+        }
+        
+        // Se for pago e NÃO for cartão, abate do saldo atual
         if (t.status === 'paid' && !t.isCreditCard) {
           paidExp += t.amount;
         }
+        
         // Se NÃO estiver pago (pendente ou atrasado), soma no saldo devedor
         if (t.status !== 'paid') {
           pendingExp += t.amount;
@@ -1079,7 +1192,7 @@ export default function FinanLitoPage() {
       }
     });
 
-    return { inc, exp, bal: inc - paidExp, pending: pendingExp };
+    return { inc, exp, bal: inc - paidExp, pending: pendingExp, creditExp };
   }, [monthFiltered]);
 
   const scrollStats = (direction: 'left' | 'right') => {
@@ -1164,7 +1277,7 @@ const scrollKanban = (direction: 'left' | 'right') => {
       {/* HEADER DINÂMICO */}
       <header style={{ background: '#fff', padding: '0.8rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: '1.3rem', fontWeight: 800, color: colors.primary, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <button type="button" onClick={() => navigate(-1)} style={{ ...btnBase, background: '#e2e8f0', color: '#475569', padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}> <MdArrowBack /> Voltar</button>
+          <button type="button" onClick={() => navigate(-1)} style={{ ...btnBase, background: '#e2e8f0', color: '#475569', padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}> <MdArrowBack /> </button>
           <i className="fas fa-chart-line"></i> {terms.appName}
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -1283,6 +1396,14 @@ const scrollKanban = (direction: 'left' | 'right') => {
                 <StatCard label={`${terms.income} (Mês)`} value={statsMonth.inc} color={colors.income} />
                 <StatCard label={`${terms.expense} (Mês)`} value={statsMonth.exp} color={colors.expense} />
                 <StatCard label="Saldo (Mês)" value={statsMonth.bal} color={statsMonth.bal >= 0 ? colors.income : colors.expense} />
+                
+                {/* NOVO CARD: GASTO NO CARTÃO */}
+                <StatCard 
+                  label="Gasto no Cartão" 
+                  value={statsMonth.creditExp} 
+                  color="#6366f1" // Cor Indigo para diferenciar do saldo comum
+                />
+
                 <StatCard label="Saldo Devedor" value={statsMonth.pending} color={colors.expense} />
               </div>
 
@@ -1295,101 +1416,109 @@ const scrollKanban = (direction: 'left' | 'right') => {
             </div>
 
             {/* Substitua o container da barra de busca por este: */}
-            <div className="action-grid">
-              {/* Input de Busca - Agora com overflow oculto para não vazar da tela */}
-              <div style={{ position: 'relative', width: '100%', overflow: 'hidden', borderRadius: '10px' }}>
-                <MdSearch style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#64748b', zIndex: 10 }} size={22} />
-                <input 
-                  type="text" 
-                  placeholder="Buscar no mês atual..." 
-                  value={searchTerm} 
-                  onChange={e => setSearchTerm(e.target.value)} 
-                  style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem', border: '1px solid #cbd5e1', borderRadius: '10px', outline: 'none', fontSize: '16px', boxSizing: 'border-box' }} 
-                />
-              </div>
-              
-              {!isSelectionMode && (
-                <div className="button-group">
-                  {/* Botão Replicar */}
-                  <button 
-                    onClick={handleReplicate} 
-                    style={{ 
-                      background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '10px', 
-                      fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
-                      justifyContent: 'center', gap: '0.5rem', minHeight: '48px', padding: '0 1.2rem',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    <MdContentCopy size={20} /> 
-                    <span className="desktop-only">Replicar</span>
-                  </button>
-                  
-                  {/* Botão Novo */}
-                  <button 
-                    onClick={() => handleOpenModal()} 
-                    style={{ 
-                      background: colors.primary, color: 'white', border: 'none', borderRadius: '10px', 
-                      fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
-                      justifyContent: 'center', gap: '0.5rem', minHeight: '48px', padding: '0 1.2rem',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    <MdAdd size={24} /> 
-                    <span className="desktop-only">Novo</span>
-                  </button>
+            {/* 1. CONTAINER PAI (OBRIGATÓRIO PARA NÃO DAR ERRO) */}
+              <div className="action-grid">
+
+                {/* 2. INPUT DE BUSCA */}
+                <div style={{ position: 'relative', width: '100%', overflow: 'hidden', borderRadius: '10px' }}>
+                  <MdSearch style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#64748b', zIndex: 10 }} size={22} />
+                  <input 
+                    type="text" 
+                    placeholder="Buscar no mês atual..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem', border: '1px solid #cbd5e1', borderRadius: '10px', outline: 'none', fontSize: '16px', boxSizing: 'border-box' }} 
+                  />
                 </div>
-              )}
-            </div>
+                
+                {/* 3. GRUPO DE BOTÕES (CONDICIONAL) */}
+                {!isSelectionMode && (
+                  <div className="button-group">
+                    <input
+                      type="file"
+                      id="ocr-upload"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleFile}
+                      style={{ display: 'none' }}
+                    />
+                    
+                    <button 
+                      onClick={() => document.getElementById('ocr-upload')?.click()}
+                      style={{ 
+                        background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '10px', 
+                        fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                        justifyContent: 'center', gap: '0.5rem', minHeight: '48px', padding: '0 1.2rem'
+                      }}
+                    >
+                      <i className="fas fa-camera"></i>
+                      <span className="desktop-only">Escanear Nota</span>
+                    </button>
+
+                    <button 
+                      onClick={() => handleOpenModal()} 
+                      style={{ 
+                        background: colors.primary, color: 'white', border: 'none', borderRadius: '10px', 
+                        fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                        justifyContent: 'center', gap: '0.5rem', minHeight: '48px', padding: '0 1.2rem'
+                      }}
+                    >
+                      <MdAdd size={24} /> 
+                      <span className="desktop-only">Novo</span>
+                    </button>
+                  </div>
+                )}
+              </div> {/* FECHAMENTO DO action-grid */}
 
             <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', alignItems: 'center', background: '#fff', padding: '0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b' }}>FILTRAR POR:</span>
               <div style={{ position: 'relative', minWidth: '200px' }} ref={filterDropdownRef}>
-              <div 
-                  onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-                  style={{ 
-                      padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', 
-                      cursor: 'pointer', background: '#f8fafc', color: colors.primary, 
-                      fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' 
-                  }}
-              >
-                  <span>{selectedCategory === 'Todas' ? 'Todas as Categorias' : selectedCategory}</span>
-                  <MdChevronRight style={{ transform: isFilterDropdownOpen ? 'rotate(90deg)' : 'none', transition: '0.2s' }} />
-              </div>
+                <div 
+                    onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                    style={{ 
+                        padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', 
+                        cursor: 'pointer', background: '#f8fafc', color: colors.primary, 
+                        fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' 
+                    }}
+                >
+                    <span>{selectedCategory === 'Todas' ? 'Todas as Categorias' : selectedCategory}</span>
+                    <MdChevronRight style={{ transform: isFilterDropdownOpen ? 'rotate(90deg)' : 'none', transition: '0.2s' }} />
+                </div>
 
-              {isFilterDropdownOpen && (
-                  <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', zIndex: 100, maxHeight: '250px', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
-                      {/* Opção padrão "Todas" */}
-                      <div 
-                          style={{ padding: '0.7rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: '0.9rem', color: '#1e293b', fontWeight: selectedCategory === 'Todas' ? 800 : 400 }}
-                          onClick={() => { setSelectedCategory('Todas'); setIsFilterDropdownOpen(false); }}
-                      >
-                          Todas as Categorias
-                      </div>
+                {isFilterDropdownOpen && (
+                    <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', zIndex: 100, maxHeight: '250px', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+                        {/* Opção padrão "Todas" */}
+                        <div 
+                            style={{ padding: '0.7rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: '0.9rem', color: '#1e293b', fontWeight: selectedCategory === 'Todas' ? 800 : 400 }}
+                            onClick={() => { setSelectedCategory('Todas'); setIsFilterDropdownOpen(false); }}
+                        >
+                            Todas as Categorias
+                        </div>
 
-                      {userCategories.map(cat => {
-                          const isDefault = DEFAULT_CATEGORIES.includes(cat) && cat !== 'Outros';
-                          return (
-                              <div 
-                                  key={cat}
-                                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', background: selectedCategory === cat ? '#f1f5f9' : 'transparent' }}
-                                  onClick={() => { setSelectedCategory(cat); setIsFilterDropdownOpen(false); }}
-                              >
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: CATEGORY_COLORS[cat] || '#6366f1' }} />
-                                      <span style={{ fontSize: '0.9rem', color: '#1e293b' }}>{cat}</span>
-                                  </div>
-                                  
-                                  {!isDefault && cat !== 'Outros' && (
-                                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                          <MdEdit size={16} color="#64748b" onClick={(e) => { e.stopPropagation(); handleRenameUserCategory(cat); }} />
-                                          <MdDelete size={16} color="#ef4444" onClick={(e) => { e.stopPropagation(); handleDeleteUserCategory(cat); }} />
-                                      </div>
-                                  )}
-                              </div>
-                          );
-                      })}
-                  </div>
-              )}
+                        {userCategories.map(cat => {
+                            const isDefault = DEFAULT_CATEGORIES.includes(cat) && cat !== 'Outros';
+                            return (
+                                <div 
+                                    key={cat}
+                                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', background: selectedCategory === cat ? '#f1f5f9' : 'transparent' }}
+                                    onClick={() => { setSelectedCategory(cat); setIsFilterDropdownOpen(false); }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: CATEGORY_COLORS[cat] || '#6366f1' }} />
+                                        <span style={{ fontSize: '0.9rem', color: '#1e293b' }}>{cat}</span>
+                                    </div>
+                                    
+                                    {!isDefault && cat !== 'Outros' && (
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <MdEdit size={16} color="#64748b" onClick={(e) => { e.stopPropagation(); handleRenameUserCategory(cat); }} />
+                                            <MdDelete size={16} color="#ef4444" onClick={(e) => { e.stopPropagation(); handleDeleteUserCategory(cat); }} />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
           </div>
               
               {selectedCategory !== 'Todas' && (
@@ -1549,6 +1678,24 @@ const scrollKanban = (direction: 'left' | 'right') => {
                   paddingRight: '5px', // Espaço para a barra de rolagem não cobrir o input
                   WebkitOverflowScrolling: 'touch' // Suaviza o scroll no iOS
                 }}>
+              {/* BOTÃO DE IMPORTAÇÃO SAAS DE ELITE */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <button 
+                  type="button" 
+                  onClick={processSefazPaste}
+                  style={{ 
+                    width: '100%', padding: '1rem', background: '#f0f9ff', color: '#0369a1', 
+                    border: '2px dashed #0ea5e9', borderRadius: '10px', fontWeight: 800, 
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem'
+                  }}
+                >
+                  <i className="fas fa-file-import"></i>
+                  CLIQUE AQUI APÓS COPIAR OS DADOS DA SEFAZ
+                </button>
+                <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.4rem', textAlign: 'center' }}>
+                  Dica: No site da Fazenda, dê um <b>Ctrl+A</b> e <b>Ctrl+C</b> e clique no botão acima.
+                </p>
+              </div>
               <div><label style={lblStyle}>Título</label><input required style={inpStyle} value={formTitle} onChange={e => setFormTitle(e.target.value)} /></div>
               <div>
                 <div style={{ position: 'relative' }} ref={dropdownRef}>
