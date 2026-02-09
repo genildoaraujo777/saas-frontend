@@ -1235,44 +1235,56 @@ const scrollKanban = (direction: 'left' | 'right') => {
     // Estilo Dinâmico: Cor de Fundo
     <div style={{ backgroundColor: colors.background, minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Segoe UI', sans-serif" }}>
       <style>{`
-        .desktop-only { display: none; }
-        @media (min-width: 768px) { .desktop-only { display: inline; } }
-        @keyframes fadeIn { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: scaleY(1); } }
-        .ghost-placeholder {
-            animation: fadeIn 0.15s ease-out forwards;
-            background-color: rgba(203, 213, 225, 0.4);
-            border: 2px dashed #94a3b8;
-            border-radius: 8px;
-            margin-bottom: 0.8rem;
-            height: 100px;
-        }
-        /* Adicione esta regra para garantir visibilidade do botão no mobile */
+    /* Removida a restrição de esconder: Agora o texto é SEMPRE visível */
+    .btn-label { 
+        display: inline; 
+        font-weight: 700;
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: scaleY(1); } }
+    
+    .ghost-placeholder {
+        animation: fadeIn 0.15s ease-out forwards;
+        background-color: rgba(203, 213, 225, 0.4);
+        border: 2px dashed #94a3b8;
+        border-radius: 8px;
+        margin-bottom: 0.8rem;
+        height: 100px;
+    }
+
+    .action-grid {
+        display: grid;
+        grid-template-columns: 1fr auto; 
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+        align-items: center;
+        width: 100%;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
         .action-grid {
-              display: grid;
-              grid-template-columns: 1fr auto; /* Desktop: Busca ocupa tudo, botões o necessário */
-              gap: 0.8rem;
-              margin-bottom: 1rem;
-              align-items: center;
-              width: 100%;
-          }
+            grid-template-columns: 1fr; 
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr; 
+            width: 100%;
+        }
 
-          .button-group {
-              display: flex;
-              gap: 0.5rem;
-          }
-
-          @media (max-width: 768px) {
-              .action-grid {
-                  grid-template-columns: 1fr; /* Mobile: Empilha busca e botões */
-              }
-              
-              .button-group {
-                  display: grid;
-                  grid-template-columns: 1fr 1fr; /* Mobile: Dois botões iguais lado a lado */
-                  width: 100%;
-              }
-          }
-      `}</style>
+        /* Ajuste de fonte para o texto não 'estourar' o botão no iPhone */
+        .btn-label {
+            font-size: 0.75rem;
+        }
+    }
+`}</style>
 
       {/* HEADER DINÂMICO */}
       <header style={{ background: '#fff', padding: '0.8rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1434,39 +1446,39 @@ const scrollKanban = (direction: 'left' | 'right') => {
                 {/* 3. GRUPO DE BOTÕES (CONDICIONAL) */}
                 {!isSelectionMode && (
                   <div className="button-group">
-                    <input
-                      type="file"
-                      id="ocr-upload"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handleFile}
-                      style={{ display: 'none' }}
-                    />
-                    
-                    <button 
-                      onClick={() => document.getElementById('ocr-upload')?.click()}
-                      style={{ 
-                        background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '10px', 
-                        fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
-                        justifyContent: 'center', gap: '0.5rem', minHeight: '48px', padding: '0 1.2rem'
-                      }}
-                    >
-                      <i className="fas fa-camera"></i>
-                      <span className="desktop-only">Escanear Nota</span>
-                    </button>
+  <input
+    type="file"
+    id="ocr-upload"
+    accept="image/*"
+    capture="environment"
+    onChange={handleFile}
+    style={{ display: 'none' }}
+  />
+  
+  <button 
+    onClick={() => document.getElementById('ocr-upload')?.click()}
+    style={{ 
+      background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '10px', 
+      fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+      justifyContent: 'center', gap: '0.4rem', minHeight: '48px', padding: '0 0.8rem'
+    }}
+  >
+    <i className="fas fa-camera"></i>
+    <span className="btn-label">Escanear Nota</span>
+  </button>
 
-                    <button 
-                      onClick={() => handleOpenModal()} 
-                      style={{ 
-                        background: colors.primary, color: 'white', border: 'none', borderRadius: '10px', 
-                        fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
-                        justifyContent: 'center', gap: '0.5rem', minHeight: '48px', padding: '0 1.2rem'
-                      }}
-                    >
-                      <MdAdd size={24} /> 
-                      <span className="desktop-only">Novo</span>
-                    </button>
-                  </div>
+  <button 
+    onClick={() => handleOpenModal()} 
+    style={{ 
+      background: colors.primary, color: 'white', border: 'none', borderRadius: '10px', 
+      fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+      justifyContent: 'center', gap: '0.4rem', minHeight: '48px', padding: '0 0.8rem'
+    }}
+  >
+    <MdAdd size={24} /> 
+    <span className="btn-label">Novo</span>
+  </button>
+</div>
                 )}
               </div> {/* FECHAMENTO DO action-grid */}
 
