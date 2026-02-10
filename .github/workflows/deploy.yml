@@ -79,3 +79,16 @@ jobs:
           fi
           
           echo "✅ SUCESSO: Frontend e Loja Online no ar!"
+
+    - name: 🚀 Sincronização Total de Microsserviços
+      uses: appleboy/ssh-action@master
+      with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "🔄 Iniciando Rebuild e Sincronização Geral..."
+            cd /home/${{ secrets.SSH_USERNAME }}/saas-core && sudo docker compose up -d --build filestorage
+            cd /home/${{ secrets.SSH_USERNAME }}/saas-business && sudo docker compose up -d --build gateway fbmstore-api
+            cd /home/${{ secrets.SSH_USERNAME }}/saas-frontend && sudo docker compose up -d nginx-edge
+            echo "✅ Todos os serviços sincronizados!"          
