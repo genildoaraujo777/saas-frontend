@@ -58,7 +58,7 @@ export const FinanLitoService = {
     await api.delete(`/fbm/transactions/${id}`, { headers: { Authorization: `Bearer ${token}` } } );
   },
 
-  // 6. MÉTODO PARA SCAN DE NOTA FISCAL (OCR)
+  // 6. MÉTODO PARA SCAN DE NOTA FISCAL (OCR) - Envia a imagem para o backend processar e retornar os dados extraídos
   scanNfcE: async (formData: FormData, token: string) => {
     const { data } = await api.post('/files/ocr', formData, { headers: { Authorization: `Bearer ${token}` } } );
     return data;
