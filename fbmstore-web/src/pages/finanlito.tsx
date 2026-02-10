@@ -580,6 +580,7 @@ async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
 
   try {
     const data = await FinanLitoService.scanNfcE(form, token);
+    console.log('data: ',data);
 
     if (data.accessKey) {
       // Copia para o clipboard
@@ -603,7 +604,7 @@ async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
   }
 }
 
-// 12. PARSER SAAS DE ELITE V4: CAPTURA VALOR TOTAL, UNITÁRIOS E TOTAIS DOS ITENS
+// 12. PARSER SAAS DE ELITE V4: CAPTURA VALOR TOTAL
 const processSefazPaste = async () => {
   try {
     const text = await navigator.clipboard.readText();
