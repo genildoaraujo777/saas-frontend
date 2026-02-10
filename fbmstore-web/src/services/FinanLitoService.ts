@@ -11,7 +11,7 @@ export interface ITransaction {
   date: string;
   order?: number; // Novo campo para persistir a posição
   isCreditCard: boolean;
-  isReplicated?: boolean; // Identificador para regra de Saldo Geral
+  isReplicated?: boolean;
   dateReplicated?: string;
   category: string;
 }
