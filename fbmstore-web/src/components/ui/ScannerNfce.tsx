@@ -8,14 +8,21 @@ interface ScannerProps {
 export function ScannerNfce({ onScanSuccess }: ScannerProps) {
   useEffect(() => {
     const scanner = new Html5QrcodeScanner(
-      "reader", // ID do elemento HTML
-      { 
-        fps: 10, // Frames por segundo
-        qrbox: { width: 250, height: 250 }, // 🎯 O quadrado de foco
-        aspectRatio: 1.0 
-      },
-      /* verbose= */ false
-    );
+        "reader", 
+        { 
+            fps: 20, 
+            qrbox: { width: 280, height: 280 }, 
+            aspectRatio: 1.0,
+            videoConstraints: {
+            facingMode: { exact: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            // ✅ O "as any" avisa o TypeScript para ignorar a regra aqui
+            focusMode: "continuous",
+            } as any 
+        },
+        false
+        );
 
     scanner.render(onScanSuccess, (error) => {
       // Erros de leitura silenciosos para não travar o vídeo
