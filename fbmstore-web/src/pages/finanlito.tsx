@@ -215,54 +215,20 @@ export default function FinanLitoPage() {
   };
 
   const handleScanSuccess = async (decodedUrl: string) => {
-      setIsScanning(false); // Fecha a câmera do scanner
-      setLoading(true);
+      // 1. Fecha o scanner imediatamente para liberar a câmera
+      setIsScanning(false); 
 
-      try {
-        // 1. Chama a API para buscar os produtos via URL do QR Code
-        const data = await FinanLitoService.importFromNfceUrl(decodedUrl, token);
-        console.log("Resposta da API de importação NFC-e:", data);
-        const items = data.products || []; // Assume que sua API retorna um array em 'products'
+      // 2. Avisa o usuário sobre o que vai acontecer
+      // Isso prepara o usuário para a ação de "Copiar" no site que vai abrir
+      alert("QR Code lido! \n\n1. O site da Fazenda vai abrir.\n2. Resolva o Captcha se necessário.\n3. Copie os dados (Ctrl+A / Ctrl+C).\n4. Volte aqui e use o 'COLAR DADOS SEFAZ'.");
 
-        // 2. Prepara os dados para o NOVO card (Zera o ID para não editar um existente)
-        setFormId(null); 
-        setFormTitle("Dados Nota Fiscal");
-        setFormCategory("Outros");
-        setFormCustomCategory(""); 
-        setFormType("expense");
-        setFormStatus("pending");
+      // 3. Abre a URL da SEFAZ em uma nova aba/janela
+      // O navegador do celular não é bloqueado como o servidor é
+      window.open(decodedUrl, "_blank", "noopener,noreferrer");
 
-        // 3. Concatena os itens na Descrição (Descrição do Card)
-        // Ex: "Arroz (1UN) - R$ 20.50 \n Feijão (2kg) - R$ 15.00"
-        const descriptionText = items
-          .map((item: any) => `${item.name} (${item.quantity}${item.unit || 'un'}) - R$ ${Number(item.total).toFixed(2)}`)
-          .join('\n');
-        setFormDesc(descriptionText);
-
-        // 4. Calcula o Valor Total e aplica a Máscara de Moeda do seu app
-        const totalValue = items.reduce((acc: number, item: any) => acc + Number(item.total), 0);
-        
-        // O seu currencyMask espera uma string de dígitos (centavos) para formatar
-        const centsValue = (totalValue * 100).toFixed(0); 
-        setFormAmount(currencyMask(centsValue));
-
-        // 5. ABRE O MODAL com os dados preenchidos para você salvar
-        setIsModalOpen(true);
-
-      } catch (err: any) {
-        // 🚨 SE CAIR AQUI (ERRO 500 / CAPTCHA), VAMOS PARA O PLANO B
-        console.warn("SEFAZ bloqueou o robô. Iniciando modo manual...");
-        
-        alert("A SEFAZ exige validação manual. \n\n1. O site será aberto agora.\n2. Resolva o Captcha.\n3. Selecione tudo (Ctrl+A) e copie.\n4. Volte aqui e use o botão 'COLAR DADOS SEFAZ'.");
-
-        // Abre a URL do QR Code para o usuário resolver no próprio celular/PC
-        window.open(decodedUrl, "_blank", "noopener,noreferrer");
-        
-        // Abre o modal para o usuário já estar pronto para colar
-        handleOpenModal(); 
-      } finally {
-        setLoading(false);
-      }
+      // 4. Abre o modal de lançamento
+      // Assim o usuário já volta para o app com o formulário aberto para colar
+      handleOpenModal();
     };
 
   async function handleDeleteBulk() {
