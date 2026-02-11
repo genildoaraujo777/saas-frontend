@@ -1,63 +1,70 @@
-import React, { useState } from 'react';
-import jsQR from 'jsqr'; // Você já tem
-import { MdPhotoCamera, MdClose } from 'react-icons/md';
+import React, { useEffect, useRef, useState } from 'react';
+import { MdClose } from 'react-icons/md';
 
 export const ScannerPro = ({ onScanSuccess, onClose }: any) => {
-  const [loading, setLoading] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [error, setError] = useState("");
 
-  const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    let stream: MediaStream;
 
-    setLoading(true);
-    const reader = new FileReader();
-    reader.onload = (res) => {
-      const image = new Image();
-      image.src = res.target?.result as string;
-      image.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = image.width;
-        canvas.height = image.height;
-        const ctx = canvas.getContext("2d");
-        ctx?.drawImage(image, 0, 0);
-        const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+    const startScanner = async () => {
+      try {
+        // 1. Pede a câmera em alta resolução para o foco não falhar
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
         
-        // 🚀 O jsQR lê a foto perfeita tirada pela câmera nativa
-        const code = jsQR(imageData!.data, imageData!.width, imageData!.height);
-        
-        if (code) {
-          onScanSuccess(code.data);
-        } else {
-          alert("Não conseguimos ler o QR Code. Tente tirar a foto com o código bem centralizado e focado.");
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+
+          // 2. VERIFICA SE O CELULAR TEM O SCANNER NATIVO DO GOOGLE
+          if (!('BarcodeDetector' in window)) {
+            setError("Seu navegador não suporta o Scanner Nativo. Use o modo arquivo.");
+            return;
+          }
+
+          // @ts-ignore (O TS ainda não conhece essa API nativa perfeitamente)
+          const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+
+          // 3. Loop de detecção ultra-rápido
+          const detect = async () => {
+            if (videoRef.current && stream.active) {
+              try {
+                const barcodes = await detector.detect(videoRef.current);
+                if (barcodes.length > 0) {
+                  onScanSuccess(barcodes[0].rawValue); // Sucesso instantâneo!
+                  return; // Para o loop
+                }
+                requestAnimationFrame(detect);
+              } catch (e) {
+                requestAnimationFrame(detect);
+              }
+            }
+          };
+          detect();
         }
-        setLoading(false);
-      };
+      } catch (err) {
+        setError("Erro ao acessar a câmera.");
+      }
     };
-    reader.readAsDataURL(file);
-  };
+
+    startScanner();
+    return () => stream?.getTracks().forEach(track => track.stop());
+  }, [onScanSuccess]);
 
   return (
     <div style={styles.overlay}>
       <div style={styles.container}>
         <div style={styles.header}>
-          <h3 style={{ margin: 0 }}>Scanner Inteligente</h3>
-          <button onClick={onClose} style={styles.closeBtn}><MdClose size={24} /></button>
+          <span>Scanner Turbo (Nativo)</span>
+          <button onClick={onClose} style={styles.close}><MdClose size={24}/></button>
         </div>
-        
-        <div style={styles.body}>
-          <p style={styles.text}>Para um foco perfeito, use a câmera do seu celular.</p>
-          
-          <label style={{...styles.button, opacity: loading ? 0.6 : 1}}>
-            {loading ? "PROCESSANDO..." : <><MdPhotoCamera size={24} /> ABRIR CÂMERA</>}
-            <input 
-              type="file" 
-              accept="image/*" 
-              capture="environment" // 🚀 ISSO CHAMA A CÂMERA NATIVA
-              onChange={handleCapture} 
-              style={{ display: 'none' }}
-              disabled={loading}
-            />
-          </label>
+        <div style={styles.videoBox}>
+          <video ref={videoRef} style={styles.video} playsInline />
+          <div style={styles.target} /> {/* Mira verde */}
+          {error && <div style={styles.error}>{error}</div>}
         </div>
       </div>
     </div>
@@ -65,11 +72,12 @@ export const ScannerPro = ({ onScanSuccess, onClose }: any) => {
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' },
-  container: { backgroundColor: '#fff', borderRadius: '16px', width: '100%', maxWidth: '350px', padding: '20px', textAlign: 'center' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  closeBtn: { background: 'none', border: 'none', cursor: 'pointer' },
-  body: { padding: '10px 0' },
-  text: { fontSize: '14px', color: '#64748b', marginBottom: '25px' },
-  button: { backgroundColor: '#3b82f6', color: '#fff', padding: '16px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)' }
+  overlay: { position: 'fixed', inset: 0, backgroundColor: '#000', zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  container: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column' },
+  header: { padding: '20px', color: '#fff', display: 'flex', justifyContent: 'space-between', zIndex: 10 },
+  videoBox: { position: 'relative', flex: 1, overflow: 'hidden' },
+  video: { width: '100%', height: '100%', objectFit: 'cover' },
+  target: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '250px', height: '250px', border: '3px solid #22c55e', borderRadius: '20px' },
+  close: { background: 'none', border: 'none', color: '#fff' },
+  error: { position: 'absolute', bottom: '20px', width: '100%', textAlign: 'center', color: '#ff4d4d' }
 };
