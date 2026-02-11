@@ -4,7 +4,7 @@ import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, 
 import { useNavigate } from 'react-router-dom';
 // IMPORTANTE: Importando o contexto que criamos para pegar as cores e nomes
 import { useTenant } from '../contexts/TenantContext';
-import { ScannerNfce } from '../components/ui/ScannerNfce';
+import { ScannerZxing } from '../components/ui/ScannerZxing';
 import jsQR from "jsqr";
 
 // --- UTILITÁRIOS ---
@@ -1469,7 +1469,7 @@ const processSefazPaste = async () => {
                       Fechar Scanner
                     </button>
                   </div>
-                  <ScannerNfce onScanSuccess={handleScanSuccess} />
+                  <ScannerZxing onScanSuccess={handleScanSuccess} />
                 </div>
               )}
 

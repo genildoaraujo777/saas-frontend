@@ -30,6 +30,7 @@ export function ScannerNfce({ onScanSuccess }: ScannerProps) {
 
     scanner.render(onScanSuccess, (error) => {
       // Erros de leitura silenciosos para não travar o vídeo
+      console.warn("Erro ao ler QR Code:", error);
     });
 
     return () => {
