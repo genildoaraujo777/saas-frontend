@@ -4,6 +4,7 @@ import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, 
 import { useNavigate } from 'react-router-dom';
 // IMPORTANTE: Importando o contexto que criamos para pegar as cores e nomes
 import { useTenant } from '../contexts/TenantContext';
+import { ScannerNfce } from '../components/ui/ScannerNfce';
 import jsQR from "jsqr";
 
 // --- UTILITÁRIOS ---
@@ -102,6 +103,7 @@ export default function FinanLitoPage() {
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   // Fechar ao clicar fora
   useEffect(() => {
@@ -211,6 +213,49 @@ export default function FinanLitoPage() {
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
+
+  const handleScanSuccess = async (decodedUrl: string) => {
+      setIsScanning(false); // Fecha a câmera do scanner
+      setLoading(true);
+
+      try {
+        // 1. Chama a API para buscar os produtos via URL do QR Code
+        const data = await FinanLitoService.importFromNfceUrl(decodedUrl, token);
+        console.log("Resposta da API de importação NFC-e:", data);
+        const items = data.products || []; // Assume que sua API retorna um array em 'products'
+
+        // 2. Prepara os dados para o NOVO card (Zera o ID para não editar um existente)
+        setFormId(null); 
+        setFormTitle("Dados Nota Fiscal");
+        setFormCategory("Outros");
+        setFormCustomCategory(""); 
+        setFormType("expense");
+        setFormStatus("pending");
+
+        // 3. Concatena os itens na Descrição (Descrição do Card)
+        // Ex: "Arroz (1UN) - R$ 20.50 \n Feijão (2kg) - R$ 15.00"
+        const descriptionText = items
+          .map((item: any) => `${item.name} (${item.quantity}${item.unit || 'un'}) - R$ ${Number(item.total).toFixed(2)}`)
+          .join('\n');
+        setFormDesc(descriptionText);
+
+        // 4. Calcula o Valor Total e aplica a Máscara de Moeda do seu app
+        const totalValue = items.reduce((acc: number, item: any) => acc + Number(item.total), 0);
+        
+        // O seu currencyMask espera uma string de dígitos (centavos) para formatar
+        const centsValue = (totalValue * 100).toFixed(0); 
+        setFormAmount(currencyMask(centsValue));
+
+        // 5. ABRE O MODAL com os dados preenchidos para você salvar
+        setIsModalOpen(true);
+
+      } catch (err) {
+        console.error("Erro ao importar NFCE:", err);
+        alert("Erro ao ler dados da SEFAZ. Tente novamente ou verifique a conexão.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
   async function handleDeleteBulk() {
     if (selectedIds.length === 0) return;
@@ -1430,9 +1475,33 @@ const scrollKanban = (direction: 'left' | 'right') => {
 
             {/* Substitua o container da barra de busca por este: */}
             {/* 1. CONTAINER PAI (OBRIGATÓRIO PARA NÃO DAR ERRO) */}
-              <div className="action-grid">
+              {/* 1. ÁREA DEDICADA PARA O SCANNER (Aparece no topo sem quebrar os botões) */}
+              {isScanning && (
+                <div style={{ 
+                  background: '#fff', 
+                  padding: '1rem', 
+                  borderRadius: '12px', 
+                  border: `2px solid ${colors.primary}`, 
+                  marginBottom: '1.5rem',
+                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                  position: 'relative'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <strong style={{ color: colors.primary }}>Scanner de Nota Fiscal</strong>
+                    <button 
+                      onClick={() => setIsScanning(false)} 
+                      style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      Fechar Scanner
+                    </button>
+                  </div>
+                  <ScannerNfce onScanSuccess={handleScanSuccess} />
+                </div>
+              )}
 
-                {/* 2. INPUT DE BUSCA */}
+              {/* 2. BARRA DE AÇÕES (BUSCA E BOTÕES) */}
+              <div className="action-grid">
+                {/* INPUT DE BUSCA */}
                 <div style={{ position: 'relative', width: '100%', overflow: 'hidden', borderRadius: '10px' }}>
                   <MdSearch style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#64748b', zIndex: 10 }} size={22} />
                   <input 
@@ -1444,42 +1513,36 @@ const scrollKanban = (direction: 'left' | 'right') => {
                   />
                 </div>
                 
-                {/* 3. GRUPO DE BOTÕES (CONDICIONAL) */}
+                {/* GRUPO DE BOTÕES - Agora limpo e alinhado */}
                 {!isSelectionMode && (
                   <div className="button-group">
-  <input
-    type="file"
-    id="ocr-upload"
-    accept="image/*"
-    capture="environment"
-    onChange={handleFile}
-    style={{ display: 'none' }}
-  />
-  
-  <button 
-    onClick={() => document.getElementById('ocr-upload')?.click()}
-    style={{ 
-      background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '10px', 
-      fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
-      justifyContent: 'center', gap: '0.4rem', minHeight: '48px', padding: '0 0.8rem'
-    }}
-  >
-    <i className="fas fa-camera"></i>
-    <span className="btn-label">Escanear Nota</span>
-  </button>
+                    {/* Botão de Scanner (Apenas o gatilho) */}
+                    <button 
+                      onClick={() => setIsScanning(true)} 
+                      style={{ 
+                        background: '#f8fafc', color: colors.primary, border: '1px solid #cbd5e1', 
+                        borderRadius: '10px', fontWeight: 600, cursor: 'pointer', 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', 
+                        minHeight: '48px', padding: '0 1rem' 
+                      }}
+                    >
+                      <i className="fas fa-qrcode"></i> 
+                      <span className="btn-label">Scanner</span>
+                    </button>
 
-  <button 
-    onClick={() => handleOpenModal()} 
-    style={{ 
-      background: colors.primary, color: 'white', border: 'none', borderRadius: '10px', 
-      fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
-      justifyContent: 'center', gap: '0.4rem', minHeight: '48px', padding: '0 0.8rem'
-    }}
-  >
-    <MdAdd size={24} /> 
-    <span className="btn-label">Novo</span>
-  </button>
-</div>
+                    {/* Botão Novo */}
+                    <button 
+                      onClick={() => handleOpenModal()} 
+                      style={{ 
+                        background: colors.primary, color: 'white', border: 'none', borderRadius: '10px', 
+                        fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                        justifyContent: 'center', gap: '0.4rem', minHeight: '48px', padding: '0 1.5rem'
+                      }}
+                    >
+                      <MdAdd size={24} /> 
+                      <span className="btn-label">Novo</span>
+                    </button>
+                  </div>
                 )}
               </div> {/* FECHAMENTO DO action-grid */}
 

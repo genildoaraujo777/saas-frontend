@@ -63,4 +63,13 @@ export const FinanLitoService = {
     const { data } = await api.post('/files/ocr', formData, { headers: { Authorization: `Bearer ${token}` } } );
     return data;
   },
+  
+  importFromNfceUrl: async (url: string, token: string) => {
+    // Enviamos a URL no corpo da requisição (body)
+    const { data } = await api.post('/fbm/transactions/import-nfce', 
+      { url }, 
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return data; // Retorna a lista de produtos [{ name, price, qty... }]
+  },
 };
