@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTenant } from '../contexts/TenantContext';
 import { ScannerPro } from '../components/ui/ScannerPro';
 import jsQR from "jsqr";
+import { GuiaSefaz } from '@/components/ui/GuiaSefaz';
 
 // --- UTILITÁRIOS ---
 const DEFAULT_CATEGORIES = ["Alimentação", "Vestuário", "Moradia", "Transporte", "Lazer", "Saúde", "Educação", "Consumo", "Fitness", "Investimentos", "Móveis", "Outros"];
@@ -1469,7 +1470,7 @@ const processSefazPaste = async () => {
                       Fechar Scanner
                     </button>
                   </div>
-                  <ScannerPro onClose={() => setIsScanning(false)} onScanSuccess={handleScanSuccess} />
+                  <GuiaSefaz onClose={() => setIsScanning(false)} />
                 </div>
               )}
 
