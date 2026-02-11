@@ -1222,21 +1222,21 @@ const processSefazPaste = async () => {
   }
 };
 
-const checkScroll = () => {
-    if (kanbanScrollRef.current) {
-        const { scrollLeft, scrollWidth, clientWidth } = kanbanScrollRef.current;
-        setCanScrollLeft(scrollLeft > 20);
-        // Margem de 5px para evitar bugs de arredondamento em telas high-dpi
-        setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 20);
-    }
-};
+  const checkScroll = () => {
+      if (kanbanScrollRef.current) {
+          const { scrollLeft, scrollWidth, clientWidth } = kanbanScrollRef.current;
+          setCanScrollLeft(scrollLeft > 20);
+          // Margem de 5px para evitar bugs de arredondamento em telas high-dpi
+          setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 20);
+      }
+  };
 
-const scrollKanban = (direction: 'left' | 'right') => {
-    if (kanbanScrollRef.current) {
-        const scrollAmount = kanbanScrollRef.current.clientWidth * 0.8;
-        kanbanScrollRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
-    }
-};
+  const scrollKanban = (direction: 'left' | 'right') => {
+      if (kanbanScrollRef.current) {
+          const scrollAmount = kanbanScrollRef.current.clientWidth * 0.8;
+          kanbanScrollRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+      }
+  };
 
   const categoryStats = useMemo(() => {
     const stats: { [key: string]: number } = {};
@@ -1578,129 +1578,130 @@ const scrollKanban = (direction: 'left' | 'right') => {
               )}
             </div>
 
-            <div style={{ flex: 1, overflowX: 'auto', paddingBottom: '0.5rem' }}>
-              {/* Container Pai com Posição Relativa */}
-              <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                
-                {/* Seta Esquerda Flutuante */}
-                {canScrollLeft && (
-                  <button 
-                    onClick={() => scrollKanban('left')} 
-                    style={{ ...arrowOverlayStyle, left: '5px' }}
-                  >
-                    <MdChevronLeft size={32} color="#64748b" />
-                  </button>
-                )}
+              <div style={{ flex: 1, paddingBottom: '0.5rem' }}>
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                    
+                    {/* SETAS FIXAS (Acompanham a rolagem vertical perfeitamente) */}
+                    {canScrollLeft && (
+                        <button 
+                            onClick={() => scrollKanban('left')} 
+                            style={{ ...arrowOverlayStyle, left: '10px' }}
+                            aria-label="Rolar para esquerda"
+                        >
+                            <MdChevronLeft size={32} color={colors.primary} />
+                        </button>
+                    )}
 
-                {/* Seta Direita Flutuante */}
-                {canScrollRight && (
-                  <button 
-                    onClick={() => scrollKanban('right')} 
-                    style={{ ...arrowOverlayStyle, right: '5px' }}
-                  >
-                    <MdChevronRight size={32} color="#64748b" />
-                  </button>
-                )}
+                    {canScrollRight && (
+                        <button 
+                            onClick={() => scrollKanban('right')} 
+                            style={{ ...arrowOverlayStyle, right: '10px' }}
+                            aria-label="Rolar para direita"
+                        >
+                            <MdChevronRight size={32} color={colors.primary} />
+                        </button>
+                    )}
 
-                <div 
-                  ref={kanbanScrollRef}
-                  onScroll={checkScroll} // Gatilho para esconder/mostrar as setas
-                  style={{ 
-                      flex: 1, 
-                      overflowX: 'auto', 
-                      paddingBottom: '0.5rem', 
-                      scrollbarWidth: 'none', 
-                      msOverflowStyle: 'none',
-                      scrollSnapType: 'x mandatory',
-                      WebkitOverflowScrolling: 'touch'
-                  }}
-                >
-                  <div style={{ 
-                      display: 'flex', 
-                      gap: '1rem', 
-                      height: '100%', 
-                      minWidth: '100%', 
-                      width: 'max-content', 
-                      padding: '0 10px', 
-                      justifyContent: 'center', // REGRA CEO: Centraliza colunas em telas grandes
-                      flexWrap: 'nowrap' 
-                  }}>
-                    <KanbanColumn 
-                        title="Pendente" status="pending" 
-                        items={monthFiltered.filter(t => t.status === 'pending')} 
-                        bg="#fef9c3" color="#854d0e" 
-                        onClickItem={handleOpenModal} 
-                        onCloneItem={handleCloneToNextMonth}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                        onDrop={handleDrop}
-                        onDragOverColumn={onDragOverColumn}
-                        onDragOverCard={onDragOverCard}
-                        dropPlaceholder={dropPlaceholder}
-                        draggedItem={draggedItem}
-                        colors={colors} terms={terms}
-                        isSelectionMode={isSelectionMode}
-                        selectedIds={selectedIds}
-                        onToggleSelect={handleToggleSelect}
-                        style={{ 
-                            scrollSnapAlign: 'start', 
-                            flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
-                            maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
-                            minWidth: 'min(320px, 85vw)' 
-                        }}
-                    />
-                    <KanbanColumn 
-                        title="Atrasado" status="overdue" 
-                        items={monthFiltered.filter(t => t.status === 'overdue')} 
-                        bg="#fee2e2" color="#991b1b" 
-                        onClickItem={handleOpenModal}
-                        onCloneItem={handleCloneToNextMonth}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                        onDrop={handleDrop}
-                        onDragOverColumn={onDragOverColumn}
-                        onDragOverCard={onDragOverCard}
-                        dropPlaceholder={dropPlaceholder}
-                        draggedItem={draggedItem}
-                        colors={colors} terms={terms}
-                        isSelectionMode={isSelectionMode}
-                        selectedIds={selectedIds}
-                        onToggleSelect={handleToggleSelect}
-                        style={{ 
-                            scrollSnapAlign: 'start', 
-                            flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
-                            maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
-                            minWidth: 'min(320px, 85vw)' 
-                        }}
-                    />
-                    <KanbanColumn 
-                        title="Concluído" status="paid" 
-                        items={monthFiltered.filter(t => t.status === 'paid')} 
-                        bg="#dcfce7" color="#166534" 
-                        onClickItem={handleOpenModal} 
-                        onCloneItem={handleCloneToNextMonth}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                        onDrop={handleDrop}
-                        onDragOverColumn={onDragOverColumn}
-                        onDragOverCard={onDragOverCard}
-                        dropPlaceholder={dropPlaceholder}
-                        draggedItem={draggedItem}
-                        colors={colors} terms={terms}
-                        isSelectionMode={isSelectionMode}
-                        selectedIds={selectedIds}
-                        onToggleSelect={handleToggleSelect}
-                        style={{ 
-                            scrollSnapAlign: 'start', 
-                            flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
-                            maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
-                            minWidth: 'min(320px, 85vw)' 
-                        }}
-                    />
+                  <div 
+                    ref={kanbanScrollRef}
+                    onScroll={checkScroll} // Gatilho para esconder/mostrar as setas
+                    style={{ 
+                        flex: 1, 
+                        overflowX: 'auto', 
+                        paddingBottom: '0.5rem', 
+                        scrollbarWidth: 'none', 
+                        msOverflowStyle: 'none',
+                        scrollSnapType: 'x mandatory',
+                        WebkitOverflowScrolling: 'touch',
+                        padding: '0 15px'
+                    }}
+                  >
+                    <div style={{ 
+                        display: 'flex', 
+                        gap: '1rem', 
+                        height: '100%', 
+                        minWidth: '100%', 
+                        width: 'max-content', 
+                        padding: '0 50px',
+                        justifyContent: 'center', // REGRA CEO: Centraliza colunas em telas grandes
+                        flexWrap: 'nowrap' 
+                    }}>
+                      <KanbanColumn 
+                          title="Pendente" status="pending" 
+                          items={monthFiltered.filter(t => t.status === 'pending')} 
+                          bg="#fef9c3" color="#854d0e" 
+                          onClickItem={handleOpenModal} 
+                          onCloneItem={handleCloneToNextMonth}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onDrop={handleDrop}
+                          onDragOverColumn={onDragOverColumn}
+                          onDragOverCard={onDragOverCard}
+                          dropPlaceholder={dropPlaceholder}
+                          draggedItem={draggedItem}
+                          colors={colors} terms={terms}
+                          isSelectionMode={isSelectionMode}
+                          selectedIds={selectedIds}
+                          onToggleSelect={handleToggleSelect}
+                          style={{ 
+                              scrollSnapAlign: 'start', 
+                              flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
+                              maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
+                              minWidth: 'min(320px, 85vw)' 
+                          }}
+                      />
+                      <KanbanColumn 
+                          title="Atrasado" status="overdue" 
+                          items={monthFiltered.filter(t => t.status === 'overdue')} 
+                          bg="#fee2e2" color="#991b1b" 
+                          onClickItem={handleOpenModal}
+                          onCloneItem={handleCloneToNextMonth}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onDrop={handleDrop}
+                          onDragOverColumn={onDragOverColumn}
+                          onDragOverCard={onDragOverCard}
+                          dropPlaceholder={dropPlaceholder}
+                          draggedItem={draggedItem}
+                          colors={colors} terms={terms}
+                          isSelectionMode={isSelectionMode}
+                          selectedIds={selectedIds}
+                          onToggleSelect={handleToggleSelect}
+                          style={{ 
+                              scrollSnapAlign: 'start', 
+                              flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
+                              maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
+                              minWidth: 'min(320px, 85vw)' 
+                          }}
+                      />
+                      <KanbanColumn 
+                          title="Concluído" status="paid" 
+                          items={monthFiltered.filter(t => t.status === 'paid')} 
+                          bg="#dcfce7" color="#166534" 
+                          onClickItem={handleOpenModal} 
+                          onCloneItem={handleCloneToNextMonth}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onDrop={handleDrop}
+                          onDragOverColumn={onDragOverColumn}
+                          onDragOverCard={onDragOverCard}
+                          dropPlaceholder={dropPlaceholder}
+                          draggedItem={draggedItem}
+                          colors={colors} terms={terms}
+                          isSelectionMode={isSelectionMode}
+                          selectedIds={selectedIds}
+                          onToggleSelect={handleToggleSelect}
+                          style={{ 
+                              scrollSnapAlign: 'start', 
+                              flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
+                              maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
+                              minWidth: 'min(320px, 85vw)' 
+                          }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
           </div>
         )}
       </div>
@@ -1918,177 +1919,179 @@ const StatCard = ({ label, value, color }: any) => (
   </div>
 );
 
-// --- KANBAN COLUMN ATUALIZADA ---
+    // --- KANBAN COLUMN ATUALIZADA ---
 
-const KanbanColumn = ({ 
-    title, items, onClickItem, 
-    onDragStart, onDragEnd, onDrop, onDragOverColumn, onDragOverCard, 
-    dropPlaceholder, draggedItem, status,
-    colors, terms,
-    isSelectionMode, selectedIds, onToggleSelect,
-    onCloneItem,
-    style // <--- Inclua apenas esta palavra aqui
-}: any) => {
+    const KanbanColumn = ({ 
+        title, items, onClickItem, 
+        onDragStart, onDragEnd, onDrop, onDragOverColumn, onDragOverCard, 
+        dropPlaceholder, draggedItem, status,
+        colors, terms,
+        isSelectionMode, selectedIds, onToggleSelect,
+        onCloneItem,
+        style // <--- Inclua apenas esta palavra aqui
+    }: any) => {
 
-    const isPlaceholderInThisColumn = dropPlaceholder?.status === status;
+        const isPlaceholderInThisColumn = dropPlaceholder?.status === status;
 
-    return (
-        <div 
-    onDragOver={(e) => onDragOverColumn(e, status, items.length)}
-    onDrop={(e) => onDrop(e, status)} 
-    style={{ 
-        flex: 1, 
-        background: '#e2e8f0', 
-        borderRadius: '10px', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        padding: '0.8rem', 
-        minWidth: '280px', 
-        transition: 'background 0.2s',
-        ...style // <--- Isso aqui mescla os estilos padrão com os novos que enviamos
-    }}
-        >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontWeight: 700, color: '#64748b', fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                <span>{title}</span><span>{items.length}</span>
-            </div>
-            
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: '100px' }}>
-                {items.map((t: ITransactionExtended, index: number) => {
-                    const id = t._id || t.id || '';
-                    const isBeingDragged = draggedItem && (draggedItem._id === t._id || draggedItem.id === t.id);
-                    const showPlaceholderBefore = isPlaceholderInThisColumn && dropPlaceholder.index === index;
-                    const isSelected = selectedIds.includes(id);
-                    
-                    return (
-                        <React.Fragment key={id}>
-                            {showPlaceholderBefore && <div className="ghost-placeholder"></div>}
-                            
-                            <div 
-                                draggable={!isSelectionMode} 
-                                onDragStart={(e) => onDragStart(e, t)}
-                                onDragEnd={onDragEnd}
-                                onDragOver={(e) => onDragOverCard(e, index, status)}
-                                onClick={(e) => { 
-                                  e.stopPropagation(); 
-                                  if (isSelectionMode) onToggleSelect(id);
-                                  else onClickItem(t); 
-                                }} 
-                                style={{ 
-                                    background: 'white', padding: '0.8rem', borderRadius: '8px', 
-                                    boxShadow: isSelected ? `0 0 0 2px ${colors.primary}` : '0 1px 2px rgba(0,0,0,0.1)', 
-                                    cursor: isSelectionMode ? 'pointer' : 'grab', 
-                                    borderLeft: `4px solid ${t.type === 'income' ? colors.income : colors.expense}`,
-                                    marginBottom: '0.8rem',
-                                    opacity: isBeingDragged ? 0.3 : 1,
-                                    transform: isBeingDragged ? 'scale(0.95)' : 'scale(1)',
-                                    transition: 'all 0.2s',
-                                    position: 'relative'
-                                }}
-                            >
-                                {/* CHECKBOX QUE APARECE NO MODO SELEÇÃO */}
-                                {isSelectionMode && (
-                                  <div style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 5 }}>
-                                    <input 
-                                      type="checkbox" 
-                                      checked={isSelected} 
-                                      readOnly 
-                                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                  </div>
-                                )}
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
-                                    <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', paddingRight: isSelectionMode ? '25px' : '0' }}>{t.title}</span>
-                                    <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        {/* Trocado para MdCreditCard para funcionar com sua biblioteca de ícones */}
-                                        {t.isCreditCard && <MdCreditCard size={18} title="Cartão de Crédito" style={{ color: '#64748b' }} />}
-                                        {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
-                                    </span>
-                                </div>
-                                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                        <span style={{ fontWeight: 600 }}>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
-                                        {/* REGRA CEO: Label de atraso com data de criação */}
-                                        {t.status === 'overdue' && (
-                                            <span style={{ 
-                                                fontSize: '0.65rem', 
-                                                color: '#ef4444', 
-                                                fontWeight: 800,
-                                                textTransform: 'uppercase',
-                                                background: '#fee2e2',
-                                                padding: '2px 4px',
-                                                borderRadius: '4px',
-                                                width: 'fit-content',
-                                                marginTop: '4px'
-                                            }}>
-                                                {/* REGRA CEO: Se movido, usa a data original preservada */}
-                                                Atrasada desde: {new Date(t.dateReplicated || t.date).toLocaleDateString('pt-BR')}
-                                            </span>
-                                        )}
-                                    </div>
-                                    {/* Botão de clonagem unitária inserido aqui */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                    {/* REGRA CEO: Esconde o botão se for um card de parcelas */}
-                                    {!t.title.match(/\(\d+\/\d+\)$/) && (
-                                      <button 
-                                          type="button"
-                                          onClick={(e) => { e.stopPropagation(); onCloneItem(t); }} 
-                                          style={{ 
-                                              background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '4px 8px', 
-                                              color: colors.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', 
-                                              gap: '4px', fontSize: '0.65rem', pointerEvents: 'auto' 
-                                          }}
-                                      >
-                                          <MdContentCopy size={16} /> Jogar p/ Próx. Mês
-                                      </button>
-                                    )}
-
-                                    {t.category && t.category !== 'Outros' && (
-                                      <div style={{ 
-                                          display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 800, 
-                                          color: '#fff', background: getCategoryColor(t.category) || '#94a3b8', whiteSpace: 'nowrap'
-                                      }}>
-                                          {t.category.toUpperCase()}
+        return (
+            <div 
+        onDragOver={(e) => onDragOverColumn(e, status, items.length)}
+        onDrop={(e) => onDrop(e, status)} 
+        style={{ 
+            flex: 1, 
+            background: '#e2e8f0', 
+            borderRadius: '10px', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            padding: '0.8rem', 
+            minWidth: '280px', 
+            transition: 'background 0.2s',
+            ...style // <--- Isso aqui mescla os estilos padrão com os novos que enviamos
+        }}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontWeight: 700, color: '#64748b', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                    <span>{title}</span><span>{items.length}</span>
+                </div>
+                
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: '100px' }}>
+                    {items.map((t: ITransactionExtended, index: number) => {
+                        const id = t._id || t.id || '';
+                        const isBeingDragged = draggedItem && (draggedItem._id === t._id || draggedItem.id === t.id);
+                        const showPlaceholderBefore = isPlaceholderInThisColumn && dropPlaceholder.index === index;
+                        const isSelected = selectedIds.includes(id);
+                        
+                        return (
+                            <React.Fragment key={id}>
+                                {showPlaceholderBefore && <div className="ghost-placeholder"></div>}
+                                
+                                <div 
+                                    draggable={!isSelectionMode} 
+                                    onDragStart={(e) => onDragStart(e, t)}
+                                    onDragEnd={onDragEnd}
+                                    onDragOver={(e) => onDragOverCard(e, index, status)}
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      if (isSelectionMode) onToggleSelect(id);
+                                      else onClickItem(t); 
+                                    }} 
+                                    style={{ 
+                                        background: 'white', padding: '0.8rem', borderRadius: '8px', 
+                                        boxShadow: isSelected ? `0 0 0 2px ${colors.primary}` : '0 1px 2px rgba(0,0,0,0.1)', 
+                                        cursor: isSelectionMode ? 'pointer' : 'grab', 
+                                        borderLeft: `4px solid ${t.type === 'income' ? colors.income : colors.expense}`,
+                                        marginBottom: '0.8rem',
+                                        opacity: isBeingDragged ? 0.3 : 1,
+                                        transform: isBeingDragged ? 'scale(0.95)' : 'scale(1)',
+                                        transition: 'all 0.2s',
+                                        position: 'relative'
+                                    }}
+                                >
+                                    {/* CHECKBOX QUE APARECE NO MODO SELEÇÃO */}
+                                    {isSelectionMode && (
+                                      <div style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 5 }}>
+                                        <input 
+                                          type="checkbox" 
+                                          checked={isSelected} 
+                                          readOnly 
+                                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
                                       </div>
                                     )}
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', paddingRight: isSelectionMode ? '25px' : '0' }}>{t.title}</span>
+                                        <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            {/* Trocado para MdCreditCard para funcionar com sua biblioteca de ícones */}
+                                            {t.isCreditCard && <MdCreditCard size={18} title="Cartão de Crédito" style={{ color: '#64748b' }} />}
+                                            {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            <span style={{ fontWeight: 600 }}>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
+                                            {/* REGRA CEO: Label de atraso com data de criação */}
+                                            {t.status === 'overdue' && (
+                                                <span style={{ 
+                                                    fontSize: '0.65rem', 
+                                                    color: '#ef4444', 
+                                                    fontWeight: 800,
+                                                    textTransform: 'uppercase',
+                                                    background: '#fee2e2',
+                                                    padding: '2px 4px',
+                                                    borderRadius: '4px',
+                                                    width: 'fit-content',
+                                                    marginTop: '4px'
+                                                }}>
+                                                    {/* REGRA CEO: Se movido, usa a data original preservada */}
+                                                    Atrasada desde: {new Date(t.dateReplicated || t.date).toLocaleDateString('pt-BR')}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {/* Botão de clonagem unitária inserido aqui */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {/* REGRA CEO: Esconde o botão se for um card de parcelas */}
+                                        {!t.title.match(/\(\d+\/\d+\)$/) && (
+                                          <button 
+                                              type="button"
+                                              onClick={(e) => { e.stopPropagation(); onCloneItem(t); }} 
+                                              style={{ 
+                                                  background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '4px 8px', 
+                                                  color: colors.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                                                  gap: '4px', fontSize: '0.65rem', pointerEvents: 'auto' 
+                                              }}
+                                          >
+                                              <MdContentCopy size={16} /> Jogar p/ Próx. Mês
+                                          </button>
+                                        )}
+
+                                        {t.category && t.category !== 'Outros' && (
+                                          <div style={{ 
+                                              display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 800, 
+                                              color: '#fff', background: getCategoryColor(t.category) || '#94a3b8', whiteSpace: 'nowrap'
+                                          }}>
+                                              {t.category.toUpperCase()}
+                                          </div>
+                                        )}
+                                    </div>
+                                    </div>
+                                    <span>{t.type === 'income' ? terms.income.substring(0,3).toUpperCase() : terms.expense.substring(0,4).toUpperCase()}</span>
                                 </div>
                                 </div>
-                                <span>{t.type === 'income' ? terms.income.substring(0,3).toUpperCase() : terms.expense.substring(0,4).toUpperCase()}</span>
-                            </div>
-                            </div>
-                        </React.Fragment>
-                    );
-                })}
-                {isPlaceholderInThisColumn && dropPlaceholder.index === items.length && (
-                    <div className="ghost-placeholder"></div>
-                )}
+                            </React.Fragment>
+                        );
+                    })}
+                    {isPlaceholderInThisColumn && dropPlaceholder.index === items.length && (
+                        <div className="ghost-placeholder"></div>
+                    )}
+                </div>
             </div>
-        </div>
-    );
-};
+        );
+    };
 
 const inpStyle = { width: '100%', padding: '0.7rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', fontSize: '1rem' };
 const lblStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' };
 const btnBase: any = { padding: '0.7rem 1.2rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' };
 const arrowOverlayStyle: any = {
-    position: 'absolute',
-    top: '50%',
+    position: 'fixed', // 🚀 Como o seu botão de WhatsApp
+    top: '80%',        // Altura ideal para o polegar no celular
     transform: 'translateY(-50%)',
-    background: 'rgba(255, 255, 255, 0.4)', // Mais transparente
-    backdropFilter: 'blur(8px)', // Blur mais forte (efeito vidro)
-    border: '1px solid rgba(255, 255, 255, 0.3)',
+    zIndex: 900,       // 🚀 ABAIXO do Modal (1000), mas acima do Kanban
+    
+    // Design Premium (Baseado no seu exemplo)
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    width: '50px',
+    height: '50px',
     borderRadius: '50%',
-    width: '48px',
-    height: '48px',
     display: 'flex',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)', // Sombra mais profunda
     cursor: 'pointer',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-    zIndex: 100,
-    transition: 'all 0.3s ease'
+    border: '1px solid #e2e8f0',
+    transition: 'transform 0.2s ease-in-out, opacity 0.3s',
+    pointerEvents: 'auto',
 };
 const PieChart = ({ data }: { data: { label: string, value: number, color: string }[] }) => {
     const total = data.reduce((acc, d) => acc + d.value, 0);
