@@ -33,28 +33,40 @@ export const ScannerPro = ({ onScanSuccess, onClose }: ScannerProProps) => {
 
     const imgReader = new FileReader();
     imgReader.onload = (res) => {
-      const image = new Image();
-      image.src = res.target?.result as string;
-      image.onload = () => {
+        const image = new Image();
+        image.src = res.target?.result as string;
+        image.onload = () => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        canvas.width = image.width;
-        canvas.height = image.height;
-        ctx?.drawImage(image, 0, 0);
+
+        // 🚀 REDIMENSIONAMENTO ESTRATÉGICO
+        // Se a foto for gigante, o jsQR falha. Limitamos a 800px.
+        const scale = Math.min(1, 800 / Math.max(image.width, image.height));
+        canvas.width = image.width * scale;
+        canvas.height = image.height * scale;
         
-        const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
-        // O jsQR analisa os pixels da foto localmente
-        const code = jsQR(imageData!.data, imageData!.width, imageData!.height);
-        
-        if (code) {
-          onScanSuccess(code.data);
-        } else {
-          alert("QR Code não detectado na imagem. Tente uma foto mais nítida. \n\n Dica: Certifique-se de que o QR Code esteja totalmente visível e sem reflexos.");
+        if (ctx) {
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            
+            // 🚀 FILTRO DE CONTRASTE (Opcional, mas ajuda muito)
+            // ctx.filter = 'grayscale(100%) contrast(120%)'; 
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "dontInvert", // Aumenta a velocidade
+            });
+            
+            if (code) {
+            onScanSuccess(code.data);
+            } else {
+            // Se falhou no tamanho reduzido, tentamos no tamanho original como última chance
+            alert("Não detectado. Tente tirar a foto mais de cima e sem reflexos.");
+            }
         }
-      };
+        };
     };
     imgReader.readAsDataURL(file);
-  };
+    };
 
   return (
     <div style={styles.overlay}>
@@ -84,12 +96,18 @@ export const ScannerPro = ({ onScanSuccess, onClose }: ScannerProProps) => {
           >
             <MdCameraAlt size={20} /> Câmera
           </button>
-          <button 
-            onClick={() => setMode('file')} 
-            style={{ ...styles.modeBtn, opacity: mode === 'file' ? 1 : 0.5 }}
-          >
-            <MdPhotoLibrary size={20} /> Galeria / Arquivo
-          </button>
+          {/* Botão que chama a Câmera Nativa do Celular */}
+<label style={styles.nativeBtn}>
+    <MdCameraAlt size={24} />
+    <span>USAR CÂMERA NATIVA</span>
+    <input 
+        type="file" 
+        accept="image/*" 
+        capture="environment" // 🚀 A MÁGICA ESTÁ AQUI
+        onChange={handleFileUpload} // Usa a mesma lógica do jsQR que já fizemos
+        style={{ display: 'none' }} 
+    />
+</label>
         </div>
       </div>
     </div>
