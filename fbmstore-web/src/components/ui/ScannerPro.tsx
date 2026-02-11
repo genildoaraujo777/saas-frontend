@@ -1,83 +1,69 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MdClose } from 'react-icons/md';
+import React, { useState } from 'react';
+import jsQR from 'jsqr'; // Você já tem e funciona no React 18
+import { MdCameraAlt, MdClose } from 'react-icons/md';
 
 export const ScannerPro = ({ onScanSuccess, onClose }: any) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState("");
+  const [lendo, setLendo] = useState(false);
 
-  useEffect(() => {
-    let stream: MediaStream;
+  const processarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
 
-    const startScanner = async () => {
-      try {
-        // 1. Pede a câmera em alta resolução para o foco não falhar
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
-        });
+    setLendo(true);
+    const leitor = new FileReader();
+    leitor.onload = (res) => {
+      const img = new Image();
+      img.src = res.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0);
+        const dadosImagem = ctx?.getImageData(0, 0, canvas.width, canvas.height);
         
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-
-          // 2. VERIFICA SE O CELULAR TEM O SCANNER NATIVO DO GOOGLE
-          if (!('BarcodeDetector' in window)) {
-            setError("Seu navegador não suporta o Scanner Nativo. Use o modo arquivo.");
-            return;
-          }
-
-          // @ts-ignore (O TS ainda não conhece essa API nativa perfeitamente)
-          const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-
-          // 3. Loop de detecção ultra-rápido
-          const detect = async () => {
-            if (videoRef.current && stream.active) {
-              try {
-                const barcodes = await detector.detect(videoRef.current);
-                if (barcodes.length > 0) {
-                  onScanSuccess(barcodes[0].rawValue); // Sucesso instantâneo!
-                  return; // Para o loop
-                }
-                requestAnimationFrame(detect);
-              } catch (e) {
-                requestAnimationFrame(detect);
-              }
-            }
-          };
-          detect();
+        // O jsQR processa a foto nítida da câmera nativa
+        const resultado = jsQR(dadosImagem!.data, dadosImagem!.width, dadosImagem!.height);
+        
+        if (resultado) {
+          onScanSuccess(resultado.data); // Abre o site da Fazenda
+        } else {
+          alert("QR Code não encontrado. Tente tirar a foto mais de perto.");
         }
-      } catch (err) {
-        setError("Erro ao acessar a câmera.");
-      }
+        setLendo(false);
+      };
     };
-
-    startScanner();
-    return () => stream?.getTracks().forEach(track => track.stop());
-  }, [onScanSuccess]);
+    leitor.readAsDataURL(arquivo);
+  };
 
   return (
     <div style={styles.overlay}>
-      <div style={styles.container}>
-        <div style={styles.header}>
-          <span>Scanner Turbo (Nativo)</span>
-          <button onClick={onClose} style={styles.close}><MdClose size={24}/></button>
-        </div>
-        <div style={styles.videoBox}>
-          <video ref={videoRef} style={styles.video} playsInline />
-          <div style={styles.target} /> {/* Mira verde */}
-          {error && <div style={styles.error}>{error}</div>}
-        </div>
+      <div style={styles.card}>
+        <button onClick={onClose} style={styles.fechar}><MdClose size={24}/></button>
+        <h3 style={{ marginBottom: '10px' }}>Scanner de Nota</h3>
+        <p style={{ fontSize: '14px', color: '#666' }}>
+          {lendo ? "Lendo dados..." : "Clique abaixo para abrir a câmera do seu celular"}
+        </p>
+        
+        <label style={styles.botaoCâmera}>
+          <MdCameraAlt size={30} />
+          <span style={{ fontWeight: 'bold' }}>TIRAR FOTO DA NOTA</span>
+          <input 
+            type="file" 
+            accept="image/*" 
+            capture="environment" // 🚀 O segredo para iOS e Android
+            onChange={processarFoto} 
+            style={{ display: 'none' }} 
+          />
+        </label>
       </div>
     </div>
   );
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: { position: 'fixed', inset: 0, backgroundColor: '#000', zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  container: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column' },
-  header: { padding: '20px', color: '#fff', display: 'flex', justifyContent: 'space-between', zIndex: 10 },
-  videoBox: { position: 'relative', flex: 1, overflow: 'hidden' },
-  video: { width: '100%', height: '100%', objectFit: 'cover' },
-  target: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '250px', height: '250px', border: '3px solid #22c55e', borderRadius: '20px' },
-  close: { background: 'none', border: 'none', color: '#fff' },
-  error: { position: 'absolute', bottom: '20px', width: '100%', textAlign: 'center', color: '#ff4d4d' }
+  overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' },
+  card: { backgroundColor: '#fff', padding: '30px', borderRadius: '20px', textAlign: 'center', width: '100%', maxWidth: '350px', position: 'relative' },
+  fechar: { position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', cursor: 'pointer' },
+  botaoCâmera: { marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', backgroundColor: '#3b82f6', color: '#fff', padding: '20px', borderRadius: '15px', cursor: 'pointer' }
 };
