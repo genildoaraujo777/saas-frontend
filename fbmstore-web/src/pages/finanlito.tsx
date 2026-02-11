@@ -249,9 +249,17 @@ export default function FinanLitoPage() {
         // 5. ABRE O MODAL com os dados preenchidos para você salvar
         setIsModalOpen(true);
 
-      } catch (err) {
-        console.error("Erro ao importar NFCE:", err);
-        alert("Erro ao ler dados da SEFAZ. Tente novamente ou verifique a conexão.");
+      } catch (err: any) {
+        // 🚨 SE CAIR AQUI (ERRO 500 / CAPTCHA), VAMOS PARA O PLANO B
+        console.warn("SEFAZ bloqueou o robô. Iniciando modo manual...");
+        
+        alert("A SEFAZ exige validação manual. \n\n1. O site será aberto agora.\n2. Resolva o Captcha.\n3. Selecione tudo (Ctrl+A) e copie.\n4. Volte aqui e use o botão 'COLAR DADOS SEFAZ'.");
+
+        // Abre a URL do QR Code para o usuário resolver no próprio celular/PC
+        window.open(decodedUrl, "_blank", "noopener,noreferrer");
+        
+        // Abre o modal para o usuário já estar pronto para colar
+        handleOpenModal(); 
       } finally {
         setLoading(false);
       }
