@@ -38,10 +38,22 @@ export const ScannerCustom = ({ onScanSuccess, onClose }: { onScanSuccess: (data
     if (context) {
       canvas.height = video.videoHeight;
       canvas.width = video.videoWidth;
+
+      // 🎨 MÁGICA 1: Aplicar Filtros de Realce (Melhora códigos apagados)
+      // Grayscale: Remove cores pra focar no contraste
+      // Contrast: Deixa o preto mais preto e o branco mais branco
+      // Brightness: Ajuda se a foto estiver escura
+      context.filter = 'grayscale(100%) contrast(1.5) brightness(1.1)';
+
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      
+      // 🧠 MÁGICA 2: Configurações Avançadas do jsQR
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        // "attemptBoth" faz o leitor tentar cores normais e cores invertidas
+        inversionAttempts: "attemptBoth", 
+      });
 
       // 🚀 A MÁGICA ESTÁ AQUI:
       if (code && code.data) {
@@ -49,8 +61,9 @@ export const ScannerCustom = ({ onScanSuccess, onClose }: { onScanSuccess: (data
         const ehValido = /fazenda|sefaz|nfe/i.test(code.data);
 
         if (ehValido) {
-          onScanSuccess(code.data); 
-          return; // ✋ SÓ PARA O LOOP SE FOR UMA NOTA VÁLIDA
+          if (navigator.vibrate) navigator.vibrate(200); // Feedback tátil
+          onScanSuccess(code.data);
+          return; 
         } else {
           console.log("Ignorando QR Code inválido:", code.data);
           // Não faz nada e deixa o loop continuar...
