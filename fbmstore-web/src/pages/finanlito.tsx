@@ -7,6 +7,7 @@ import { useTenant } from '../contexts/TenantContext';
 import { ScannerPro } from '../components/ui/ScannerPro';
 import jsQR from "jsqr";
 import { ScannerCustom } from '@/components/ui/ScannerCustom';
+import { GuiaSefaz } from '@/components/ui/GuiaSefaz';
 
 // --- UTILITÁRIOS ---
 const DEFAULT_CATEGORIES = ["Alimentação", "Vestuário", "Moradia", "Transporte", "Lazer", "Saúde", "Educação", "Consumo", "Fitness", "Investimentos", "Móveis", "Outros"];
@@ -105,6 +106,7 @@ export default function FinanLitoPage() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isTutoScanning, setTutoScanning] = useState(false);
 
   // Fechar ao clicar fora
   useEffect(() => {
@@ -204,51 +206,51 @@ export default function FinanLitoPage() {
   }
 
   // --- LÓGICA DE SELEÇÃO EM MASSA ---
-  const toggleSelectionMode = () => {
-    setIsSelectionMode(!isSelectionMode);
-    setSelectedIds([]);
-  };
+      const toggleSelectionMode = () => {
+        setIsSelectionMode(!isSelectionMode);
+        setSelectedIds([]);
+      };
 
-  const handleToggleSelect = (id: string) => {
-    setSelectedIds(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
+      const handleToggleSelect = (id: string) => {
+        setSelectedIds(prev => 
+          prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+      };
 
-  const handleScanSuccess = async (decodedUrl: string) => {
-  // 1. LIMPEZA E VALIDAÇÃO BÁSICA
-  // Se vier vazio ou não for uma URL, ignora e deixa o scanner continuar
-  if (!decodedUrl || !decodedUrl.startsWith('http')) {
-    console.log("QR Code detectado, mas não é um link válido.");
-    return;
-  }
+      const handleScanSuccess = async (decodedUrl: string) => {
+      // 1. LIMPEZA E VALIDAÇÃO BÁSICA
+      // Se vier vazio ou não for uma URL, ignora e deixa o scanner continuar
+      if (!decodedUrl || !decodedUrl.startsWith('http')) {
+        console.log("QR Code detectado, mas não é um link válido.");
+        return;
+      }
 
-  // 2. FILTRO DA FAZENDA (Segurança para não abrir lixo)
-  // Verifica se no link tem "fazenda", "sefaz" ou "nfe"
-  const ehUrlFazenda = /fazenda|sefaz|nfe/i.test(decodedUrl);
+      // 2. FILTRO DA FAZENDA (Segurança para não abrir lixo)
+      // Verifica se no link tem "fazenda", "sefaz" ou "nfe"
+      const ehUrlFazenda = /fazenda|sefaz|nfe/i.test(decodedUrl);
 
-  if (!ehUrlFazenda) {
-    // Se você quiser permitir outros links, remova esse IF. 
-    // Mas para o seu caso, isso evita abrir sites errados.
-    console.warn("QR Code lido, mas não parece ser uma Nota Fiscal:", decodedUrl);
-    return;
-  }
+      if (!ehUrlFazenda) {
+        // Se você quiser permitir outros links, remova esse IF. 
+        // Mas para o seu caso, isso evita abrir sites errados.
+        console.warn("QR Code lido, mas não parece ser uma Nota Fiscal:", decodedUrl);
+        return;
+      }
 
-  // --- SE CHEGOU AQUI, A URL É REAL E É DA FAZENDA ---
+      // --- SE CHEGOU AQUI, A URL É REAL E É DA FAZENDA ---
 
-  // 3. Fecha o scanner para parar de processar frames
-  setIsScanning(false); 
+      // 3. Fecha o scanner para parar de processar frames
+      setIsScanning(false); 
 
-  // 4. Avisa o usuário
-  alert("Nota Fiscal Detectada! \n\n1. O site da Fazenda vai abrir.\n2. Resolva o Captcha.\n3. Copie os dados.\n4. Volte aqui e cole no card.");
+      // 4. Avisa o usuário
+      alert("Nota Fiscal Detectada! \n\n1. O site da Fazenda vai abrir.\n2. Resolva o Captcha.\n3. Copie os dados.\n4. Volte aqui e cole no card.");
 
-  // 5. Abre a URL (O navegador pode bloquear se não houver interação humana direta, 
-  // mas como vem depois de um clique ou scanner ativo, costuma funcionar)
-  window.open(decodedUrl, "_blank", "noopener,noreferrer");
+      // 5. Abre a URL (O navegador pode bloquear se não houver interação humana direta, 
+      // mas como vem depois de um clique ou scanner ativo, costuma funcionar)
+      window.open(decodedUrl, "_blank", "noopener,noreferrer");
 
-  // 6. Abre o modal de lançamento para o usuário já ter onde colar ao voltar
-  handleOpenModal();
-};
+      // 6. Abre o modal de lançamento para o usuário já ter onde colar ao voltar
+      handleOpenModal();
+    };
 
   async function handleDeleteBulk() {
     if (selectedIds.length === 0) return;
@@ -1466,31 +1468,13 @@ const processSefazPaste = async () => {
               </button>
             </div>
 
-            {/* Substitua o container da barra de busca por este: */}
-            {/* 1. CONTAINER PAI (OBRIGATÓRIO PARA NÃO DAR ERRO) */}
-              {/* 1. ÁREA DEDICADA PARA O SCANNER (Aparece no topo sem quebrar os botões) */}
+             {/* 1. ÁREA DEDICADA PARA O SCANNER (Aparece no topo sem quebrar os botões) */}
+              {isTutoScanning && (
+                  <GuiaSefaz onClose={() => setTutoScanning(false)} />
+              )}
+              
               {isScanning && (
-                <div style={{ 
-                  background: '#fff', 
-                  padding: '1rem', 
-                  borderRadius: '12px', 
-                  border: `2px solid ${colors.primary}`, 
-                  marginBottom: '1.5rem',
-                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                  position: 'relative'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <strong style={{ color: colors.primary }}>Scanner de Nota Fiscal</strong>
-                    <button 
-                      onClick={() => setIsScanning(false)} 
-                      style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      Fechar Scanner
-                    </button>
-                  </div>
                   <ScannerCustom onClose={() => setIsScanning(false)} onScanSuccess={handleScanSuccess} />
-                    {/* <GuiaSefaz onClose={() => setIsScanning(false)} /> */}
-                </div>
               )}
 
               {/* 2. BARRA DE AÇÕES (BUSCA E BOTÕES) */}
@@ -1512,6 +1496,19 @@ const processSefazPaste = async () => {
                   <div className="button-group">
                     {/* Botão de Scanner (Apenas o gatilho) */}
                     <button 
+                      onClick={() => setTutoScanning(true)} 
+                      style={{ 
+                        background: '#f8fafc', color: colors.primary, border: '1px solid #cbd5e1', 
+                        borderRadius: '10px', fontWeight: 600, cursor: 'pointer', 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', 
+                        minHeight: '48px', padding: '0 1rem' 
+                      }}
+                    >
+                      <i className="fas fa-qrcode"></i> 
+                      <span className="btn-label">Tutorial como escanear nota</span>
+                    </button>
+                    {/* Botão de Scanner (Apenas o gatilho) */}
+                    <button 
                       onClick={() => setIsScanning(true)} 
                       style={{ 
                         background: '#f8fafc', color: colors.primary, border: '1px solid #cbd5e1', 
@@ -1521,7 +1518,7 @@ const processSefazPaste = async () => {
                       }}
                     >
                       <i className="fas fa-qrcode"></i> 
-                      <span className="btn-label">Scanner</span>
+                      <span className="btn-label">Escanear QR Code</span>
                     </button>
 
                     {/* Botão Novo */}

@@ -70,25 +70,106 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '20px'
+    padding: '20px',
+    backdropFilter: 'blur(4px)' // Efeito de desfoque elegante no fundo
   },
   card: {
     backgroundColor: '#fff',
-    padding: '25px',
+    padding: '30px',
     borderRadius: '24px',
-    width: '100%',
-    maxWidth: '380px',
-    maxHeight: '90vh',
+    // 🚀 O SEGREDO DA ADAPTAÇÃO:
+    width: '95%', 
+    maxWidth: '500px', // Aumentado para preencher melhor telas grandes
+    maxHeight: '85vh',
     overflowY: 'auto',
     textAlign: 'center',
-    position: 'relative'
+    position: 'relative',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
   },
-  close: { position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', cursor: 'pointer' },
-  step: { display: 'flex', alignItems: 'center', textAlign: 'left', gap: '12px', marginTop: '20px' },
-  badge: { backgroundColor: '#3b82f6', color: '#fff', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0, fontSize: '12px' },
-  previewImg: { width: '100%', borderRadius: '12px', marginTop: '10px', border: '1px solid #e2e8f0' },
-  videoSection: { margin: '20px 0', borderTop: '1px solid #eee', paddingTop: '15px' },
-  videoBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '12px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '10px', color: '#475569', fontWeight: '600', cursor: 'pointer' },
-  videoWrapper: { marginBottom: '20px', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#000' },
-  entendidoBtn: { width: '100%', padding: '15px', backgroundColor: '#22c55e', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', marginTop: '10px' }
+  close: { 
+    position: 'absolute', 
+    top: '15px', 
+    right: '15px', 
+    background: '#f1f5f9', 
+    border: 'none', 
+    borderRadius: '50%', 
+    width: '32px', 
+    height: '32px', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    cursor: 'pointer',
+    color: '#64748b'
+  },
+  step: { 
+    display: 'flex', 
+    alignItems: 'flex-start', // Alinhado ao topo para textos longos
+    textAlign: 'left', 
+    gap: '15px', 
+    marginTop: '25px',
+    lineHeight: '1.5' // Melhor leitura em telas grandes
+  },
+  badge: { 
+    backgroundColor: '#3b82f6', 
+    color: '#fff', 
+    width: '28px', 
+    height: '28px', 
+    borderRadius: '50%', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    fontWeight: 'bold', 
+    flexShrink: 0, 
+    fontSize: '14px' 
+  },
+  previewImg: { 
+    width: '100%', 
+    maxWidth: '400px', // Evita que a imagem de exemplo fique gigante no desktop
+    borderRadius: '12px', 
+    marginTop: '15px', 
+    border: '1px solid #e2e8f0',
+    display: 'block',
+    marginLeft: 'auto',
+    marginRight: 'auto'
+  },
+  videoSection: { 
+    margin: '25px 0', 
+    borderTop: '1px solid #eee', 
+    paddingTop: '20px' 
+  },
+  videoBtn: { 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: '8px', 
+    width: '100%', 
+    padding: '14px', 
+    background: '#eff6ff', // Azul clarinho para destacar
+    border: '1px solid #bfdbfe', 
+    borderRadius: '12px', 
+    color: '#2563eb', 
+    fontWeight: '700', 
+    cursor: 'pointer',
+    transition: 'all 0.2s'
+  },
+  videoWrapper: { 
+    marginBottom: '20px', 
+    borderRadius: '16px', 
+    overflow: 'hidden', 
+    backgroundColor: '#000',
+    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+  },
+  entendidoBtn: { 
+    width: '100%', 
+    padding: '18px', 
+    backgroundColor: '#22c55e', 
+    color: '#fff', 
+    border: 'none', 
+    borderRadius: '14px', 
+    fontWeight: '800', 
+    fontSize: '16px', 
+    cursor: 'pointer', 
+    marginTop: '10px',
+    boxShadow: '0 4px 6px -1px rgba(34, 197, 94, 0.4)'
+  }
 };
