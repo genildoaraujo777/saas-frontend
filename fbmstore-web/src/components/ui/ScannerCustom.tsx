@@ -9,7 +9,8 @@ import { MdClose, MdPhotoLibrary, MdQrCodeScanner, MdArrowBack } from "react-ico
 
 const SCANNER_CONTAINER_ID = "barcode-scanner-container";
 
-export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSuccess: (data: string) => void, onClose: () => void, onError: () => void }) => {
+// 🚀 Adicionei '?' no onError para ele ser opcional e não quebrar o build
+export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSuccess: (data: string) => void, onClose: () => void, onError?: () => void }) => {
   const scannerHandle = useRef<IBarcodeScannerHandle | null>(null);
   const sdkRef = useRef<ScanbotSDK | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -17,18 +18,18 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
   const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 1. Inicializa o motor (Igual ao código que você disse que funcionava)
+  // 1. Inicializa o motor (Exatamente o código que você confirmou que funciona)
   useEffect(() => {
     const initSDK = async () => {
       try {
         const sdk = await ScanbotSDK.initialize({
           licenseKey: "", 
-          enginePath: "/wasm/", // 🚀 BARRA INICIAL É O SEGREDO DO CELULAR
+          enginePath: "/wasm/", 
         });
         sdkRef.current = sdk;
       } catch (err) {
         setError("Erro ao carregar o motor Scanbot.");
-        onError();
+        if (onError) onError();
       }
     };
     initSDK();
@@ -38,10 +39,10 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
     };
   }, [onError]);
 
-  // 2. 🚀 LIGA A CÂMERA DEPOIS QUE O DIV APARECE (Resolve o erro do Container)
+  // 2. 🚀 LIGA A CÂMERA DE FORMA SEGURA
   useEffect(() => {
     const launchCamera = async () => {
-      // Só tenta se o usuário clicou no botão e o SDK está pronto
+      // SÓ LIGA se o usuário clicou no botão e o SDK está pronto
       if (showCamera && sdkRef.current && !scannerHandle.current) {
         try {
           const config: BarcodeScannerViewConfiguration = {
@@ -64,11 +65,11 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
             }
           };
 
-          // Agora o motor vai achar o container no DOM e pedir permissão!
+          // O motor agora encontrará o container pois o useEffect roda APÓS o render
           scannerHandle.current = await sdkRef.current.createBarcodeScanner(config);
         } catch (err) {
-          console.warn("Câmera bloqueada ou inexistente");
-          onError(); 
+          console.warn("Câmera indisponível");
+          if (onError) onError(); 
         }
       }
     };
@@ -85,21 +86,14 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
     }
   };
 
-  const startCamera = () => {
-    if (!sdkRef.current) return;
-    setShowCamera(true); // Sinaliza para o useEffect ligar a câmera
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !sdkRef.current) return;
-
     const reader = new FileReader();
     reader.onload = async (event) => {
       const imageDataUrl = event.target?.result as string;
       const result = await sdkRef.current!.detectBarcodes(imageDataUrl);
       const barcode = result.barcodes[0];
-
       if (barcode && /fazenda|sefaz|nfe/i.test(barcode.text)) {
         onScanSuccess(barcode.text);
       } else {
@@ -123,10 +117,11 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
       </div>
 
       {!showCamera ? (
+        // 🚀 LAYOUT DE ESCOLHA (BOTÕES GRANDES)
         <div style={styles.selectionBody}>
           <p style={styles.title}>Como deseja ler a nota?</p>
           <div style={styles.buttonGrid}>
-            <button style={styles.actionCard} onClick={startCamera}>
+            <button style={styles.actionCard} onClick={() => setShowCamera(true)}>
               <div style={styles.iconCircle}><MdQrCodeScanner size={40} /></div>
               <span>Usar Câmera</span>
             </button>
@@ -139,7 +134,7 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
         </div>
       ) : (
         <div id={SCANNER_CONTAINER_ID} style={styles.scannerContainer}>
-          {/* O Scanbot agora vai injetar o vídeo aqui com sucesso */}
+          {error && <div style={{color: 'red', padding: '20px'}}>{error}</div>}
         </div>
       )}
     </div>
