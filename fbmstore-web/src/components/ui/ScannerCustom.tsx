@@ -22,7 +22,7 @@ export const ScannerCustom = ({ onScanSuccess, onClose }: { onScanSuccess: (data
       try {
         const sdk = await ScanbotSDK.initialize({
           licenseKey: "", 
-          enginePath: "wasm/", //
+          enginePath: "/wasm/", // 🚀 Adicione a barra inicial para ser absoluto
         });
         sdkRef.current = sdk;
       } catch (err) {
@@ -30,8 +30,12 @@ export const ScannerCustom = ({ onScanSuccess, onClose }: { onScanSuccess: (data
       }
     };
     initSDK();
-    return () => { scannerHandle.current?.dispose(); };
-  }, []);
+    return () => {
+    // 🚀 Isso força o celular a desligar o hardware da câmera ao sair
+    scannerHandle.current?.dispose(); 
+    scannerHandle.current = null;
+  };
+}, []);
 
   // 🚀 FUNÇÃO PARA VOLTAR OU FECHAR
   const handleBack = () => {
