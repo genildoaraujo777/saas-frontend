@@ -7,62 +7,89 @@ import type {
 
 import { MdClose, MdPhotoLibrary, MdQrCodeScanner, MdArrowBack } from "react-icons/md";
 
-// ID do container onde o vídeo será renderizado
 const SCANNER_CONTAINER_ID = "barcode-scanner-container";
 
-export const ScannerCustom = ({ onScanSuccess, onClose }: { onScanSuccess: (data: string) => void, onClose: () => void }) => {
+export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSuccess: (data: string) => void, onClose: () => void, onError: () => void }) => {
   const scannerHandle = useRef<IBarcodeScannerHandle | null>(null);
   const sdkRef = useRef<ScanbotSDK | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 1. Inicializa o motor (Igual ao código que você disse que funcionava)
   useEffect(() => {
-    const initScanner = async () => {
+    const initSDK = async () => {
       try {
-        // 1. Inicializa o SDK
         const sdk = await ScanbotSDK.initialize({
-          licenseKey: "", // Deixe vazio para o trial de 1 minuto
-          enginePath: "/wasm/", // Certifique-se de que os arquivos .wasm estão na pasta public/wasm/
+          licenseKey: "", 
+          enginePath: "/wasm/", // 🚀 BARRA INICIAL É O SEGREDO DO CELULAR
         });
         sdkRef.current = sdk;
-
-        // 2. Configura e cria o scanner de câmera
-        const config: BarcodeScannerViewConfiguration = {
-              containerId: SCANNER_CONTAINER_ID,
-              onBarcodesDetected: (result) => {
-                const barcode = result.barcodes[0];
-                if (barcode && /fazenda|sefaz|nfe/i.test(barcode.text)) {
-                  onScanSuccess(barcode.text);
-                }
-              },
-              scannerConfiguration: {
-                barcodeFormatConfigurations: [
-                  { 
-                    _type: "BarcodeFormatCommonConfiguration", 
-                    formats: ["QR_CODE"], 
-                    strictMode: true 
-                  }
-                ],
-                engineMode: "NEXT_GEN" as any
-              }
-            };
-
-        scannerHandle.current = await sdk.createBarcodeScanner(config);
       } catch (err) {
-        setError("Erro ao inicializar o motor de busca Scanbot.");
-        console.error(err);
+        setError("Erro ao carregar o motor Scanbot.");
+        onError();
       }
     };
-
-    initScanner();
-
-    return () => {
-      // 3. Limpa a instância ao fechar
-      scannerHandle.current?.dispose();
+    initSDK();
+    return () => { 
+      scannerHandle.current?.dispose(); 
+      scannerHandle.current = null;
     };
-  }, [onScanSuccess]);
+  }, [onError]);
 
-  // --- PLANO B: Detecção em Arquivos usando o Motor Scanbot ---
+  // 2. 🚀 LIGA A CÂMERA DEPOIS QUE O DIV APARECE (Resolve o erro do Container)
+  useEffect(() => {
+    const launchCamera = async () => {
+      // Só tenta se o usuário clicou no botão e o SDK está pronto
+      if (showCamera && sdkRef.current && !scannerHandle.current) {
+        try {
+          const config: BarcodeScannerViewConfiguration = {
+            containerId: SCANNER_CONTAINER_ID,
+            onBarcodesDetected: (result) => {
+              const barcode = result.barcodes[0];
+              if (barcode && /fazenda|sefaz|nfe/i.test(barcode.text)) {
+                onScanSuccess(barcode.text);
+              }
+            },
+            scannerConfiguration: {
+              barcodeFormatConfigurations: [
+                { 
+                  _type: "BarcodeFormatCommonConfiguration", 
+                  formats: ["QR_CODE"], 
+                  strictMode: true 
+                }
+              ],
+              engineMode: "NEXT_GEN" as any
+            }
+          };
+
+          // Agora o motor vai achar o container no DOM e pedir permissão!
+          scannerHandle.current = await sdkRef.current.createBarcodeScanner(config);
+        } catch (err) {
+          console.warn("Câmera bloqueada ou inexistente");
+          onError(); 
+        }
+      }
+    };
+    launchCamera();
+  }, [showCamera, onScanSuccess, onError]);
+
+  const handleBack = () => {
+    if (showCamera) {
+      scannerHandle.current?.dispose();
+      scannerHandle.current = null;
+      setShowCamera(false);
+    } else {
+      onClose();
+    }
+  };
+
+  const startCamera = () => {
+    if (!sdkRef.current) return;
+    setShowCamera(true); // Sinaliza para o useEffect ligar a câmera
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !sdkRef.current) return;
@@ -85,27 +112,49 @@ export const ScannerCustom = ({ onScanSuccess, onClose }: { onScanSuccess: (data
   return (
     <div style={styles.overlay}>
       <div style={styles.header}>
-        <span style={{ fontWeight: 'bold' }}>Scanbot Engine Active</span>
-        <div style={{ display: 'flex', gap: '20px' }}>
-          <button onClick={() => fileInputRef.current?.click()} style={styles.iconBtn}>
-            <MdPhotoLibrary size={26} />
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-          </button>
-          <button onClick={onClose} style={styles.iconBtn}><MdClose size={28}/></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {showCamera ? (
+            <button onClick={handleBack} style={styles.iconBtn}><MdArrowBack size={24} /> Voltar</button>
+          ) : (
+            <span style={{ fontWeight: 'bold' }}>Scanner FBM Store</span>
+          )}
         </div>
+        <button onClick={onClose} style={styles.closeBtn}><MdClose size={28}/></button>
       </div>
 
-      <div id={SCANNER_CONTAINER_ID} style={styles.scannerContainer}>
-        {error && <div style={styles.error}>{error}</div>}
-      </div>
+      {!showCamera ? (
+        <div style={styles.selectionBody}>
+          <p style={styles.title}>Como deseja ler a nota?</p>
+          <div style={styles.buttonGrid}>
+            <button style={styles.actionCard} onClick={startCamera}>
+              <div style={styles.iconCircle}><MdQrCodeScanner size={40} /></div>
+              <span>Usar Câmera</span>
+            </button>
+            <button style={styles.actionCard} onClick={() => fileInputRef.current?.click()}>
+              <div style={styles.iconCircle}><MdPhotoLibrary size={40} /></div>
+              <span>Galeria / Arquivo</span>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div id={SCANNER_CONTAINER_ID} style={styles.scannerContainer}>
+          {/* O Scanbot agora vai injetar o vídeo aqui com sucesso */}
+        </div>
+      )}
     </div>
   );
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: { position: 'fixed' as const, inset: 0, backgroundColor: '#000', zIndex: 9999, display: 'flex', flexDirection: 'column' },
-  header: { padding: '20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10, background: 'rgba(0,0,0,0.7)' },
-  iconBtn: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer' },
-  scannerContainer: { flex: 1, width: '100%', height: '100%' },
-  error: { color: '#ff4d4d', padding: '40px', textAlign: 'center' }
+  overlay: { position: 'absolute', inset: 0, backgroundColor: '#f8fafc', zIndex: 10, display: 'flex', flexDirection: 'column', color: '#1e293b', borderRadius: '12px', overflow: 'hidden' },
+  header: { padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff' },
+  iconBtn: { background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600' },
+  closeBtn: { background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' },
+  selectionBody: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' },
+  title: { fontSize: '18px', fontWeight: '600', marginBottom: '30px' },
+  buttonGrid: { display: 'flex', gap: '20px', width: '100%', maxWidth: '450px' },
+  actionCard: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', padding: '30px 20px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' },
+  iconCircle: { width: '70px', height: '70px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' },
+  scannerContainer: { flex: 1, position: 'relative', backgroundColor: '#000' },
 };
