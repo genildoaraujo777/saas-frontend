@@ -30,32 +30,37 @@ export const ScannerCustom = ({ onScanSuccess, onClose }: { onScanSuccess: (data
     };
 
     const tick = () => {
-      if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current) {
-        const canvas = canvasRef.current;
-        const video = videoRef.current;
-        const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current) {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
 
-        if (context) {
-          canvas.height = video.videoHeight;
-          canvas.width = video.videoWidth;
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          
-          // 2. Extrai os pixels da imagem
-          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-          
-          // 3. O jsQR faz a matemática pesada 
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert",
-          });
+    if (context) {
+      canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
 
-          if (code) {
-            onScanSuccess(code.data);
-            return; // Para o loop se encontrar
-          }
+      // 🚀 A MÁGICA ESTÁ AQUI:
+      if (code && code.data) {
+        // Só validamos se tiver "fazenda", "sefaz" ou "nfe" no texto
+        const ehValido = /fazenda|sefaz|nfe/i.test(code.data);
+
+        if (ehValido) {
+          onScanSuccess(code.data); 
+          return; // ✋ SÓ PARA O LOOP SE FOR UMA NOTA VÁLIDA
+        } else {
+          console.log("Ignorando QR Code inválido:", code.data);
+          // Não faz nada e deixa o loop continuar...
         }
       }
-      animationFrameId = requestAnimationFrame(tick);
-    };
+    }
+  }
+  // 🔄 Continua procurando o próximo frame
+  animationFrameId = requestAnimationFrame(tick);
+};
 
     iniciarCamera();
 
