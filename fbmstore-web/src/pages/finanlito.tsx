@@ -216,21 +216,39 @@ export default function FinanLitoPage() {
   };
 
   const handleScanSuccess = async (decodedUrl: string) => {
-      // 1. Fecha o scanner imediatamente para liberar a câmera
-      setIsScanning(false); 
+  // 1. LIMPEZA E VALIDAÇÃO BÁSICA
+  // Se vier vazio ou não for uma URL, ignora e deixa o scanner continuar
+  if (!decodedUrl || !decodedUrl.startsWith('http')) {
+    console.log("QR Code detectado, mas não é um link válido.");
+    return;
+  }
 
-      // 2. Avisa o usuário sobre o que vai acontecer
-      // Isso prepara o usuário para a ação de "Copiar" no site que vai abrir
-      alert("QR Code lido! \n\n1. O site da Fazenda vai abrir.\n2. Resolva o Captcha se necessário.\n3. Copie os dados (Ctrl+A / Ctrl+C).\n4. Volte aqui e use o 'COLAR DADOS SEFAZ'.");
+  // 2. FILTRO DA FAZENDA (Segurança para não abrir lixo)
+  // Verifica se no link tem "fazenda", "sefaz" ou "nfe"
+  const ehUrlFazenda = /fazenda|sefaz|nfe/i.test(decodedUrl);
 
-      // 3. Abre a URL da SEFAZ em uma nova aba/janela
-      // O navegador do celular não é bloqueado como o servidor é
-      window.open(decodedUrl, "_blank", "noopener,noreferrer");
+  if (!ehUrlFazenda) {
+    // Se você quiser permitir outros links, remova esse IF. 
+    // Mas para o seu caso, isso evita abrir sites errados.
+    console.warn("QR Code lido, mas não parece ser uma Nota Fiscal:", decodedUrl);
+    return;
+  }
 
-      // 4. Abre o modal de lançamento
-      // Assim o usuário já volta para o app com o formulário aberto para colar
-      handleOpenModal();
-    };
+  // --- SE CHEGOU AQUI, A URL É REAL E É DA FAZENDA ---
+
+  // 3. Fecha o scanner para parar de processar frames
+  setIsScanning(false); 
+
+  // 4. Avisa o usuário
+  alert("Nota Fiscal Detectada! \n\n1. O site da Fazenda vai abrir.\n2. Resolva o Captcha.\n3. Copie os dados.\n4. Volte aqui e cole no card.");
+
+  // 5. Abre a URL (O navegador pode bloquear se não houver interação humana direta, 
+  // mas como vem depois de um clique ou scanner ativo, costuma funcionar)
+  window.open(decodedUrl, "_blank", "noopener,noreferrer");
+
+  // 6. Abre o modal de lançamento para o usuário já ter onde colar ao voltar
+  handleOpenModal();
+};
 
   async function handleDeleteBulk() {
     if (selectedIds.length === 0) return;
