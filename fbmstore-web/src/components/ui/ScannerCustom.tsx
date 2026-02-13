@@ -9,7 +9,7 @@ import { MdClose, MdPhotoLibrary, MdQrCodeScanner, MdArrowBack } from "react-ico
 
 const SCANNER_CONTAINER_ID = "barcode-scanner-container";
 
-// 🚀 Adicionei '?' no onError para ele ser opcional e não quebrar o build
+// 🚀 O '?' no onError resolve o seu erro de Build no Docker
 export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSuccess: (data: string) => void, onClose: () => void, onError?: () => void }) => {
   const scannerHandle = useRef<IBarcodeScannerHandle | null>(null);
   const sdkRef = useRef<ScanbotSDK | null>(null);
@@ -18,17 +18,17 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
   const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 1. Inicializa o motor (Exatamente o código que você confirmou que funciona)
+  // 1. Inicializa o motor Scanbot (Exatamente como na sua versão que funcionava)
   useEffect(() => {
     const initSDK = async () => {
       try {
         const sdk = await ScanbotSDK.initialize({
           licenseKey: "", 
-          enginePath: "/wasm/", 
+          enginePath: "/wasm/", // Caminho absoluto para evitar erro no celular
         });
         sdkRef.current = sdk;
       } catch (err) {
-        setError("Erro ao carregar o motor Scanbot.");
+        setError("Erro ao carregar motor de busca.");
         if (onError) onError();
       }
     };
@@ -39,38 +39,34 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
     };
   }, [onError]);
 
-  // 2. 🚀 LIGA A CÂMERA DE FORMA SEGURA
+  // 2. Liga a câmera quando o usuário escolhe "Usar Câmera"
   useEffect(() => {
     const launchCamera = async () => {
-      // SÓ LIGA se o usuário clicou no botão e o SDK está pronto
       if (showCamera && sdkRef.current && !scannerHandle.current) {
-        try {
-          const config: BarcodeScannerViewConfiguration = {
-            containerId: SCANNER_CONTAINER_ID,
-            onBarcodesDetected: (result) => {
-              const barcode = result.barcodes[0];
-              if (barcode && /fazenda|sefaz|nfe/i.test(barcode.text)) {
-                onScanSuccess(barcode.text);
-              }
-            },
-            scannerConfiguration: {
-              barcodeFormatConfigurations: [
-                { 
-                  _type: "BarcodeFormatCommonConfiguration", 
-                  formats: ["QR_CODE"], 
-                  strictMode: true 
+        // Pequeno delay para garantir que o Modal terminou de abrir e o DIV existe no DOM
+        setTimeout(async () => {
+          try {
+            // 🚀 Usando a configuração direta que você confirmou que funciona
+            const config: any = {
+              containerId: SCANNER_CONTAINER_ID,
+              onBarcodesDetected: (result: any) => {
+                const barcode = result.barcodes[0];
+                if (barcode && /fazenda|sefaz|nfe/i.test(barcode.text)) {
+                  onScanSuccess(barcode.text);
                 }
-              ],
-              engineMode: "NEXT_GEN" as any
-            }
-          };
+              },
+              scannerConfiguration: {
+                barcodeFormats: ["QR_CODE"],
+                engineMode: "NEXT_GEN", 
+              }
+            };
 
-          // O motor agora encontrará o container pois o useEffect roda APÓS o render
-          scannerHandle.current = await sdkRef.current.createBarcodeScanner(config);
-        } catch (err) {
-          console.warn("Câmera indisponível");
-          if (onError) onError(); 
-        }
+            scannerHandle.current = await sdkRef.current!.createBarcodeScanner(config);
+          } catch (err) {
+            console.error(err);
+            if (onError) onError();
+          }
+        }, 100);
       }
     };
     launchCamera();
@@ -97,7 +93,7 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
       if (barcode && /fazenda|sefaz|nfe/i.test(barcode.text)) {
         onScanSuccess(barcode.text);
       } else {
-        alert("Nenhuma Nota Fiscal detectada na imagem.");
+        alert("Nenhum QR Code de Nota Fiscal encontrado no arquivo.");
       }
     };
     reader.readAsDataURL(file);
@@ -107,34 +103,36 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
     <div style={styles.overlay}>
       <div style={styles.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {showCamera ? (
+          {showCamera && (
             <button onClick={handleBack} style={styles.iconBtn}><MdArrowBack size={24} /> Voltar</button>
-          ) : (
-            <span style={{ fontWeight: 'bold' }}>Scanner FBM Store</span>
           )}
+          {!showCamera && <span style={{ fontWeight: 'bold', color: '#1e293b' }}>Scanner de Notas</span>}
         </div>
         <button onClick={onClose} style={styles.closeBtn}><MdClose size={28}/></button>
       </div>
 
       {!showCamera ? (
-        // 🚀 LAYOUT DE ESCOLHA (BOTÕES GRANDES)
-        <div style={styles.selectionBody}>
-          <p style={styles.title}>Como deseja ler a nota?</p>
-          <div style={styles.buttonGrid}>
-            <button style={styles.actionCard} onClick={() => setShowCamera(true)}>
-              <div style={styles.iconCircle}><MdQrCodeScanner size={40} /></div>
-              <span>Usar Câmera</span>
-            </button>
-            <button style={styles.actionCard} onClick={() => fileInputRef.current?.click()}>
-              <div style={styles.iconCircle}><MdPhotoLibrary size={40} /></div>
-              <span>Galeria / Arquivo</span>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-            </button>
-          </div>
+        // 🚀 SELETOR CENTRALIZADO (MODAL)
+        <div style={styles.modalContent}>
+           <div style={styles.selectionCard}>
+              <p style={styles.title}>Como deseja capturar a nota?</p>
+              <div style={styles.buttonGrid}>
+                <button style={styles.actionCard} onClick={() => setShowCamera(true)}>
+                  <div style={styles.iconCircle}><MdQrCodeScanner size={32} /></div>
+                  <span style={{fontWeight: 'bold', fontSize: '0.85rem'}}>CÂMERA</span>
+                </button>
+                <button style={styles.actionCard} onClick={() => fileInputRef.current?.click()}>
+                  <div style={styles.iconCircle}><MdPhotoLibrary size={32} /></div>
+                  <span style={{fontWeight: 'bold', fontSize: '0.85rem'}}>ARQUIVO</span>
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+                </button>
+              </div>
+           </div>
         </div>
       ) : (
+        // 🚀 SCANNER EM TELA CHEIA (DENTRO DO MODAL)
         <div id={SCANNER_CONTAINER_ID} style={styles.scannerContainer}>
-          {error && <div style={{color: 'red', padding: '20px'}}>{error}</div>}
+          {error && <div style={{color: '#fff', padding: '20px', textAlign: 'center'}}>{error}</div>}
         </div>
       )}
     </div>
@@ -142,14 +140,16 @@ export const ScannerCustom = ({ onScanSuccess, onClose, onError }: { onScanSucce
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: { position: 'absolute', inset: 0, backgroundColor: '#f8fafc', zIndex: 10, display: 'flex', flexDirection: 'column', color: '#1e293b', borderRadius: '12px', overflow: 'hidden' },
-  header: { padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff' },
-  iconBtn: { background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600' },
+  overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 10000, display: 'flex', flexDirection: 'column' },
+  header: { padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0' },
+  modalContent: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' },
+  selectionCard: { backgroundColor: '#f8fafc', padding: '30px', borderRadius: '24px', width: '100%', maxWidth: '450px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' },
+  iconBtn: { background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold' },
   closeBtn: { background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' },
-  selectionBody: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' },
-  title: { fontSize: '18px', fontWeight: '600', marginBottom: '30px' },
-  buttonGrid: { display: 'flex', gap: '20px', width: '100%', maxWidth: '450px' },
-  actionCard: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', padding: '30px 20px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' },
-  iconCircle: { width: '70px', height: '70px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' },
-  scannerContainer: { flex: 1, position: 'relative', backgroundColor: '#000' },
+  title: { fontSize: '1.1rem', fontWeight: '700', marginBottom: '25px', color: '#1e293b' },
+  buttonGrid: { display: 'flex', gap: '15px' },
+  actionCard: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '20px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', cursor: 'pointer', transition: 'transform 0.1s' },
+  iconCircle: { width: '60px', height: '60px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' },
+  // 🚀 IMPORTANTE: width/height 100% garante que o Scanbot consiga ler os pixels
+  scannerContainer: { flex: 1, width: '100%', height: '100%', position: 'relative', backgroundColor: '#000' },
 };
