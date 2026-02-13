@@ -2,12 +2,9 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { FinanLitoService, ITransaction } from '../services/FinanLitoService';
 import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy, MdChecklist, MdClose, MdCreditCard, MdEdit } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
-// IMPORTANTE: Importando o contexto que criamos para pegar as cores e nomes
 import { useTenant } from '../contexts/TenantContext';
-import { ScannerPro } from '../components/ui/ScannerPro';
-import jsQR from "jsqr";
-import { ScannerCustom } from '@/components/ui/ScannerCustom';
 import { GuiaSefaz } from '@/components/ui/GuiaSefaz';
+import { ScannerCustom } from '@/components/ui/ScannerCustom';
 
 // --- UTILITÁRIOS ---
 const DEFAULT_CATEGORIES = ["Alimentação", "Vestuário", "Moradia", "Transporte", "Lazer", "Saúde", "Educação", "Consumo", "Fitness", "Investimentos", "Móveis", "Outros"];
