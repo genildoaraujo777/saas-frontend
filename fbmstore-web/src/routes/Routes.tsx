@@ -29,6 +29,7 @@ import OSEditorFigma from "@/components/ui/oslito/OSEditorFigma";
 import OSEditor from "@/components/ui/oslito/OSEditor";
 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
 import OSlitoList from "@/pages/oslito/oslito-list";
+import TimerFBM from "@/pages/timer";
 
 const WhatsAppWrapper = () => {
   const { pathname } = useLocation();
@@ -71,6 +72,7 @@ export default function AppRoutes() {
         <Route path="/store/account/:adminClientId" element={<AccountScreen />} />
 
         <Route path="/checkout" element={<CheckoutScreen />} />
+        <Route path="/timer" element={<TimerFBM />} />
 
         {/* Nova Rota do Editor Estilo Wix */}
         {/* Rotas do MicroSaaS OSlito */}

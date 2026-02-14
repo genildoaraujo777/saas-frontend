@@ -127,6 +127,9 @@ const HomePage: React.FC = () => {
       case 'Gerador de OSs':
         navigate('/oslito');
         break;
+      case 'Timer':
+        navigate('/timer');
+        break;
       default:
         handleProductsByCategory(option);
         break;
@@ -371,6 +374,7 @@ const HomePage: React.FC = () => {
         onTutorial={() => {}}
         onAssistenteVirtual={() => {}}
         onFinanLito={() => handleMenuOption('Controle Financeiro')}
+        onTimer={() => handleMenuOption('Timer')}
         osEditor={() => handleMenuOption('Gerador de OSs')}
       />
     </div>

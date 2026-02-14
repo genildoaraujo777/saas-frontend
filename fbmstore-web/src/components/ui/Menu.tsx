@@ -15,7 +15,8 @@ import {
   MdCategory,
   MdHandshake,
   MdPeopleAlt,
-  MdListAlt
+  MdListAlt,
+  MdTimer
 } from 'react-icons/md';
 import { useClient } from '@/contexts/ClientContext';
 
@@ -39,6 +40,7 @@ export type MenuProps = {
   // callbacks opcionais (deixe sem usar se não tiver rota)
   onPoliticaPrivacidade?: () => void;
   onTermos?: () => void;
+  onTimer?: () => void;
   onAvaliar?: () => void;
   onPreferencias?: () => void;
   onTutorial?: () => void;
@@ -90,6 +92,7 @@ const Menu: React.FC<MenuProps> = ({
   onSair,
   onPoliticaPrivacidade,
   onTermos,
+  onTimer,
   onAvaliar,
   onPreferencias,
   onTutorial,
@@ -217,6 +220,11 @@ const Menu: React.FC<MenuProps> = ({
                   icon={<MdAccountBalanceWallet size={22} color="#343a40" />} 
                   label="Gerador de OSs" 
                   onPress={osEditor} 
+                />
+          <Item 
+                  icon={<MdTimer size={22} color="#343a40" />} 
+                  label="Timer" 
+                  onPress={onTimer} 
                 />
           </>
         ) : (
