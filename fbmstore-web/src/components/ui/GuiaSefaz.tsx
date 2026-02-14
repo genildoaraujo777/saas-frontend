@@ -10,8 +10,8 @@ export const GuiaSefaz = ({ onClose }: { onClose: () => void }) => {
     <div style={styles.overlay}>
       <div style={styles.card}>
         <button onClick={onClose} style={styles.close}><MdClose size={24}/></button>
-        
-        <h3 style={{ color: '#1e293b', marginBottom: '15px' }}>Tutorial de Captura</h3>
+        <br></br>
+        <h3 style={{ color: 'red', marginBottom: '15px' }}>Tutorial de captura do Qr Code para quem não está conseguindo pelo site</h3>
 
         {/* --- PASSO 1: ABRIR CÂMERA --- */}
         <div style={styles.step}>

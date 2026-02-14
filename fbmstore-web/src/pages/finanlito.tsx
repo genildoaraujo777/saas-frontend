@@ -652,8 +652,8 @@ const processSefazPaste = async () => {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
     // 1. TÍTULO E CATEGORIA (Conforme solicitado)
-    setFormTitle("SUPERMERCADO FBM");
-    setFormCategory('Alimentação'); // Categoria padrão inteligente
+    setFormTitle("CUPOM FISCAL ELETRÔNICO");
+    setFormCategory('Outros'); // Categoria padrão inteligente
     setFormCustomCategory('');
     setFormType('expense');
 
@@ -1593,13 +1593,13 @@ const processSefazPaste = async () => {
             </div>
 
               <div style={{ flex: 1, paddingBottom: '0.5rem' }}>
-                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ position: 'relative', width: '100%' }}>
                     
                     {/* SETAS FIXAS (Acompanham a rolagem vertical perfeitamente) */}
                     {canScrollLeft && (
                         <button 
                             onClick={() => scrollKanban('left')} 
-                            style={{ ...arrowOverlayStyle, left: '10px' }}
+                            style={{ ...arrowOverlayStyle, left: '1px' }}
                             aria-label="Rolar para esquerda"
                         >
                             <MdChevronLeft size={32} color={colors.primary} />
@@ -1609,7 +1609,7 @@ const processSefazPaste = async () => {
                     {canScrollRight && (
                         <button 
                             onClick={() => scrollKanban('right')} 
-                            style={{ ...arrowOverlayStyle, right: '10px' }}
+                            style={{ ...arrowOverlayStyle, right: '1px' }}
                             aria-label="Rolar para direita"
                         >
                             <MdChevronRight size={32} color={colors.primary} />
@@ -2088,12 +2088,12 @@ const inpStyle = { width: '100%', padding: '0.7rem', border: '1px solid #cbd5e1'
 const lblStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' };
 const btnBase: any = { padding: '0.7rem 1.2rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' };
 const arrowOverlayStyle: any = {
-    position: 'fixed', // 🚀 Como o seu botão de WhatsApp
-    top: '80%',        // Altura ideal para o polegar no celular
+    position: 'absolute', // 🚀 Agora relativo ao container pai, não à tela toda
+    top: '50%',          // 🚀 Sempre no meio da altura do Kanban
     transform: 'translateY(-50%)',
-    zIndex: 900,       // 🚀 ABAIXO do Modal (1000), mas acima do Kanban
+    zIndex: 10,          // Suficiente para ficar sobre o Kanban, mas abaixo de modais
     
-    // Design Premium (Baseado no seu exemplo)
+    // Design Mantido
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     width: '50px',
     height: '50px',
@@ -2101,10 +2101,10 @@ const arrowOverlayStyle: any = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)', // Sombra mais profunda
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
     cursor: 'pointer',
     border: '1px solid #e2e8f0',
-    transition: 'transform 0.2s ease-in-out, opacity 0.3s',
+    transition: 'all 0.2s ease-in-out',
     pointerEvents: 'auto',
 };
 const PieChart = ({ data }: { data: { label: string, value: number, color: string }[] }) => {
