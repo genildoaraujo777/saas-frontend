@@ -16,7 +16,8 @@ import {
   MdHandshake,
   MdPeopleAlt,
   MdListAlt,
-  MdTimer
+  MdTimer,
+  MdCalendarToday
 } from 'react-icons/md';
 import { useClient } from '@/contexts/ClientContext';
 
@@ -41,6 +42,7 @@ export type MenuProps = {
   onPoliticaPrivacidade?: () => void;
   onTermos?: () => void;
   onTimer?: () => void;
+  onAgonline?: () => void;
   onAvaliar?: () => void;
   onPreferencias?: () => void;
   onTutorial?: () => void;
@@ -93,6 +95,7 @@ const Menu: React.FC<MenuProps> = ({
   onPoliticaPrivacidade,
   onTermos,
   onTimer,
+  onAgonline,
   onAvaliar,
   onPreferencias,
   onTutorial,
@@ -225,6 +228,11 @@ const Menu: React.FC<MenuProps> = ({
                   icon={<MdTimer size={22} color="#343a40" />} 
                   label="Timer" 
                   onPress={onTimer} 
+                />
+          <Item 
+                  icon={<MdCalendarToday size={22} color="#343a40" />} 
+                  label="Agendamento online" 
+                  onPress={onAgonline} 
                 />
           </>
         ) : (

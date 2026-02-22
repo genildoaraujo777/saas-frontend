@@ -130,6 +130,9 @@ const HomePage: React.FC = () => {
       case 'Timer':
         navigate('/timer');
         break;
+      case 'Agendamento Online':
+        navigate('/aglito');
+        break;
       default:
         handleProductsByCategory(option);
         break;
@@ -198,12 +201,16 @@ const HomePage: React.FC = () => {
           // Roteamento específico por Produto
           const isFinance = product.description?.toLowerCase().includes('financeiro');
           const isOsLito = product.description?.toLowerCase().includes('ordens de serviço');
+          const isAgLito = product.description?.toLowerCase().includes('agendamento');
           
           if (isFinance) {
               buttonLink = '/finanlito';
           } 
           if (isOsLito) {
               buttonLink = '/oslito';
+          } 
+          if (isAgLito) {
+              buttonLink = '/aglito';
           } 
           // Adicione outros 'else if' aqui para outros produtos futuros
       }
@@ -375,6 +382,7 @@ const HomePage: React.FC = () => {
         onAssistenteVirtual={() => {}}
         onFinanLito={() => handleMenuOption('Controle Financeiro')}
         onTimer={() => handleMenuOption('Timer')}
+        onAgonline={() => handleMenuOption('Agendamento Online')}
         osEditor={() => handleMenuOption('Gerador de OSs')}
       />
     </div>

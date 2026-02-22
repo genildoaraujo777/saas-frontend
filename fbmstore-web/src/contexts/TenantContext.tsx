@@ -22,52 +22,63 @@ interface TenantContextType {
   colors: ThemeColors;
   terms: Terminology;
   isLoadingTheme: boolean;
+  tenantSlug: string | null; // NOVO: Slug extraído da URL
+  isRoot: boolean;           // NOVO: Define se é o site principal
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 // PRESETS (A Mágica acontece aqui: Configurações pré-prontas)
+// 1. ESTRUTURA DE PRESETS PROFISSIONAL E EXPANSÍVEL
+// 1. PRESETS SIMPLIFICADOS PARA O MOTOR DE TEMAS
 const PRESETS: Record<string, { colors: ThemeColors, terms: Terminology }> = {
   default: {
     colors: { primary: '#2563eb', background: '#f8fafc', income: '#16a34a', expense: '#dc2626', text: '#0f172a' },
-    terms: { appName: 'FBM Finanças', income: 'Receitas', expense: 'Despesas' }
+    terms: { appName: 'FBM Store', income: 'Receitas', expense: 'Despesas' }
   },
-  barber: { // Exemplo para Barbearias
-    colors: { primary: '#000000', background: '#1c1c1c', income: '#eab308', expense: '#ef4444', text: '#ffffff' },
-    terms: { appName: 'Barber Control', income: 'Serviços', expense: 'Gastos Loja' }
-  },
-  church: { // Exemplo para Igrejas
-    colors: { primary: '#7c3aed', background: '#f5f3ff', income: '#059669', expense: '#b91c1c', text: '#4c1d95' },
-    terms: { appName: 'Tesouraria Digital', income: 'Dízimos/Ofertas', expense: 'Saídas' }
+  // O tema 'agendamento' será o padrão para quem assinar o novo produto
+  agendamento: {
+    colors: { primary: '#000000', background: '#ffffff', income: '#16a34a', expense: '#dc2626', text: '#000000' },
+    terms: { appName: 'Agenda Online', income: 'Serviços', expense: 'Custos' }
   }
 };
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { loggedClient } = useClient();
   const [config, setConfig] = useState(PRESETS.default);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
+  const [isRoot, setIsRoot] = useState(true);
 
+  // 1. EXTRAÇÃO DO SUBDOMÍNIO (TENANT)
   useEffect(() => {
-    // LÓGICA DE SELEÇÃO DE TEMA
-    // Aqui você decide qual tema carregar baseado no perfil do cliente logado.
-    // Pode vir do banco de dados (loggedClient.theme) ou inferir pelo nome/email.
-    
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+
+    // Se houver subdomínio (Ex: barbearia.fbmstore.com.br -> parts.length > 3)
+    if (parts.length > 3) {
+      const slug = parts[0];
+      if (slug !== 'www' && slug !== 'gateway') {
+        setTenantSlug(slug);
+        setIsRoot(false);
+      }
+    }
+  }, []);
+
+  // 2. LÓGICA DE SELEÇÃO DE TEMA (MANTIDA E AJUSTADA)
+  useEffect(() => {
     if (loggedClient) {
-        // Exemplo: Se tiver um campo 'segment' no seu banco ou baseado no email
-        // const segment = loggedClient.segment || 'default';
-        
-        // Simulação: Se o nome conter "Barber", usa o tema dark
-        if (loggedClient.client.name.toLowerCase().includes('barber')) {
-            setConfig(PRESETS.barber);
-        } else if (loggedClient.client.name.toLowerCase().includes('igreja')) {
-            setConfig(PRESETS.church);
-        } else {
-            setConfig(PRESETS.default);
-        }
+      if (loggedClient.client.name.toLowerCase().includes('barber')) {
+        setConfig(PRESETS.barber);
+      } else if (loggedClient.client.name.toLowerCase().includes('igreja')) {
+        setConfig(PRESETS.church);
+      } else {
+        setConfig(PRESETS.default);
+      }
     }
   }, [loggedClient]);
 
   return (
-    <TenantContext.Provider value={{ ...config, isLoadingTheme: false }}>
+    <TenantContext.Provider value={{ ...config, isLoadingTheme: false, tenantSlug, isRoot }}>
       {children}
     </TenantContext.Provider>
   );
