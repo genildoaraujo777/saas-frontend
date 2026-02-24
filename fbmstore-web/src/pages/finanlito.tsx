@@ -1643,6 +1643,7 @@ const processSefazPaste = async () => {
                       <KanbanColumn 
                           title="Pendente" status="pending" 
                           items={monthFiltered.filter(t => t.status === 'pending')} 
+                          totalAmount={monthFiltered.filter(t => t.status === 'pending').reduce((acc, t) => acc + t.amount, 0)}
                           bg="#fef9c3" color="#854d0e" 
                           onClickItem={handleOpenModal} 
                           onCloneItem={handleCloneToNextMonth}
@@ -1667,6 +1668,7 @@ const processSefazPaste = async () => {
                       <KanbanColumn 
                           title="Atrasado" status="overdue" 
                           items={monthFiltered.filter(t => t.status === 'overdue')} 
+                          totalAmount={monthFiltered.filter(t => t.status === 'overdue').reduce((acc, t) => acc + t.amount, 0)}
                           bg="#fee2e2" color="#991b1b" 
                           onClickItem={handleOpenModal}
                           onCloneItem={handleCloneToNextMonth}
@@ -1691,6 +1693,7 @@ const processSefazPaste = async () => {
                       <KanbanColumn 
                           title="Concluído" status="paid" 
                           items={monthFiltered.filter(t => t.status === 'paid')} 
+                          totalAmount={monthFiltered.filter(t => t.status === 'paid').reduce((acc, t) => acc + t.amount, 0)}
                           bg="#dcfce7" color="#166534" 
                           onClickItem={handleOpenModal} 
                           onCloneItem={handleCloneToNextMonth}
@@ -1936,7 +1939,7 @@ const StatCard = ({ label, value, color }: any) => (
     // --- KANBAN COLUMN ATUALIZADA ---
 
     const KanbanColumn = ({ 
-        title, items, onClickItem, 
+        title, items, totalAmount, onClickItem, 
         onDragStart, onDragEnd, onDrop, onDragOverColumn, onDragOverCard, 
         dropPlaceholder, draggedItem, status,
         colors, terms,
@@ -1957,14 +1960,20 @@ const StatCard = ({ label, value, color }: any) => (
             borderRadius: '10px', 
             display: 'flex', 
             flexDirection: 'column', 
-            padding: '0.8rem', 
-            minWidth: '280px', 
+            padding: '0.6rem', 
+            minWidth: 'min(300px, 90vw)', 
             transition: 'background 0.2s',
             ...style // <--- Isso aqui mescla os estilos padrão com os novos que enviamos
         }}
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontWeight: 700, color: '#64748b', fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                    <span>{title}</span><span>{items.length}</span>
+                    <span>{title}</span>
+                    {/* BADGE COM SOMA TOTAL DA COLUNA */}
+                    <span style={{ background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '4px', color: '#475569' }}>
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalAmount || 0)}
+                    </span>
+                    {/* CONTADOR DE CARDS */}
+                <span style={{ opacity: 0.6 }}>{items.length} itens</span>
                 </div>
                 
                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: '100px' }}>
@@ -2012,11 +2021,42 @@ const StatCard = ({ label, value, color }: any) => (
                                       </div>
                                     )}
 
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' }}>
-                                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', paddingRight: isSelectionMode ? '25px' : '0' }}>{t.title}</span>
-                                        <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            {/* Trocado para MdCreditCard para funcionar com sua biblioteca de ícones */}
-                                            {t.isCreditCard && <MdCreditCard size={18} title="Cartão de Crédito" style={{ color: '#64748b' }} />}
+                                    {/* LINHA DE TÍTULO E VALOR AJUSTADA PARA MOBILE */}
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'flex-start', // Alinha pelo topo caso o título seja longo
+                                        marginBottom: '0.3rem', 
+                                        pointerEvents: 'none',
+                                        gap: '8px' // Espaço mínimo entre texto e valor
+                                    }}>
+                                        {/* TÍTULO COM TRUNCATE PARA NÃO EMPURRAR O VALOR */}
+                                        <span style={{ 
+                                            fontWeight: 700, 
+                                            fontSize: '0.95rem', 
+                                            color: '#0f172a', 
+                                            paddingRight: isSelectionMode ? '25px' : '0',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            flex: 1 // Ocupa o máximo de espaço possível, mas cede se necessário
+                                        }}>
+                                            {t.title}
+                                        </span>
+
+                                        {/* VALOR COM LARGURA GARANTIDA */}
+                                        <span style={{ 
+                                            fontWeight: 800, 
+                                            fontSize: '0.95rem', 
+                                            color: t.type === 'income' ? colors.income : colors.expense, 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '4px',
+                                            flexShrink: 0, // IMPEDE QUE O VALOR SEJA "ESMAGADO"
+                                            textAlign: 'right',
+                                            whiteSpace: 'nowrap' // Garante que o R$ fique na mesma linha do número
+                                        }}>
+                                            {t.isCreditCard && <MdCreditCard size={16} title="Cartão" style={{ color: '#64748b' }} />}
                                             {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
                                         </span>
                                     </div>
