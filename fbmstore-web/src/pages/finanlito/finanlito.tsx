@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { FinanLitoService, ITransaction } from '../services/FinanLitoService';
+import { FinanLitoService, ITransaction } from '../../services/FinanLitoService';
 import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy, MdChecklist, MdClose, MdCreditCard, MdEdit } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
-import { useTenant } from '../contexts/TenantContext';
+import { useTenant } from '../../contexts/TenantContext';
 import { GuiaSefaz } from '@/components/ui/GuiaSefaz';
 import { ScannerCustom } from '@/components/ui/ScannerCustom';
 
@@ -1594,28 +1594,6 @@ const processSefazPaste = async () => {
 
               <div style={{ flex: 1, paddingBottom: '0.5rem' }}>
                 <div style={{ position: 'relative', width: '100%' }}>
-                    
-                    {/* SETAS FIXAS (Acompanham a rolagem vertical perfeitamente) */}
-                    {canScrollLeft && (
-                        <button 
-                            onClick={() => scrollKanban('left')} 
-                            style={{ ...arrowOverlayStyle, left: '0px' }}
-                            aria-label="Rolar para esquerda"
-                        >
-                            <MdChevronLeft size={32} color={colors.primary} />
-                        </button>
-                    )}
-
-                    {canScrollRight && (
-                        <button 
-                            onClick={() => scrollKanban('right')} 
-                            style={{ ...arrowOverlayStyle, right: '1px' }}
-                            aria-label="Rolar para direita"
-                        >
-                            <MdChevronRight size={32} color={colors.primary} />
-                        </button>
-                    )}
-
                   <div 
                     ref={kanbanScrollRef}
                     onScroll={checkScroll} // Gatilho para esconder/mostrar as setas
@@ -1631,19 +1609,23 @@ const processSefazPaste = async () => {
                     }}
                   >
                     <div style={{ 
-                        display: 'flex', 
-                        gap: '0.8rem', 
-                        height: '100%', 
-                        minWidth: '100%', 
-                        width: 'max-content', 
-                        padding: '10px 0',
-                        justifyContent: 'flex-start', // REGRA CEO: Centraliza colunas em telas grandes
-                        flexWrap: 'nowrap' 
-                    }}>
+                          display: 'flex', 
+                          gap: '0.8rem', 
+                          height: '100%', 
+                          minWidth: '100%', 
+                          width: 'max-content', 
+                          padding: '10px 0',
+                          justifyContent: 'flex-start',
+                          flexWrap: 'nowrap' 
+                      }}>
                       <KanbanColumn 
                           title="Pendente" status="pending" 
                           items={monthFiltered.filter(t => t.status === 'pending')} 
-                          totalAmount={monthFiltered.filter(t => t.status === 'pending').reduce((acc, t) => acc + t.amount, 0)}
+                          totalAmount={monthFiltered
+                              .filter(t => t.status === 'pending' && t.type === 'expense' && !t.isCreditCard)
+                              .reduce((acc, t) => acc + t.amount, 0)
+                          }
+                          onScrollRight={() => scrollKanban('right')}
                           bg="#fef9c3" color="#854d0e" 
                           onClickItem={handleOpenModal} 
                           onCloneItem={handleCloneToNextMonth}
@@ -1668,7 +1650,12 @@ const processSefazPaste = async () => {
                       <KanbanColumn 
                           title="Atrasado" status="overdue" 
                           items={monthFiltered.filter(t => t.status === 'overdue')} 
-                          totalAmount={monthFiltered.filter(t => t.status === 'overdue').reduce((acc, t) => acc + t.amount, 0)}
+                          totalAmount={monthFiltered
+                              .filter(t => t.status === 'overdue' && t.type === 'expense' && !t.isCreditCard)
+                              .reduce((acc, t) => acc + t.amount, 0)
+                          }
+                          onScrollLeft={() => scrollKanban('left')}
+                          onScrollRight={() => scrollKanban('right')}
                           bg="#fee2e2" color="#991b1b" 
                           onClickItem={handleOpenModal}
                           onCloneItem={handleCloneToNextMonth}
@@ -1693,7 +1680,11 @@ const processSefazPaste = async () => {
                       <KanbanColumn 
                           title="Concluído" status="paid" 
                           items={monthFiltered.filter(t => t.status === 'paid')} 
-                          totalAmount={monthFiltered.filter(t => t.status === 'paid').reduce((acc, t) => acc + t.amount, 0)}
+                          totalAmount={monthFiltered
+                              .filter(t => t.status === 'paid' && t.type === 'expense' && !t.isCreditCard)
+                              .reduce((acc, t) => acc + t.amount, 0)
+                          }
+                          onScrollLeft={() => scrollKanban('left')}
                           bg="#dcfce7" color="#166534" 
                           onClickItem={handleOpenModal} 
                           onCloneItem={handleCloneToNextMonth}
@@ -1936,45 +1927,62 @@ const StatCard = ({ label, value, color }: any) => (
   </div>
 );
 
-    // --- KANBAN COLUMN ATUALIZADA ---
+    // --- KCOMPONENTE DE COLUNA KANBAN OTIMIZADO PARA IPHONE ---
 
     const KanbanColumn = ({ 
-        title, items, totalAmount, onClickItem, 
-        onDragStart, onDragEnd, onDrop, onDragOverColumn, onDragOverCard, 
-        dropPlaceholder, draggedItem, status,
-        colors, terms,
-        isSelectionMode, selectedIds, onToggleSelect,
-        onCloneItem,
-        style // <--- Inclua apenas esta palavra aqui
-    }: any) => {
+            title, items, totalAmount, onClickItem, 
+            onDragStart, onDragEnd, onDrop, onDragOverColumn, onDragOverCard, 
+            dropPlaceholder, draggedItem, status,
+            colors, terms,
+            isSelectionMode, selectedIds, onToggleSelect,
+            onCloneItem,
+            style,
+            onScrollLeft, // Nova prop para navegar
+            onScrollRight // Nova prop para navegar
+        }: any) => {
 
         const isPlaceholderInThisColumn = dropPlaceholder?.status === status;
 
         return (
-            <div 
-        onDragOver={(e) => onDragOverColumn(e, status, items.length)}
-        onDrop={(e) => onDrop(e, status)} 
-        style={{ 
-            flex: 1, 
-            background: '#e2e8f0', 
-            borderRadius: '10px', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            padding: '0.8rem', 
-            minWidth: '280px', 
-            transition: 'background 0.2s',
-            ...style // <--- Isso aqui mescla os estilos padrão com os novos que enviamos
-        }}
-            >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', fontWeight: 700, color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>
-                    <span>{title}</span>
-                    {/* BADGE COM SOMA TOTAL DA COLUNA */}
-                    <span style={{ background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '4px', color: '#475569' }}>
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalAmount || 0)}
-                    </span>
-                    {/* CONTADOR DE CARDS */}
-                <span style={{ opacity: 0.6 }}>{items.length} itens</span>
-                </div>
+                <div 
+                    onDragOver={(e) => onDragOverColumn(e, status, items.length)}
+                    onDrop={(e) => onDrop(e, status)} 
+                    style={{ 
+                        flex: 1, 
+                        background: '#e2e8f0', 
+                        borderRadius: '10px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        padding: '0.6rem',
+                        minWidth: 'calc(100vw - 40px)',
+                        scrollSnapAlign: 'center',
+                        transition: 'background 0.2s',
+                        ...style 
+                    }}
+                >
+                {/* HEADER DA COLUNA COM SETAS DE NAVEGAÇÃO INTEGRADAS */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', fontWeight: 700, color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {onScrollLeft && (
+                              <button onClick={onScrollLeft} style={{ background: '#cbd5e1', border: 'none', borderRadius: '4px', padding: '2px', cursor: 'pointer', marginRight: '4px' }}>
+                                  <MdChevronLeft size={18} />
+                              </button>
+                          )}
+                          <span>{title}</span>
+                          {onScrollRight && (
+                              <button onClick={onScrollRight} style={{ background: '#cbd5e1', border: 'none', borderRadius: '4px', padding: '2px', cursor: 'pointer', marginLeft: '4px' }}>
+                                  <MdChevronRight size={18} />
+                              </button>
+                          )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '4px', color: '#475569', fontWeight: 800 }}>
+                              {fmtCurrency(totalAmount || 0)}
+                          </span>
+                          <span style={{ opacity: 0.6 }}>{items.length}</span>
+                      </div>
+                  </div>
                 
                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: '100px' }}>
                     {items.map((t: ITransactionExtended, index: number) => {
@@ -2021,14 +2029,38 @@ const StatCard = ({ label, value, color }: any) => (
                                       </div>
                                     )}
 
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', pointerEvents: 'none' , gap: '10px'}}>
-                                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', textOverflow: 'ellipsis', flex: 1, minWidth: 0, paddingRight: isSelectionMode ? '25px' : '0' }}>{t.title}</span>
-                                        <span style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense, display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, }}>
-                                            {/* Trocado para MdCreditCard para funcionar com sua biblioteca de ícones */}
-                                            {t.isCreditCard && <MdCreditCard size={18} title="Cartão de Crédito" style={{ color: '#64748b' }} />}
-                                            {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
-                                        </span>
-                                    </div>
+                                    {/* LINHA DE TÍTULO E VALOR COM TRAVA DE SEGURANÇA */}
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem', pointerEvents: 'none', gap: '8px' }}>
+                                          {/* TÍTULO: Ocupa o espaço disponível e trunca se necessário */}
+                                          <span style={{ 
+                                              fontWeight: 700, 
+                                              fontSize: '0.9rem', 
+                                              color: '#0f172a', 
+                                              whiteSpace: 'nowrap', 
+                                              overflow: 'hidden', 
+                                              textOverflow: 'ellipsis', 
+                                              flex: 1, 
+                                              minWidth: 0,
+                                              paddingRight: isSelectionMode ? '25px' : '0' 
+                                          }}>
+                                              {t.title}
+                                          </span>
+
+                                          {/* VALOR: Nunca encolhe, nunca quebra */}
+                                          <span style={{ 
+                                              fontWeight: 800, 
+                                              fontSize: '0.9rem', 
+                                              color: t.type === 'income' ? colors.income : colors.expense, 
+                                              display: 'flex', 
+                                              alignItems: 'center', 
+                                              gap: '2px', 
+                                              flexShrink: 0, 
+                                              whiteSpace: 'nowrap' 
+                                          }}>
+                                              {t.isCreditCard && <MdCreditCard size={16} style={{ color: '#64748b' }} />}
+                                              {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
+                                          </span>
+                                      </div>
                                     <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -2096,26 +2128,7 @@ const StatCard = ({ label, value, color }: any) => (
 const inpStyle = { width: '100%', padding: '0.7rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', fontSize: '1rem' };
 const lblStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' };
 const btnBase: any = { padding: '0.7rem 1.2rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' };
-const arrowOverlayStyle: any = {
-    position: 'absolute', // 🚀 Agora relativo ao container pai, não à tela toda
-    top: '50%',          // 🚀 Sempre no meio da altura do Kanban
-    transform: 'translateY(-50%)',
-    zIndex: 10,          // Suficiente para ficar sobre o Kanban, mas abaixo de modais
-    
-    // Design Mantido
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    width: '50px',
-    height: '50px',
-    borderRadius: '50%',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
-    cursor: 'pointer',
-    border: '1px solid #e2e8f0',
-    transition: 'all 0.2s ease-in-out',
-    pointerEvents: 'auto',
-};
+
 const PieChart = ({ data }: { data: { label: string, value: number, color: string }[] }) => {
     const total = data.reduce((acc, d) => acc + d.value, 0);
     let cumulativePercent = 0;

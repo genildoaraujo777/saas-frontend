@@ -20,7 +20,7 @@ import CadProductPage from "@/pages/cadProduct";
 import CadCategoryPage from "@/pages/cadCategory";
 import CadSupplierPage from "@/pages/cadSupplier";
 import ClientsScreen from "@/pages/clientes";
-import FinanLitoPage from "@/pages/finanlito";
+import FinanLitoPage from "@/pages/finanlito/finanlito";
 import SubscriptionPage from "@/pages/subscription/[productId]";
 import AccountActive from "@/pages/account-active";
 import ResetPasswordPage from "@/pages/reset-password";
