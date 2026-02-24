@@ -1,58 +1,21 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { FinanLitoService, ITransaction } from '../../services/FinanLitoService';
+import { FinanLitoService } from '../../services/FinanLitoService';
 import { MdAdd, MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdSearch, MdCalendarToday, MdContentCopy, MdChecklist, MdClose, MdCreditCard, MdEdit } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 import { useTenant } from '../../contexts/TenantContext';
 import { GuiaSefaz } from '@/components/ui/GuiaSefaz';
 import { ScannerCustom } from '@/components/ui/ScannerCustom';
-
-// --- UTILITÁRIOS ---
-const DEFAULT_CATEGORIES = ["Alimentação", "Vestuário", "Moradia", "Transporte", "Lazer", "Saúde", "Educação", "Consumo", "Fitness", "Investimentos", "Móveis", "Outros"];
-
-// Helper para cores com fallback para categorias customizadas
-const getCategoryColor = (cat: string) => CATEGORY_COLORS[cat] || '#6366f1'; // Indigo para customizadas
-
-const CATEGORY_COLORS: { [key: string]: string } = {
-  "Alimentação": "#f97316", "Vestuário": "#1bf8e0","Moradia": "#0ea5e9", "Transporte": "#64748b",
-  "Lazer": "#ec4899", "Saúde": "#ef4444", "Educação": "#8b5cf6",
-  "Consumo": "#facc15", "Fitness": "#22c55e", "Investimentos": "#10b981", "Móveis": "#92400e", "Outros": "#94a3b8"
-};
-const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
-const parseCurrencyToFloat = (value: string) => {
-    if (!value) return 0;
-    const clean = value.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
-    return parseFloat(clean) || 0;
-}
-
-const parseISOToDateBR = (isoStr: string) => {
-    if (!isoStr) return '';
-    try {
-        const d = new Date(isoStr);
-        d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); 
-        const pad = (n: number) => n.toString().padStart(2, '0');
-        return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
-    } catch { return ''; }
-};
-
-const parseDateBRToISO = (str: string) => {
-    if (!str || str.length < 10) return new Date().toISOString();
-    try {
-        const [datePart, timePart] = str.split(' ');
-        const [d, m, y] = datePart.split('/').map(Number);
-        let h = 0, min = 0;
-        if (timePart) { [h, min] = timePart.split(':').map(Number); }
-        if (!y || !m || !d) throw new Error("Data inválida");
-        return new Date(y, m - 1, d, h || 0, min || 0).toISOString();
-    } catch (e) {
-        return new Date().toISOString();
-    }
-};
-
-interface ITransactionExtended extends ITransaction {
-    order?: number; 
-}
+import { ITransaction, ITransactionExtended } from '@/types';
+import { CATEGORY_COLORS, DEFAULT_CATEGORIES, MONTHS } from '@/utils/constantes';
+import { parseDateBRToISO, parseISOToDateBR } from '@/utils/dateUtils';
+import { currencyMask, fmtCurrency, parseCurrencyToFloat } from '@/utils/currency';
+import { KanbanColumn } from '@/components/ui/finanlito/Kanban';
+import { PieChart } from '@/components/ui/finanlito/PieChart';
+import { StatCard } from '@/components/ui/finanlito/StatCard';
+import { btnBase, inpStyle, lblStyle } from '@/utils/finanlitoConstsCss';
+import { checkAndMigrateOverdue } from '@/utils/finanlito';
+import { TransactionModal } from '@/components/ui/finanlito/TransactionModal';
+import { YearDashboard } from '@/components/ui/finanlito/YearDashboard';
 
 // --- COMPONENTE PRINCIPAL ---
 
@@ -157,30 +120,6 @@ export default function FinanLitoPage() {
     setSelectedCategory('Todas');
     setSelectedIds([]);
   }, [debouncedYear, curMonth, token]);
-
-  async function checkAndMigrateOverdue(list: ITransactionExtended[]) {
-    const now = new Date();
-    // CORREÇÃO DE DATA: Considera apenas o início do dia de hoje (00:00:00)
-    now.setHours(0, 0, 0, 0); 
-
-    const updates: Promise<any>[] = [];
-    const updatedList = list.map(t => {
-      if (t.status === 'pending') {
-        const tDate = new Date(t.date);
-        if (tDate < now) {
-          updates.push(
-            FinanLitoService.update(t._id || t.id || '', { status: 'overdue' }, token)
-              .catch(err => console.error(`Falha ao auto-atualizar transação`, err))
-          );
-          return { ...t, status: 'overdue' } as ITransactionExtended;
-        }
-      }
-      return t;
-    });
-
-    if (updates.length > 0) Promise.all(updates); 
-    return updatedList;
-  }
 
   async function loadData() {
     setLoading(true);
@@ -409,7 +348,7 @@ export default function FinanLitoPage() {
 
   // --- CÁLCULOS ---
   const yearData = useMemo(() => {
-    return months.map((m, idx) => {
+    return MONTHS.map((m, idx) => {
       const items = transactions.filter(t => {
         const d = new Date(t.date);
         return d.getMonth() === idx && d.getFullYear() === debouncedYear;
@@ -476,12 +415,7 @@ export default function FinanLitoPage() {
   function openMonth(idx: number) { setCurMonth(idx); }
   function goHome() { setCurMonth(null); }
 
-  const currencyMask = (value: string) => {
-    if (!value) return "";
-    const onlyDigits = value.replace(/\D/g, "");
-    const numberValue = Number(onlyDigits) / 100;
-    return numberValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
+
 
   function handleOpenModal(t?: ITransaction) {
     if (isSelectionMode) return; // Não abre modal em modo de seleção
@@ -819,7 +753,7 @@ const processSefazPaste = async () => {
         });
 
         if (hasSiblingInMonth) {
-            alert(`Operação cancelada: Já existe uma parcela do grupo "${currentMatch[1]}" em ${months[targetMonth]} de ${targetYear}.`);
+            alert(`Operação cancelada: Já existe uma parcela do grupo "${currentMatch[1]}" em ${MONTHS[targetMonth]} de ${targetYear}.`);
             return; 
         }
     }
@@ -1030,7 +964,7 @@ const processSefazPaste = async () => {
     const nextMonth = (curMonth + 1) % 12;
     const nextYear = curMonth === 11 ? curYear + 1 : curYear;
 
-    if (!confirm(`Deseja copiar os lançamentos de ${months[curMonth]} para ${months[nextMonth]} de ${nextYear}?`)) return;
+    if (!confirm(`Deseja copiar os lançamentos de ${MONTHS[curMonth]} para ${MONTHS[nextMonth]} de ${nextYear}?`)) return;
 
     setLoading(true);
     try {
@@ -1053,7 +987,7 @@ const processSefazPaste = async () => {
 
             if (isDuplicate) {
                 const action = window.confirm(
-                    `O lançamento "${item.title}" (R$ ${item.amount}) já existe em ${months[nextMonth]}.\n\nClique em [OK] para REPLICAR NOVAMENTE ou [CANCELAR] para PULAR.`
+                    `O lançamento "${item.title}" (R$ ${item.amount}) já existe em ${MONTHS[nextMonth]}.\n\nClique em [OK] para REPLICAR NOVAMENTE ou [CANCELAR] para PULAR.`
                 );
                 if (!action) continue;
             }
@@ -1100,7 +1034,7 @@ const processSefazPaste = async () => {
   async function handleClearMonth() {
     if (curMonth === null) return;
     
-    const confirmClear = window.confirm(`ATENÇÃO: Deseja EXCLUIR os lançamentos de ${months[curMonth]}? Parcelamentos serão removidos apenas deste mês e re-indexados nos demais.`);
+    const confirmClear = window.confirm(`ATENÇÃO: Deseja EXCLUIR os lançamentos de ${MONTHS[curMonth]}? Parcelamentos serão removidos apenas deste mês e re-indexados nos demais.`);
     if (!confirmClear || !window.confirm("Confirma a exclusão definitiva?")) return;
 
     setLoading(true);
@@ -1338,67 +1272,23 @@ const processSefazPaste = async () => {
 
       {/* BODY */}
       <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
-        {curMonth === null && (
-          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', marginBottom: '2rem', background: 'white', padding: '0.5rem 1rem', borderRadius: '50px', width: 'fit-content', marginInline: 'auto', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-              <button onClick={() => setCurYear(curYear - 1)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}><MdChevronLeft /></button>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, minWidth: '80px', textAlign: 'center', margin: 0 }}>{curYear}</h2>
-              <button onClick={() => setCurYear(curYear + 1)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}><MdChevronRight /></button>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-              {yearData.map(m => (
-                <div key={m.index} onClick={() => openMonth(m.index)}
-                  style={{ 
-                    background: '#fff', borderRadius: '10px', padding: '1.5rem', cursor: 'pointer', 
-                    border: '1px solid #e2e8f0', 
-                    // Borda dinâmica baseada nas cores do tema
-                    borderTop: `4px solid ${m.count > 0 ? (m.bal >= 0 ? colors.income : colors.expense) : '#cbd5e1'}`,
-                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' 
-                  }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}><span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{m.name}</span><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#64748b' }}>{m.count}</span></div>
-                  <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: colors.income, fontWeight: 600 }}>{terms.income}</span>
-                      <span>{fmtCurrency(m.inc)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: colors.expense, fontWeight: 600 }}>{terms.expense}</span>
-                      <span>{fmtCurrency(m.exp)}</span>
-                    </div>
-                    {/* NOVOS CAMPOS ABAIXO */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.2rem', borderBottom: '1px solid #f1f5f9' }}>
-                      <div className="flex items-center gap-1">
-                        <span className={m.overdue > 0 ? "font-bold text-orange-300" : ""}>Atrasados</span>
-                        {m.overdue > 0 && (
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-200"></span>
-                          </span>
-                        )}
-                      </div>
-                      <span style={{ fontWeight: 800, color: colors.expense }}>{fmtCurrency(m.overdue)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: colors.expense, fontWeight: 800 }}>Saldo Devedor</span>
-                      <span style={{ fontWeight: 800, color: colors.expense }}>{fmtCurrency(m.pending)}</span>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px dashed #e2e8f0', fontWeight: 800, fontSize: '1.1rem', textAlign: 'right', color: m.bal >= 0 ? colors.income : colors.expense }}>
-                    <span style={{ color: '#64748b', fontWeight: 600 }}>Saldo Mês</span><br />
-                    {fmtCurrency(m.bal)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* 2. GRADE DE MESES E ESTATÍSTICAS ANUAIS */}
+          {curMonth === null && (
+            <YearDashboard 
+              yearData={yearData} 
+              curYear={curYear} 
+              setCurYear={setCurYear} 
+              onOpenMonth={openMonth} 
+              colors={colors} 
+              terms={terms} 
+            />
+          )}
 
         {curMonth !== null && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
               <button onClick={goHome} style={{ background: 'white', border: '1px solid #cbd5e1', padding: '0.5rem 1rem', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><MdArrowBack /> Voltar</button>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, flex: 1 }}>{months[curMonth]} de {curYear}</h2>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, flex: 1 }}>{MONTHS[curMonth]} de {curYear}</h2>
               
               {/* Botão Limpar Mês (Novo) */}
               {!isSelectionMode && monthFiltered.length > 0 && (
@@ -1714,471 +1604,14 @@ const processSefazPaste = async () => {
         )}
       </div>
 
-      {/* MODAL ORIGINAL INTEGRALMENTE PRESERVADO */}
-      {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', backdropFilter: 'blur(2px)', overflowY: 'auto', padding: '20px 0' }}>
-          <div style={{ 
-                background: 'white', 
-                width: '95%', 
-                maxWidth: '500px', 
-                padding: '1.5rem', // Reduzi um pouco o padding para ganhar espaço
-                borderRadius: '12px', 
-                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-                maxHeight: 'min-content', // Ajusta ao conteúdo
-                position: 'relative',
-                margin: 'auto' // Garante centralização com o flex-start do pai
-              }}>
-            <h3 style={{ marginBottom: '1rem' }}>{formId ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>
-            <form onSubmit={handleSave} style={{ 
-                  display: 'grid', 
-                  gap: '1rem', 
-                  maxHeight: '70vh', // Limita a altura do formulário em telas pequenas
-                  overflowY: 'auto', // Ativa o scroll interno no formulário
-                  paddingRight: '5px', // Espaço para a barra de rolagem não cobrir o input
-                  WebkitOverflowScrolling: 'touch' // Suaviza o scroll no iOS
-                }}>
-              {/* BOTÃO DE IMPORTAÇÃO SAAS DE ELITE */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <button 
-                  type="button" 
-                  onClick={processSefazPaste}
-                  style={{ 
-                    width: '100%', padding: '1rem', background: '#f0f9ff', color: '#0369a1', 
-                    border: '2px dashed #0ea5e9', borderRadius: '10px', fontWeight: 800, 
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem'
-                  }}
-                >
-                  <i className="fas fa-file-import"></i>
-                  CLIQUE AQUI APÓS COPIAR OS DADOS DA SEFAZ
-                </button>
-                <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.4rem', textAlign: 'center' }}>
-                  Dica: No site da Fazenda, dê um <b>Ctrl+A</b> e <b>Ctrl+C</b> e clique no botão acima.
-                </p>
-              </div>
-              <div><label style={lblStyle}>Título</label><input required style={inpStyle} value={formTitle} onChange={e => setFormTitle(e.target.value)} /></div>
-              <div>
-                <div style={{ position: 'relative' }} ref={dropdownRef}>
-                  <div 
-                      onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
-                      style={{ ...inpStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}
-                  >
-                      <span>{formCategory === 'Outros' ? (formCustomCategory || 'Outros') : formCategory}</span>
-                      <MdChevronRight style={{ transform: isCatDropdownOpen ? 'rotate(90deg)' : 'none', transition: '0.2s' }} />
-                  </div>
-
-                  {isCatDropdownOpen && (
-                      <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: '#fff', maxHeight: '90vh', border: '1px solid #cbd5e1', borderRadius: '8px', zIndex: 100, flexDirection: 'column', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
-                          {userCategories.map(cat => {
-                              const isDefault = DEFAULT_CATEGORIES.includes(cat) && cat !== 'Outros';
-                              return (
-                                  <div 
-                                      key={cat}
-                                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
-                                      onClick={() => {
-                                          setFormCategory(cat);
-                                          if (cat !== 'Outros') setFormCustomCategory('');
-                                          setIsCatDropdownOpen(false);
-                                      }}
-                                  >
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: CATEGORY_COLORS[cat] || '#6366f1' }} />
-                                          <span style={{ fontSize: '0.9rem', color: '#1e293b' }}>{cat}</span>
-                                      </div>
-                                      
-                                      {!isDefault && cat !== 'Outros' && (
-                                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                              <MdEdit size={16} color="#64748b" onClick={(e) => { e.stopPropagation(); handleRenameUserCategory(cat); }} />
-                                              <MdDelete size={16} color="#ef4444" onClick={(e) => { e.stopPropagation(); handleDeleteUserCategory(cat); }} />
-                                          </div>
-                                      )}
-                                  </div>
-                              );
-                          })}
-                      </div>
-                  )}
-              </div>
-                
-                {/* Caixa para nome personalizado se 'Outros' for selecionado */}
-                {formCategory === 'Outros' && (
-                  <input 
-                    placeholder="Nome da nova categoria..." 
-                    style={{ ...inpStyle, marginTop: '0.5rem', border: `1px solid ${colors.primary}` }}
-                    value={formCustomCategory}
-                    onChange={e => setFormCustomCategory(e.target.value)}
-                    required
-                  />
-                )}
-              </div>
-              <div><label style={lblStyle}>Descrição</label><textarea style={inpStyle} rows={2} value={formDesc} onChange={e => setFormDesc(e.target.value)} /></div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div><label style={lblStyle}>Valor</label><input type="tel" required style={inpStyle} value={formAmount} onChange={handleChangeAmount} onFocus={handleAmountFocus} placeholder="R$ 0,00" /></div>
-                <div>
-                    <label style={lblStyle}>Tipo</label>
-                    <select style={inpStyle} value={formType} onChange={e => setFormType(e.target.value as any)}>
-                        <option value="expense">{terms.expense}</option>
-                        <option value="income">{terms.income}</option>
-                    </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={lblStyle}>Data</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
-                    <input type="text" required style={inpStyle} value={formDate} onChange={e => setFormDate(e.target.value)} placeholder="DD/MM/AAAA HH:MM" />
-                    <div style={{ position: 'relative', width: '45px', height: '42px' }}>
-                        <button 
-                          type="button" 
-                          // Removido onClick para não conflitar no iOS
-                          style={{ background: '#e2e8f0', border: 'none', width: '100%', height: '100%', borderRadius: '6px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                        >
-                            <MdCalendarToday size={20} />
-                        </button>
-                        <input 
-                          ref={nativeDateInputRef}
-                          type="datetime-local" 
-                          style={{ 
-                            position: 'absolute', 
-                            top: 0, 
-                            left: 0, 
-                            width: '100%', 
-                            height: '100%', 
-                            opacity: 0, 
-                            cursor: 'pointer',
-                            zIndex: 10 // Garante que o input esteja acima do botão para receber o toque
-                          }} 
-                          onChange={handleNativeDateChange} 
-                        />
-                    </div>
-                  </div>
-                </div>
-                <div><label style={lblStyle}>Status</label><select style={inpStyle} value={formStatus} onChange={e => setFormStatus(e.target.value as any)}><option value="pending">Pendente</option><option value="paid">Pago</option><option value="overdue">Atrasado</option></select></div>
-              </div>
-
-              {/* --- INSERÇÃO DO CHECKBOX DE CARTÃO DE CRÉDITO AQUI --- */}
-              {formType === 'expense' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem', padding: '0.5rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <input 
-                    type="checkbox" 
-                    id="isCreditCard"
-                    checked={formIsCreditCard} 
-                    onChange={e => setFormIsCreditCard(e.target.checked)} 
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                  />
-                  <label htmlFor="isCreditCard" style={{ fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', color: '#475569' }}>
-                    Pago via Cartão de Crédito (Não abate do saldo)
-                  </label>
-                </div>
-              )}
-
-              {/* --- NOVO: SEÇÃO DE PARCELAMENTO --- */}
-              {!formId && (
-                  <div style={{ marginTop: '0.8rem', padding: '0.8rem', background: '#f0f9ff', borderRadius: '8px', border: '1px dashed #bae6fd' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <input 
-                              type="checkbox" 
-                              id="isInstallment"
-                              checked={isInstallment} 
-                              onChange={e => setIsInstallment(e.target.checked)} 
-                              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                          />
-                          <label htmlFor="isInstallment" style={{ fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', color: '#0369a1' }}>
-                              É uma despesa/receita parcelada?
-                          </label>
-                      </div>
-
-                      {isInstallment && (
-                          <div style={{ marginTop: '0.8rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                              <label style={{ fontSize: '0.85rem', color: '#0369a1' }}>Quantidade de parcelas:</label>
-                              <input 
-                                  type="number" 
-                                  min="2" 
-                                  max="360"
-                                  value={totalInstallments}
-                                  onChange={e => setTotalInstallments(Number(e.target.value))}
-                                  style={{ ...inpStyle, width: '80px', padding: '0.4rem' }}
-                              />
-                              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                                  (Serão criados {totalInstallments} lançamentos mensais)
-                              </span>
-                          </div>
-                      )}
-                  </div>
-              )}
-
-              <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
-                {formId && <button type="button" onClick={handleDelete} style={{ ...btnBase, background: '#fee2e2', color: '#991b1b', marginRight: 'auto' }}><MdDelete /> Excluir</button>}
-                <button type="button" onClick={() => setIsModalOpen(false)} style={{ ...btnBase, background: 'white', border: '1px solid #cbd5e1', color: '#64748b' }}>Cancelar</button>
-                <button type="submit" style={{ ...btnBase, background: colors.income, color: 'white' }}>Salvar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* 1. MODAL DE TRANSAÇÕES DESACOPLADO */}
+      <TransactionModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          transactionId={formId} 
+          onSuccess={loadData} 
+        />
     </div>
   );
 }
 
-const StatCard = ({ label, value, color }: any) => (
-  <div style={{ background: 'white', padding: '0.8rem 1.2rem', borderRadius: '10px', flex: 1, minWidth: '150px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
-    <small style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '0.3rem' }}>{label}</small>
-    <strong style={{ fontSize: '1.3rem', color }}>{fmtCurrency(value)}</strong>
-  </div>
-);
-
-    // --- KCOMPONENTE DE COLUNA KANBAN OTIMIZADO PARA IPHONE ---
-
-    const KanbanColumn = ({ 
-            title, items, totalAmount, onClickItem, 
-            onDragStart, onDragEnd, onDrop, onDragOverColumn, onDragOverCard, 
-            dropPlaceholder, draggedItem, status,
-            colors, terms,
-            isSelectionMode, selectedIds, onToggleSelect,
-            onCloneItem,
-            style,
-            onScrollLeft, // Nova prop para navegar
-            onScrollRight // Nova prop para navegar
-        }: any) => {
-
-        const isPlaceholderInThisColumn = dropPlaceholder?.status === status;
-
-        return (
-                <div 
-                    onDragOver={(e) => onDragOverColumn(e, status, items.length)}
-                    onDrop={(e) => onDrop(e, status)} 
-                    style={{ 
-                        flex: 1, 
-                        background: '#e2e8f0', 
-                        borderRadius: '10px', 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        padding: '0.6rem',
-                        minWidth: 'calc(100vw - 40px)',
-                        scrollSnapAlign: 'center',
-                        transition: 'background 0.2s',
-                        ...style 
-                    }}
-                >
-                {/* HEADER DA COLUNA COM SETAS DE NAVEGAÇÃO INTEGRADAS */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', fontWeight: 700, color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          {onScrollLeft && (
-                              <button onClick={onScrollLeft} style={{ background: '#cbd5e1', border: 'none', borderRadius: '4px', padding: '2px', cursor: 'pointer', marginRight: '4px' }}>
-                                  <MdChevronLeft size={18} />
-                              </button>
-                          )}
-                          <span>{title}</span>
-                          {onScrollRight && (
-                              <button onClick={onScrollRight} style={{ background: '#cbd5e1', border: 'none', borderRadius: '4px', padding: '2px', cursor: 'pointer', marginLeft: '4px' }}>
-                                  <MdChevronRight size={18} />
-                              </button>
-                          )}
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '4px', color: '#475569', fontWeight: 800 }}>
-                              {fmtCurrency(totalAmount || 0)}
-                          </span>
-                          <span style={{ opacity: 0.6 }}>{items.length}</span>
-                      </div>
-                  </div>
-                
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: '100px' }}>
-                    {items.map((t: ITransactionExtended, index: number) => {
-                        const id = t._id || t.id || '';
-                        const isBeingDragged = draggedItem && (draggedItem._id === t._id || draggedItem.id === t.id);
-                        const showPlaceholderBefore = isPlaceholderInThisColumn && dropPlaceholder.index === index;
-                        const isSelected = selectedIds.includes(id);
-                        
-                        return (
-                            <React.Fragment key={id}>
-                                {showPlaceholderBefore && <div className="ghost-placeholder"></div>}
-                                
-                                <div 
-                                    draggable={!isSelectionMode} 
-                                    onDragStart={(e) => onDragStart(e, t)}
-                                    onDragEnd={onDragEnd}
-                                    onDragOver={(e) => onDragOverCard(e, index, status)}
-                                    onClick={(e) => { 
-                                      e.stopPropagation(); 
-                                      if (isSelectionMode) onToggleSelect(id);
-                                      else onClickItem(t); 
-                                    }} 
-                                    style={{ 
-                                        background: 'white', padding: '0.8rem', borderRadius: '8px', 
-                                        boxShadow: isSelected ? `0 0 0 2px ${colors.primary}` : '0 1px 2px rgba(0,0,0,0.1)', 
-                                        cursor: isSelectionMode ? 'pointer' : 'grab', 
-                                        borderLeft: `4px solid ${t.type === 'income' ? colors.income : colors.expense}`,
-                                        marginBottom: '0.8rem',
-                                        opacity: isBeingDragged ? 0.3 : 1,
-                                        transform: isBeingDragged ? 'scale(0.95)' : 'scale(1)',
-                                        transition: 'all 0.2s',
-                                        position: 'relative'
-                                    }}
-                                >
-                                    {/* CHECKBOX QUE APARECE NO MODO SELEÇÃO */}
-                                    {isSelectionMode && (
-                                      <div style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 5 }}>
-                                        <input 
-                                          type="checkbox" 
-                                          checked={isSelected} 
-                                          readOnly 
-                                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                        />
-                                      </div>
-                                    )}
-
-                                    {/* LINHA DE TÍTULO E VALOR COM TRAVA DE SEGURANÇA */}
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem', pointerEvents: 'none', gap: '8px' }}>
-                                          {/* TÍTULO: Ocupa o espaço disponível e trunca se necessário */}
-                                          <span style={{ 
-                                              fontWeight: 700, 
-                                              fontSize: '0.9rem', 
-                                              color: '#0f172a', 
-                                              whiteSpace: 'nowrap', 
-                                              overflow: 'hidden', 
-                                              textOverflow: 'ellipsis', 
-                                              flex: 1, 
-                                              minWidth: 0,
-                                              paddingRight: isSelectionMode ? '25px' : '0' 
-                                          }}>
-                                              {t.title}
-                                          </span>
-
-                                          {/* VALOR: Nunca encolhe, nunca quebra */}
-                                          <span style={{ 
-                                              fontWeight: 800, 
-                                              fontSize: '0.9rem', 
-                                              color: t.type === 'income' ? colors.income : colors.expense, 
-                                              display: 'flex', 
-                                              alignItems: 'center', 
-                                              gap: '2px', 
-                                              flexShrink: 0, 
-                                              whiteSpace: 'nowrap' 
-                                          }}>
-                                              {t.isCreditCard && <MdCreditCard size={16} style={{ color: '#64748b' }} />}
-                                              {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
-                                          </span>
-                                      </div>
-                                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.5rem', pointerEvents: 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.description}</div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #f1f5f9', paddingTop: '0.4rem', pointerEvents: 'none' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                            <span style={{ fontWeight: 600 }}>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
-                                            {/* REGRA CEO: Label de atraso com data de criação */}
-                                            {t.status === 'overdue' && (
-                                                <span style={{ 
-                                                    fontSize: '0.65rem', 
-                                                    color: '#ef4444', 
-                                                    fontWeight: 800,
-                                                    textTransform: 'uppercase',
-                                                    background: '#fee2e2',
-                                                    padding: '2px 4px',
-                                                    borderRadius: '4px',
-                                                    width: 'fit-content',
-                                                    marginTop: '4px'
-                                                }}>
-                                                    {/* REGRA CEO: Se movido, usa a data original preservada */}
-                                                    Atrasada desde: {new Date(t.dateReplicated || t.date).toLocaleDateString('pt-BR')}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {/* Botão de clonagem unitária inserido aqui */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                        {/* REGRA CEO: Esconde o botão se for um card de parcelas */}
-                                        {!t.title.match(/\(\d+\/\d+\)$/) && (
-                                          <button 
-                                              type="button"
-                                              onClick={(e) => { e.stopPropagation(); onCloneItem(t); }} 
-                                              style={{ 
-                                                  background: '#f1f5f9', border: 'none', borderRadius: '4px', padding: '4px 8px', 
-                                                  color: colors.primary, cursor: 'pointer', display: 'flex', alignItems: 'center', 
-                                                  gap: '4px', fontSize: '0.65rem', pointerEvents: 'auto' 
-                                              }}
-                                          >
-                                              <MdContentCopy size={16} /> Jogar p/ Próx. Mês
-                                          </button>
-                                        )}
-
-                                        {t.category && t.category !== 'Outros' && (
-                                          <div style={{ 
-                                              display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 800, 
-                                              color: '#fff', background: getCategoryColor(t.category) || '#94a3b8', whiteSpace: 'nowrap'
-                                          }}>
-                                              {t.category.toUpperCase()}
-                                          </div>
-                                        )}
-                                    </div>
-                                    </div>
-                                    <span>{t.type === 'income' ? terms.income.substring(0,3).toUpperCase() : terms.expense.substring(0,4).toUpperCase()}</span>
-                                </div>
-                                </div>
-                            </React.Fragment>
-                        );
-                    })}
-                    {isPlaceholderInThisColumn && dropPlaceholder.index === items.length && (
-                        <div className="ghost-placeholder"></div>
-                    )}
-                </div>
-            </div>
-        );
-    };
-
-const inpStyle = { width: '100%', padding: '0.7rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', fontSize: '1rem' };
-const lblStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' };
-const btnBase: any = { padding: '0.7rem 1.2rem', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' };
-
-const PieChart = ({ data }: { data: { label: string, value: number, color: string }[] }) => {
-    const total = data.reduce((acc, d) => acc + d.value, 0);
-    let cumulativePercent = 0;
-
-    const getCoordinatesForPercent = (percent: number) => {
-        const x = Math.cos(2 * Math.PI * percent);
-        const y = Math.sin(2 * Math.PI * percent);
-        return [x, y];
-    };
-
-    if (total === 0) return null;
-
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <div style={{ position: 'relative', width: '120px', height: '120px' }}>
-                <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
-                    {data.map((d, i) => {
-                        const [startX, startY] = getCoordinatesForPercent(cumulativePercent);
-                        cumulativePercent += d.value / total;
-                        const [endX, endY] = getCoordinatesForPercent(cumulativePercent);
-                        const largeArcFlag = d.value / total > 0.5 ? 1 : 0;
-                        const pathData = [`M ${startX} ${startY}`, `A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY}`, `L 0 0`].join(' ');
-                        return <path key={i} d={pathData} fill={d.color} stroke="#fff" strokeWidth="0.01" />;
-                    })}
-                </svg>
-            </div>
-            <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-                  gap: '0.4rem 0.8rem', 
-                  flex: 1,
-                  width: '100%' 
-              }}>
-                {data.map((d, i) => (
-                    <div key={i} style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '0.4rem', 
-                          fontSize: '0.7rem', 
-                          padding: '2px 0',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                      }}>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.color }} />
-                        <span style={{ fontWeight: 700, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.label}:</span>
-                        <span style={{ color: '#64748b', fontSize: '0.65rem' }}>{((d.value / total) * 100).toFixed(0)}%</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};

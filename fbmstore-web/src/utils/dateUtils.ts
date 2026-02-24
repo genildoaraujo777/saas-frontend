@@ -26,3 +26,27 @@ export const nativeToMaskedDate = (date: string): string => {
   const [year, month, day] = date.split("-");
   return `${day}/${month}/${year}`;
 };
+
+export const parseISOToDateBR = (isoStr: string) => {
+    if (!isoStr) return '';
+    try {
+        const d = new Date(isoStr);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); 
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+    } catch { return ''; }
+};
+
+export const parseDateBRToISO = (str: string) => {
+    if (!str || str.length < 10) return new Date().toISOString();
+    try {
+        const [datePart, timePart] = str.split(' ');
+        const [d, m, y] = datePart.split('/').map(Number);
+        let h = 0, min = 0;
+        if (timePart) { [h, min] = timePart.split(':').map(Number); }
+        if (!y || !m || !d) throw new Error("Data inválida");
+        return new Date(y, m - 1, d, h || 0, min || 0).toISOString();
+    } catch (e) {
+        return new Date().toISOString();
+    }
+};

@@ -10,3 +10,18 @@ export function brlToNumber(v: string | number | null | undefined): number {
 export function numberToBRL(n: number): string {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
+export const fmtCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+export const parseCurrencyToFloat = (value: string) => {
+    if (!value) return 0;
+    const clean = value.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+    return parseFloat(clean) || 0;
+}
+
+export const currencyMask = (value: string) => {
+    if (!value) return "";
+    const onlyDigits = value.replace(/\D/g, "");
+    const numberValue = Number(onlyDigits) / 100;
+    return numberValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };

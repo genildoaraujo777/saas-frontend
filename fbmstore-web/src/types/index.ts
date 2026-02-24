@@ -106,3 +106,34 @@ export enum Role {
   adm = "ADM",
   client = "CLIENT",
 }
+
+export interface ITransaction {
+  _id?: string;
+  id?: string; // para compatibilidade visual caso precise
+  title: string;
+  description?: string;
+  amount: number;
+  type: 'income' | 'expense';
+  status: 'pending' | 'paid' | 'overdue';
+  date: string;
+  order?: number; // Novo campo para persistir a posição
+  isCreditCard: boolean;
+  isReplicated?: boolean;
+  dateReplicated?: string;
+  category: string;
+}
+
+export interface ITransactionExtended extends ITransaction {
+    order?: number; 
+}
+
+export interface YearData {
+    name: string,
+    index: number,
+    count: number,
+    inc: number,
+    exp: number,
+    bal: number,
+    pending: number,
+    overdue: number,
+}

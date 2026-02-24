@@ -1,20 +1,5 @@
+import { ITransaction } from '@/types';
 import api from './api';
-
-export interface ITransaction {
-  _id?: string;
-  id?: string; // para compatibilidade visual caso precise
-  title: string;
-  description?: string;
-  amount: number;
-  type: 'income' | 'expense';
-  status: 'pending' | 'paid' | 'overdue';
-  date: string;
-  order?: number; // Novo campo para persistir a posição
-  isCreditCard: boolean;
-  isReplicated?: boolean;
-  dateReplicated?: string;
-  category: string;
-}
 
 export const FinanLitoService = {
   getAll: async (month?: number, year?: number, token?: string) => {
