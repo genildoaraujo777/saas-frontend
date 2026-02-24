@@ -1273,56 +1273,36 @@ const processSefazPaste = async () => {
     // Estilo Dinâmico: Cor de Fundo
     <div style={{ backgroundColor: colors.background, minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Segoe UI', sans-serif" }}>
       <style>{`
-    /* Removida a restrição de esconder: Agora o texto é SEMPRE visível */
-    .btn-label { 
-        display: inline; 
-        font-weight: 700;
-        font-size: 0.9rem;
-        white-space: nowrap;
-    }
-    
-    @keyframes fadeIn { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: scaleY(1); } }
-    
-    .ghost-placeholder {
-        animation: fadeIn 0.15s ease-out forwards;
-        background-color: rgba(203, 213, 225, 0.4);
-        border: 2px dashed #94a3b8;
-        border-radius: 8px;
-        margin-bottom: 0.8rem;
-        height: 100px;
-    }
+          /* 1. RESET DE BOX-SIZING PARA EVITAR QUEBRA DE PADDING */
+          * { box-sizing: border-box; }
 
-    .action-grid {
-        display: grid;
-        grid-template-columns: 1fr auto; 
-        gap: 0.8rem;
-        margin-bottom: 1rem;
-        align-items: center;
-        width: 100%;
-    }
+          .btn-label { 
+              display: inline; 
+              font-weight: 700;
+              font-size: 0.9rem;
+              white-space: nowrap;
+          }
+          
+          /* 2. PRIORIDADE TOTAL AO VALOR NO CARD */
+          .card-title {
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              flex: 1;
+              min-width: 0; /* Essencial para o flex-shrink funcionar no título */
+          }
 
-    .button-group {
-        display: flex;
-        gap: 0.5rem;
-    }
+          .card-value {
+              flex-shrink: 0;
+              white-space: nowrap;
+              text-align: right;
+              margin-left: 8px;
+          }
 
-    @media (max-width: 768px) {
-        .action-grid {
-            grid-template-columns: 1fr; 
-        }
-        
-        .button-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr; 
-            width: 100%;
-        }
-
-        /* Ajuste de fonte para o texto não 'estourar' o botão no iPhone */
-        .btn-label {
-            font-size: 0.75rem;
-        }
-    }
-`}</style>
+          @media (max-width: 768px) {
+              .btn-label { font-size: 0.75rem; }
+          }
+      `}</style>
 
       {/* HEADER DINÂMICO */}
       <header style={{ background: '#fff', padding: '0.8rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1337,7 +1317,7 @@ const processSefazPaste = async () => {
       </header>
 
       {/* BODY */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '1.5rem' }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '0.5rem' }}>
         {curMonth === null && (
           <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', marginBottom: '2rem', background: 'white', padding: '0.5rem 1rem', borderRadius: '50px', width: 'fit-content', marginInline: 'auto', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
@@ -1636,7 +1616,7 @@ const processSefazPaste = async () => {
                         height: '100%', 
                         minWidth: '100%', 
                         width: 'max-content', 
-                        padding: '0 50px',
+                        padding: '0 5px',
                         justifyContent: 'center', // REGRA CEO: Centraliza colunas em telas grandes
                         flexWrap: 'nowrap' 
                     }}>
@@ -1660,7 +1640,7 @@ const processSefazPaste = async () => {
                           onToggleSelect={handleToggleSelect}
                           style={{ 
                               scrollSnapAlign: 'start', 
-                              flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
+                              flex: '1', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
                               maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
                               minWidth: 'min(320px, 85vw)' 
                           }}
@@ -1685,7 +1665,7 @@ const processSefazPaste = async () => {
                           onToggleSelect={handleToggleSelect}
                           style={{ 
                               scrollSnapAlign: 'start', 
-                              flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
+                              flex: '1', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
                               maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
                               minWidth: 'min(320px, 85vw)' 
                           }}
@@ -1710,7 +1690,7 @@ const processSefazPaste = async () => {
                           onToggleSelect={handleToggleSelect}
                           style={{ 
                               scrollSnapAlign: 'start', 
-                              flex: '1 1 320px', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
+                              flex: '1', // REGRA CEO: Permite crescer (flex-grow) e define base de 320px
                               maxWidth: '450px', // Evita que as colunas fiquem excessivamente largas em monitores UltraWide
                               minWidth: 'min(320px, 85vw)' 
                           }}
@@ -1960,8 +1940,8 @@ const StatCard = ({ label, value, color }: any) => (
             borderRadius: '10px', 
             display: 'flex', 
             flexDirection: 'column', 
-            padding: '0.6rem', 
-            minWidth: 'min(300px, 90vw)', 
+            padding: '0.5rem', 
+            minWidth: 'min(300px, 88vw)', 
             transition: 'background 0.2s',
             ...style // <--- Isso aqui mescla os estilos padrão com os novos que enviamos
         }}
@@ -2021,42 +2001,15 @@ const StatCard = ({ label, value, color }: any) => (
                                       </div>
                                     )}
 
-                                    {/* LINHA DE TÍTULO E VALOR AJUSTADA PARA MOBILE */}
-                                    <div style={{ 
-                                        display: 'flex', 
-                                        justifyContent: 'space-between', 
-                                        alignItems: 'flex-start', // Alinha pelo topo caso o título seja longo
-                                        marginBottom: '0.3rem', 
-                                        pointerEvents: 'none',
-                                        gap: '8px' // Espaço mínimo entre texto e valor
-                                    }}>
-                                        {/* TÍTULO COM TRUNCATE PARA NÃO EMPURRAR O VALOR */}
-                                        <span style={{ 
-                                            fontWeight: 700, 
-                                            fontSize: '0.95rem', 
-                                            color: '#0f172a', 
-                                            paddingRight: isSelectionMode ? '25px' : '0',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                            flex: 1 // Ocupa o máximo de espaço possível, mas cede se necessário
-                                        }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem', pointerEvents: 'none' }}>
+                                        {/* TÍTULO COM CLASSE DE PRIORIDADE */}
+                                        <span className="card-title" style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a' }}>
                                             {t.title}
                                         </span>
-
-                                        {/* VALOR COM LARGURA GARANTIDA */}
-                                        <span style={{ 
-                                            fontWeight: 800, 
-                                            fontSize: '0.95rem', 
-                                            color: t.type === 'income' ? colors.income : colors.expense, 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            gap: '4px',
-                                            flexShrink: 0, // IMPEDE QUE O VALOR SEJA "ESMAGADO"
-                                            textAlign: 'right',
-                                            whiteSpace: 'nowrap' // Garante que o R$ fique na mesma linha do número
-                                        }}>
-                                            {t.isCreditCard && <MdCreditCard size={16} title="Cartão" style={{ color: '#64748b' }} />}
+                                        
+                                        {/* VALOR COM CLASSE QUE IMPEDE O CORTE (Shrink 0) */}
+                                        <span className="card-value" style={{ fontWeight: 800, fontSize: '0.95rem', color: t.type === 'income' ? colors.income : colors.expense, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            {t.isCreditCard && <MdCreditCard size={18} title="Cartão" style={{ color: '#64748b' }} />}
                                             {t.type === 'expense' ? '-' : '+'} {fmtCurrency(t.amount)}
                                         </span>
                                     </div>
