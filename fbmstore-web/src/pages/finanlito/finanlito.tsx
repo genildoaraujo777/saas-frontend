@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdChecklist, MdClose, MdContentCopy } from 'react-icons/md';
+import { MdArrowBack, MdChevronLeft, MdChevronRight, MdDelete, MdChecklist, MdClose, MdContentCopy, MdCalculate } from 'react-icons/md';
 
 // Contextos e Hooks
 import { useTenant } from '../../contexts/TenantContext';
@@ -53,6 +53,24 @@ export default function FinanLitoPage() {
   
   const [draggedItem, setDraggedItem] = useState<ITransactionExtended | null>(null);
   const [dropPlaceholder, setDropPlaceholder] = useState<{ status: string, index: number } | null>(null);
+
+  // --- NOVA LÓGICA: SOMA FLUTUANTE EM TEMPO REAL ---
+  const [showSumBadge, setShowSumBadge] = useState(false);
+
+  // Fecha o modal de soma automaticamente se o usuário cancelar a seleção
+  useEffect(() => {
+    if (!isSelectionMode || selectedIds.length === 0) {
+      setShowSumBadge(false);
+    }
+  }, [isSelectionMode, selectedIds.length]);
+
+  // Calcula a soma em tempo real: Receitas (+) e Despesas (-)
+  const selectedSum = useMemo(() => {
+    return transactions
+      .filter(t => selectedIds.includes(t._id || t.id || ''))
+      .reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
+  }, [transactions, selectedIds]);
+  // --------------------------------------------------
 
   // 3. REFERÊNCIAS DE DOM E SCROLL
   const statsScrollRef = useRef<HTMLDivElement>(null);
@@ -296,7 +314,12 @@ export default function FinanLitoPage() {
 
               {/* NOVOS BOTÕES DE AÇÃO EM MASSA LADO A LADO */}
               {isSelectionMode && selectedIds.length > 0 && (
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {/* NOVO: Botão de Somar */}
+                    <button onClick={() => setShowSumBadge(!showSumBadge)} style={{ ...btnBase, background: '#10b981', color: 'white' }}>
+                      <MdCalculate /> Somar
+                    </button>
+                    
                     <button onClick={cloneBulkToNextMonth} style={{ ...btnBase, background: colors.primary, color: 'white' }}>
                       <MdContentCopy /> Clonar ({selectedIds.length})
                     </button>
@@ -411,6 +434,45 @@ export default function FinanLitoPage() {
         curYear={curYear}
         curMonth={curMonth}
       />
+
+      {/* 9. WIDGET FLUTUANTE DE SOMA EM TEMPO REAL */}
+      {showSumBadge && isSelectionMode && selectedIds.length > 0 && (
+        <div style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#0f172a', /* Cor escura premium */
+            color: 'white',
+            padding: '0.8rem 1.5rem',
+            borderRadius: '50px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            fontWeight: 800,
+            fontSize: '1.1rem',
+            animation: 'fadeIn 0.3s ease-out'
+        }}>
+            <MdCalculate size={28} color="#10b981" />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    Total Selecionado ({selectedIds.length})
+                </span>
+                <span style={{ color: selectedSum >= 0 ? '#10b981' : '#ef4444' }}>
+                    {/* Se for negativo (despesa pura), a cor vermelha já evidencia. O fmtCurrency cuida da formatação BR */}
+                    {fmtCurrency(selectedSum)}
+                </span>
+            </div>
+            <button 
+                onClick={() => setShowSumBadge(false)} 
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0 0 0 10px', marginLeft: '10px', borderLeft: '1px solid #334155', display: 'flex', alignItems: 'center' }}
+            >
+                <MdClose size={22} />
+            </button>
+        </div>
+      )}
     </div>
   );
 }
