@@ -1,5 +1,5 @@
 import { ITransactionExtended } from "@/types";
-import { CATEGORY_COLORS } from "./constantes";
+import { CATEGORY_COLORS } from "../constantes";
 import { FinanLitoService } from "@/services/FinanLitoService";
 
 // Helper para cores com fallback para categorias customizadas
