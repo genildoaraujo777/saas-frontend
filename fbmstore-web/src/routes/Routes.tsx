@@ -24,12 +24,10 @@ import FinanLitoPage from "@/pages/finanlito/finanlito";
 import SubscriptionPage from "@/pages/subscription/[productId]";
 import AccountActive from "@/pages/account-active";
 import ResetPasswordPage from "@/pages/reset-password";
-import OSlitoEditorPage from "@/pages/oslito/oslito-editor";
-import OSEditorFigma from "@/components/ui/oslito/OSEditorFigma";
-import OSEditor from "@/components/ui/oslito/OSEditor";
 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
 import OSlitoList from "@/pages/oslito/oslito-list";
 import TimerFBM from "@/pages/timer";
+import OSlitoEditor from "@/pages/oslito/oslito-editor";
 
 const WhatsAppWrapper = () => {
   const { pathname } = useLocation();
@@ -77,7 +75,7 @@ export default function AppRoutes() {
         {/* Nova Rota do Editor Estilo Wix */}
         {/* Rotas do MicroSaaS OSlito */}
         <Route path="/oslito" element={<OSlitoList />} />
-        <Route path="/oslito/editor/:osId?" element={<OSlitoEditorPage />} />
+        <Route path="/oslito/editor/:osId?" element={<OSlitoEditor />} />
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
