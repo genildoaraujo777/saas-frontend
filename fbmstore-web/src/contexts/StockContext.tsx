@@ -41,10 +41,8 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
 
       if (response.data.products.length === 0) {
-        // console.log('Não há mais itens para carregar.');
         setNotIsLoading(true);
       } else {
-        // console.log('Carregando mais itens...');
         setStockItems((prev) => {
           const existingIds = new Set(prev.map((item) => item._id));
           const newItems = response.data.products.filter(
@@ -66,7 +64,6 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const response = await api.get(
         `/fbm/products/search?search=${encodeURIComponent(query)}&categoryId=${categoryId ?? ''}&supplierId=${supplierId ?? ''}`
       );
-      // console.log(response.data.products)
       return response.data.products as CartItem[]; // traz a lista de produtos com base na pesquisa
     } catch (error) {
       console.error('Erro ao buscar produtos:', error);
@@ -99,17 +96,13 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const verifyQtdAndUpdateProducts = async () => {
     try {
       const response = await api.get(`/fbm/products/count`);
-      // console.log('response.data.count', response.data.count);
       const count = getLocal('countProducts');
-      // console.log('count', Number(count));
 
       if (page === 1) {
         await fetchStockItems(); // Busca a lista completa ou apenas os novos itens
       } else if (count && count !== String(response.data.count) && page !== 1) {
-        // console.log('Houve aumento na quantidade de itens, recarregando...');
         await fetchStockItems(); // Busca a lista completa ou apenas os novos itens
       } else {
-        // console.log('Quantidade de itens não mudou, verificando atualizações...');
         await fetchUpdatedItems(); // Busca itens modificados
       }
       setLocal('countProducts', response.data.count.toString());
@@ -129,13 +122,11 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { products, lastUpdated } = response.data;
 
       if (products.length > 0) {
-        // console.log('Atualizando itens modificados...');
         setStockItems((prev) =>
           prev.map((item) => products.find((updated: { _id: string | undefined }) => updated._id === item._id) || item)
         );
         lastUpdatedAt.current = lastUpdated; // Atualiza o timestamp da última alteração
       } else {
-        // console.log('Nenhum item foi modificado.');
       }
     } catch (error) {
       console.error('Erro ao buscar itens atualizados:', error);

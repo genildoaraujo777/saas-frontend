@@ -48,19 +48,16 @@ const CheckoutScreen: React.FC = () => {
 
         // O MP SDK (V2) injeta a classe `MercadoPago` no `window`.
         if (window.MercadoPago && publicKey && !mp) {
-            console.log('window.MercadoPago: ',window.MercadoPago);
-            console.log('mp no useeffect antes: ',mp);
             try {
                 // SOLUÇÃO: Inicialize o SDK apenas com a chave pública.
                 // Isso garante o uso correto do mp.card.createToken (Core Methods / V2).
                 mp = new window.MercadoPago(publicKey);
-                console.log('mp no useeffect depois: ',mp);
                 
                 // Verificação de segurança para debug:
-                if (mp && typeof mp.createCardToken === 'function') { // <--- MUDANÇA AQUI
+                if (mp && typeof mp.createCardToken === 'function') {
                      console.log("✅ Mercado Pago SDK (Core Methods) inicializado com sucesso.");
                 } else {
-                     console.error("⚠️ SDK inicializado, mas o método createCardToken não está disponível."); // <--- MUDANÇA AQUI
+                     console.error("⚠️ SDK inicializado, mas o método createCardToken não está disponível.");
                 }
 
             } catch (error) {
@@ -134,7 +131,6 @@ const CheckoutScreen: React.FC = () => {
     const isCardDataValid = useMemo(() => {
         // Remove caracteres não numéricos e espaços do CPF
         const cleanedId = payerIdentification.replace(/[^\d]+/g, ''); 
-        console.log('cleanedId: ',cleanedId);
         
         return (
             payerEmail.length > 5 && payerEmail.includes('@') && 
@@ -164,13 +160,9 @@ const CheckoutScreen: React.FC = () => {
         try {
              // Formato do MP: MM/YY
              const [month, year] = expiryDate.split('/');
-             console.log('month: ',month);
-             console.log('year: ',year);
-             console.log('payerIdentification no tokenizecard: ',payerIdentification);
              
              // Limpa o CPF/CNPJ antes de enviar
              const cleanedId = payerIdentification.replace(/[^\d]+/g, ''); 
-             console.log('cleanedId2: ',cleanedId);
              
              // NOTA: Para inputs customizados no Core Methods, o MP usa o 'card' object.
              const cardTokenData = {
@@ -183,11 +175,8 @@ const CheckoutScreen: React.FC = () => {
                   identificationNumber: cleanedId, 
              };
              
-             console.log('cardTokenData: ',cardTokenData);
              // mp.card.createToken é o método Core (V2) para tokenização
              const tokenResponse = await mp.createCardToken(cardTokenData);
-             console.log('tokenResponse: ',tokenResponse);
-             console.log('tokenResponseid: ',tokenResponse.id);
 
              // O token é o ID da resposta (o card_token_id que queremos)
              return tokenResponse.id; 
@@ -203,9 +192,7 @@ const CheckoutScreen: React.FC = () => {
 
     // 🛑 CORREÇÃO: Função que busca ID do método (bandeira) E o ID do emissor (issuerId)
     const getPaymentDetails = async (cardBin: string): Promise<{ paymentMethodId: string | null, issuerId: string | null }> => {
-        console.log('cardBinAntes: ', cardBin);
         const bin = cardBin.replace(/\s/g, '').substring(0, 6);
-        console.log('cardBinDepois: ', bin);
         if (!mp || bin.length < 6) {
             return { paymentMethodId: null, issuerId: null };
         }
@@ -213,10 +200,6 @@ const CheckoutScreen: React.FC = () => {
         try {
             // mp.getPaymentMethods retorna a bandeira e o emissor padrão (issuer)
             const paymentMethods = await mp.getPaymentMethods({ bin });
-            console.log(
-                'paymentMethods no getPaymentDetails (JSON): ', 
-                JSON.stringify(paymentMethods, null, 2)
-            );
 
             if (paymentMethods && paymentMethods.results.length > 0) {
                 const method = paymentMethods.results[0];
@@ -224,7 +207,6 @@ const CheckoutScreen: React.FC = () => {
                 const paymentMethodId = method.id; // <-- ID da bandeira (ex: visa, master)
                 
                 if (paymentMethodId) {
-                    console.log(`✅ Bandeira encontrada: ${paymentMethodId}. Emissor ID: ${defaultIssuer}`);
                     return { paymentMethodId, issuerId: defaultIssuer };
                 }
             }
@@ -257,8 +239,6 @@ const CheckoutScreen: React.FC = () => {
         try {
             // 💡 PASSO 1: BUSCAR DETALHES DO PAGAMENTO (BANDEIRA E EMISSOR)
             const { paymentMethodId, issuerId: fetchedIssuerId } = await getPaymentDetails(cardNumber); // 🛑 MUDANÇA AQUI
-            console.log('paymentMethodId: ', paymentMethodId);
-            console.log('fetchedIssuerId: ', fetchedIssuerId);
 
             if (!paymentMethodId) { // Agora verifica se a bandeira foi encontrada
                 alert("Não foi possível identificar a bandeira e o banco emissor. Verifique o número do cartão.");
@@ -271,8 +251,6 @@ const CheckoutScreen: React.FC = () => {
             if (!generatedToken) { 
                 return; 
             }
-            console.log('generatedToken: ',generatedToken);
-            console.log('payerIdentification: ',payerIdentification);
 
             // 3. CHAMA O MICROSSERVIÇO PAGTO COM O TOKEN REAL
             const cleanedPayerIdentification = payerIdentification.replace(/[^\d]+/g, '');
@@ -294,7 +272,6 @@ const CheckoutScreen: React.FC = () => {
                 },
                 installments: parseInt(installments, 10),
             });
-            console.log('paymentResult no handleFinalizeAndPay: ', paymentResult);
 
             if (paymentResult.success && paymentResult.status === 'processed' && paymentResult.message === 'accredited') {
                 

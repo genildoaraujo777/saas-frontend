@@ -221,10 +221,8 @@ const CartScreen: React.FC = () => {
               totalOrderItems += item.quantity;
               return item; 
           });
-          // console.log('orderstokenisadmin: ',tokenAuth, isAdmin)
   
           const orders = await searchOrders(tokenAuth, isAdmin);
-          // console.log('orders: ',orders)
           const lastOrder = orders.length > 0 ? orders[0] : undefined;
   
           const clientID = loggedClient?.client?._id;

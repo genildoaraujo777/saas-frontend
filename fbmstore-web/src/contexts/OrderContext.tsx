@@ -95,10 +95,8 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       { newOrder },
       { headers: { Authorization: `Bearer ${auth}` } }
     );
-    // console.log('responseCreateOrder: ',response)
 
     const created = response.data as unknown as Order;
-    // console.log('created CreateOrder: ',created)
 
     setOrderItems((prev) => [...prev, created]);
     // sendWhatsApp(created);

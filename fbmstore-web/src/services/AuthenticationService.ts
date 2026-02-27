@@ -22,7 +22,6 @@ export async function register(loginData: Register, person: Person, address: Add
         const result = await api.post('/auth/clients', {
             loginData, person, address
         });
-console.log('result: ',result);
         return result.data;
     } catch (error) {
         console.log(error);
