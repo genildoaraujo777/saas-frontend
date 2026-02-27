@@ -433,13 +433,20 @@ export const TransactionModal = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={lblStyle}>Data</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input type="text" required style={inpStyle} value={formDate} onChange={e => setFormDate(e.target.value)} placeholder="DD/MM/AAAA HH:MM" />
-                <div style={{ position: 'relative', width: '45px', height: '42px' }}>
-                    <button type="button" style={{ background: '#e2e8f0', border: 'none', width: '100%', height: '100%', borderRadius: '6px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <div style={{ position: 'relative', width: '45px', height: '42px', overflow: 'hidden', flexShrink: 0, borderRadius: '6px' }}>
+                    <button type="button" style={{ background: '#e2e8f0', border: 'none', width: '100%', height: '100%', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <MdCalendarToday size={20} />
                     </button>
-                    <input ref={nativeDateInputRef} type="datetime-local" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }} onChange={handleNativeDateChange} />
+                    
+                    {/* Input cravado com 45x42 para não espalhar */}
+                    <input 
+                      ref={nativeDateInputRef} 
+                      type="datetime-local" 
+                      style={{ position: 'absolute', top: 0, left: 0, width: '45px', height: '42px', opacity: 0, cursor: 'pointer', zIndex: 10 }} 
+                      onChange={handleNativeDateChange} 
+                    />
                 </div>
               </div>
             </div>
